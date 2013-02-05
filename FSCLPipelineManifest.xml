@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FSCLCompilerPlugin 
+  source="FSCL.Compiler.Plugins.StructHandling.dll">
+  <FSCLCompilerPluginComponents>
+    <FSCLCompilerKernelModuleExtension
+      id="StructTypeDefinitions"
+      class="FSCL.Compiler.Core.StructTypeDefinitions"/>
+    <FSCLCompilerTypeHandler
+      id="StructTypeHandler"
+      class="FSCL.Compiler.Processors.StructTypeHandler"/>
+    <FSCLCompilerStepProcessor
+      id="StructPrinter"
+      stepId="FSCL_FUNCTION_PRETTY_PRINTING"
+      before="FSCL_DECLARATION_PRINTER"
+      class="FSCL.Compiler.Processors.StructPrinter"/>
+    <FSCLCompilerStepProcessor
+      id="StructDefinitionPrinter"
+      stepId="StructDefinitionPrinter"
+      class="FSCL.Compiler.Processors.StructDefinitionPrinter"/>
+  </FSCLCompilerPluginComponents>
+</FSCLCompilerPlugin>
