@@ -64,11 +64,6 @@
       <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\Compiler\Plugins\FSCL.Compiler.Plugins.AcceleratedCollections\AcceleratedCollections\AcceleratedCollections.fsproj">
-      <Name>AcceleratedCollections</Name>
-      <Project>{b7e6e83a-c58e-4d47-95b4-d79b4da9a7dd}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
