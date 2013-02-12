@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>a329e02a-c967-4f11-99bf-cf6c16a009af</ProjectGuid>
+    <ProjectGuid>74339ed3-11f9-477a-a8cb-30b881bf81ea</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>MetricUtil</RootNamespace>
-    <AssemblyName>MetricUtil</AssemblyName>
+    <RootNamespace>InstructionEnergyMetric</RootNamespace>
+    <AssemblyName>InstructionEnergyMetric</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>MetricBase</Name>
+    <Name>InstructionEnergyMetric</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\InstructionEnergyMetric.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,21 +29,49 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\MetricUtil.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\InstructionEnergyMetric.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Energon.Extech">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
+    </Reference>
+    <Reference Include="Energon.Measuring">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
+    </Reference>
+    <Reference Include="QuotationEvaluation">
+      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Util\bin\Debug\QuotationEvaluation.dll</HintPath>
+    </Reference>
+    <Reference Include="RemoteAmmeter">
+      <HintPath>..\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Exception.fs" />
-    <Compile Include="Tools.fs" />
-    <Compile Include="Metric.fs" />
+    <Compile Include="KernelBuilder.fs" />
+    <Compile Include="IntructionEnergyMetric.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
+      <Name>Cloo.VS2010</Name>
+      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.KernelRunner.MetricTools\FSCL.KernelRunner.MetricTools.fsproj">
+      <Name>FSCL.KernelRunner.MetricTools</Name>
+      <Project>{cb4c5f5a-cdfd-4372-a565-bc7d2e362e22}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.KernelRunner.Metric\FSCL.KernelRunner.Metric.fsproj">
+      <Name>FSCL.KernelRunner.Metric</Name>
+      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

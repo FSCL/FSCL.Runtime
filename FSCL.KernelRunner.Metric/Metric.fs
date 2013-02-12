@@ -1,15 +1,15 @@
-﻿namespace MetricBase
+﻿namespace FSCL.KernelRunner.Metric
 
 open Microsoft.FSharp.Quotations
 open System.IO
 
-type MetricBase() =
-    let mutable (children:MetricBase list) = []
+type IMetric() =
+    let mutable (children:IMetric list) = []
     member this.SubMetric with get() = children and set v = children <- v
        
 [<AbstractClass>]
 type Metric<'T,'U,'Z,'CDATA>() =
-    inherit MetricBase()
+    inherit IMetric()
     member val DumpFolder:string option = None with get, set 
     member this.Dump(name, content) =        
         if this.DumpFolder.IsSome then

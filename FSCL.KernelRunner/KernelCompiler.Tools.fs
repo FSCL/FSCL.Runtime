@@ -1,13 +1,10 @@
-﻿namespace FSCL
+﻿namespace FSCL.KernelRunner
 
 open FSCL.Compiler
 open System.Reflection
 open Microsoft.FSharp.Quotations
 
-type KernelCompilerTools() =
-    static member DefaultTransformationPipeline() =  
-        CompilerPipeline.Default()
-        
+type internal KernelCompilerTools() =
     // Kernel extraction tools
     static member GetKernelArrayDimensions (t:System.Type) =
         // If not array return 0

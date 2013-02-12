@@ -1,4 +1,4 @@
-﻿namespace FSCL
+﻿namespace FSCL.KernelRunner
 
 open Cloo
         

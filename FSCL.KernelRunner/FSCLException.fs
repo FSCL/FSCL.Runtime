@@ -1,4 +1,4 @@
-﻿namespace FSCL
+﻿namespace FSCL.KernelRunner
 
 type KernelAttributeException(msg: string) =
     inherit System.Exception(msg)

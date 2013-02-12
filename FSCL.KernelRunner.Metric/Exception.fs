@@ -1,4 +1,4 @@
-﻿namespace MetricBase.Exceptions
+﻿namespace FSCL.KernelRunner.Metric
 
 open System 
 

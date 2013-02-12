@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>57a5e768-a0aa-4b4f-b538-2bea1b4e5895</ProjectGuid>
+    <ProjectGuid>cb4c5f5a-cdfd-4372-a565-bc7d2e362e22</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>FSCL</RootNamespace>
-    <AssemblyName>FSCL</AssemblyName>
+    <RootNamespace>MetricTools</RootNamespace>
+    <AssemblyName>MetricTools</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>FSCL</Name>
+    <Name>MetricTools</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSCL.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\MetricTools.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,17 +29,26 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSCL.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\MetricTools.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
-    <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler\bin\Debug\FSCL.Compiler.dll</HintPath>
+    <Compile Include="Stack.fs" />
+    <Compile Include="Tools.fs" />
+    <Compile Include="ExpressionCounter.fs" />
+    <Compile Include="MemoryTransfer.Tools.fs" />
+    <Compile Include="MemoryTransfer.Test.fs" />
+    <Compile Include="MemoryAccess.Analysis.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Energon.Extech">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
     </Reference>
-    <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core\bin\Debug\FSCL.Compiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Language\bin\Debug\FSCL.Compiler.Language.dll</HintPath>
+    <Reference Include="Energon.Measuring">
+      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
@@ -48,17 +57,12 @@
     <Reference Include="QuotationEvaluation">
       <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Util\bin\Debug\QuotationEvaluation.dll</HintPath>
     </Reference>
+    <Reference Include="RemoteAmmeter">
+      <HintPath>..\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="FSCL.HostFunctions.fs" />
-    <Compile Include="FSCLException.fs" />
-    <Compile Include="KernelCompiler.Tools.fs" />
-    <Compile Include="KernelCompiler.fs" />
-    <Compile Include="KernelRunner.Tools.fs" />
-    <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
@@ -66,16 +70,7 @@
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\FSCL.KernelRunner.Metric\FSCL.KernelRunner.Metric.fsproj">
-      <Name>FSCL.KernelRunner.Metric</Name>
-      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
-      <Private>True</Private>
-    </ProjectReference>
   </ItemGroup>
-  <PropertyGroup>
-    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

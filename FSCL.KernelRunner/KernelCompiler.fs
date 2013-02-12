@@ -1,4 +1,4 @@
-﻿namespace FSCL
+﻿namespace FSCL.KernelRunner
 
 open Cloo
 open Microsoft.FSharp.Quotations
@@ -7,6 +7,7 @@ open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
 open System.Collections.Generic
 open FSCL.Compiler
+open FSCL.KernelRunner.Metric
 open System
         
 type FSCLDeviceData(device:ComputeDevice, context, queue) =
@@ -37,8 +38,8 @@ type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
 
 type KernelCompiler =   
     val private globalDataStorage : FSCLGlobalData
-    val private embeddedMetric : MetricBase.MetricBase option
-    val transformationPipeline : CompilerPipeline
+    val private embeddedMetric : IMetric option
+    val compiler : Compiler
      
     member this.FindMatchingKernelModule(kernel: MethodInfo) =
         let mutable result = None
@@ -72,7 +73,7 @@ type KernelCompiler =
         let mutable matchKernelModule = this.FindMatchingKernelModule(kernel)
         if matchKernelModule.IsNone then
             // Convert kernel         
-            let (kernelModule, conversionData) = this.transformationPipeline.Run((None, Some(kernel))) :?> (KernelModule * string)
+            let (kernelModule, conversionData) = this.compiler.Compile(kernel) :?> (KernelModule * string)
 
             // Store kernel module
             let mutable kernelInstances = []
@@ -174,9 +175,9 @@ type KernelCompiler =
         with get() =
             this.embeddedMetric
             
-    member this.TransformationPipeline
+    member this.Compiler
         with get() =
-            this.transformationPipeline
+            this.compiler
 
     // Methods
     member this.Discover () =
@@ -194,20 +195,20 @@ type KernelCompiler =
     new (metric, pipeline) = {
         globalDataStorage = new FSCLGlobalData()
         embeddedMetric = Some(metric)
-        transformationPipeline = pipeline
+        compiler = pipeline
     }
     new (metric) = {
         globalDataStorage = new FSCLGlobalData()
         embeddedMetric = Some(metric)
-        transformationPipeline = KernelCompilerTools.DefaultTransformationPipeline()
+        compiler = new Compiler()
     }       
     new (pipeline) = {
         globalDataStorage = new FSCLGlobalData()
         embeddedMetric = None
-        transformationPipeline = pipeline
+        compiler = pipeline
     }     
     new () = {
         globalDataStorage = new FSCLGlobalData()
         embeddedMetric = None
-        transformationPipeline = KernelCompilerTools.DefaultTransformationPipeline()
+        compiler = new Compiler()
     }

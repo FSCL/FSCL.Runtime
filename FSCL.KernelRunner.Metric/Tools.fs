@@ -1,4 +1,4 @@
-﻿namespace MetricBase.Tools
+﻿namespace FSCL.KernelRunner.Metric
 
 open Microsoft.FSharp.Quotations
 open System.Reflection
@@ -18,9 +18,9 @@ module KernelTools =
             | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                 i
             | _ ->
-                raise (MetricBase.Exceptions.MalformedKernelError("A kernel function must be marked with ReflectedDefinition attribute"))
+                raise (MalformedKernelError("A kernel function must be marked with ReflectedDefinition attribute"))
         | _-> 
-            raise (MetricBase.Exceptions.MalformedKernelError("Cannot find a kernel function inside the expression"))
+            raise (MalformedKernelError("Cannot find a kernel function inside the expression"))
 
     let rec ExtractKernelInvocation (expr) =
         let getArgs exp =
@@ -30,9 +30,9 @@ module KernelTools =
                 | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                     a
                 | _ ->
-                    raise (MetricBase.Exceptions.MalformedKernelError("A kernel invocation must provide a function marked with ReflectedDefinition attribute"))
+                    raise (MalformedKernelError("A kernel invocation must provide a function marked with ReflectedDefinition attribute"))
             | _-> 
-                raise (MetricBase.Exceptions.MalformedKernelError("Cannot find a kernel function invocation inside the expression"))
+                raise (MalformedKernelError("Cannot find a kernel function invocation inside the expression"))
 
         let args = getArgs expr
         let kernel = ExtractKernelDefinition expr 

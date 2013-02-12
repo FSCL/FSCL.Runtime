@@ -1,4 +1,4 @@
-﻿namespace FSCL
+﻿namespace FSCL.KernelRunner
 
 open Cloo
 open Microsoft.FSharp.Quotations
@@ -19,7 +19,7 @@ and KernelCallWrapper<'T,'U>(f: Expr<'T -> 'U>, k:KernelRunner, globalSize: int 
 
 // The Kernel runner
 and KernelRunner =    
-    val compiler : KernelCompiler
+    val private compiler : KernelCompiler
         
     member this.Compiler 
         with get() = 
