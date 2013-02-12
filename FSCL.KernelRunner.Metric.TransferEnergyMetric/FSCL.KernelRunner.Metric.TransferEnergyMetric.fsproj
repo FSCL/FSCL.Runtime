@@ -40,11 +40,8 @@
     <Compile Include="TransferEnergyMetric.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Energon.Extech">
-      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Extech.dll</HintPath>
-    </Reference>
     <Reference Include="Energon.Measuring">
-      <HintPath>..\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
+      <HintPath>..\..\EnergyPatterns\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
@@ -54,7 +51,7 @@
       <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Util\bin\Debug\QuotationEvaluation.dll</HintPath>
     </Reference>
     <Reference Include="RemoteAmmeter">
-      <HintPath>..\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
+      <HintPath>..\..\EnergyPatterns\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

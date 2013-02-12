@@ -86,8 +86,13 @@ let testVectorAddEnergy() =
 [<EntryPoint>]
 let main argv =
     testVectorAddEnergy()
-
-             
+    (*let runner = new KernelRunner()
+    let a = Array.create 2048 2.0f
+    let b = Array.create 2048 3.0f
+    let c = Array.zeroCreate 2048
+    let e = <@ VectorAdd(a,b,c) @>
+    runner.Run(e, a.Length, 128)
+      *)       
     // Test Generic types and operator overloading
     //runner.Run (<@ a + b @>, [| a.Length |], [| 128 |])
     (*

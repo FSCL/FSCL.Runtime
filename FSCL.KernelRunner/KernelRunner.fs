@@ -157,15 +157,26 @@ and KernelRunner =
 
 
     // Run a kernel through a quoted kernel call
+    member this.Run(expr: Expr, arg: obj, globalSize: int, localSize: int) =
+        let (c, kernelInfo, args) = KernelCompilerTools.ExtractMethodInfo(expr)
+        let arguments = FSharpValue.GetTupleFields(arg)
+        this.Run(kernelInfo, arguments, args, [| globalSize |], [| localSize |])
+
     member this.Run(expr: Expr, arg: obj, globalSize: int array, localSize: int array) =
         let (c, kernelInfo, args) = KernelCompilerTools.ExtractMethodInfo(expr)
         let arguments = FSharpValue.GetTupleFields(arg)
         this.Run(kernelInfo, arguments, args, globalSize, localSize)
+        
+    member this.Run(expr: Expr, globalSize: int, localSize: int) =          
+        let (c, kernelInfo, args) = KernelCompilerTools.ExtractMethodInfo(expr)
+        let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) args
+        this.Run(kernelInfo, arguments, args, [| globalSize |], [| localSize |])
 
     member this.Run(expr: Expr, globalSize: int array, localSize: int array) =                     
         let (c, kernelInfo, args) = KernelCompilerTools.ExtractMethodInfo(expr)
         let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) args
         this.Run(kernelInfo, arguments, args, globalSize, localSize)
+
                  
     new () = {
         compiler = new KernelCompiler()
@@ -176,7 +187,7 @@ and KernelRunner =
       
 module KernelExtension =
     let ker(f:'T -> unit) =
-        fun (t:'T) -> (fun(r:KernelRunner, gSize, lSize) -> r.Run(<@ f @>, gSize, lSize))
+        fun (t:'T) -> (fun(r:KernelRunner, gSize:int array, lSize: int array) -> r.Run(<@ f @>, gSize, lSize))
 
     let kernel(f:'T -> 'U) =
         fun (t:'T, globalSize: int array, localSize: int array, runner: KernelRunner) ->
