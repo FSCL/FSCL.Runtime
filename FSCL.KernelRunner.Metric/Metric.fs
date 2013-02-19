@@ -1,6 +1,8 @@
 ﻿namespace FSCL.KernelRunner.Metric
 
 open Microsoft.FSharp.Quotations
+open System.Reflection
+open System
 open System.IO
 
 type IMetric() =
@@ -29,5 +31,20 @@ type RelativeMetric<'T,'U,'Z,'W,'CDATA>() =
 [<AbstractClass>]
 type AbsoluteMetric<'T,'U,'Z,'W,'CDATA>() =
     inherit Metric<'U,'Z,'W,'CDATA>()
-    abstract member Profile: 'T -> 'U       
+    abstract member Profile: 'T -> 'U    
+    
+type MetricDimension() =
+    inherit Attribute()
+
+type MetricResult() =
+    member this.Dimensions() =   
+        this.GetType().GetProperties() |> 
+        Seq.filter(fun (p: PropertyInfo) -> p.GetCustomAttribute(typeof<MetricDimension>) <> null) |> 
+        Seq.map(fun (p: PropertyInfo) -> p.Name)
+
+    member this.DimensionValues() =
+        this.GetType().GetProperties() |> 
+        Seq.filter(fun (p: PropertyInfo) -> p.GetCustomAttribute(typeof<MetricDimension>) <> null) |> 
+        Seq.map(fun (p: PropertyInfo) -> p.GetValue(this))
+    
 

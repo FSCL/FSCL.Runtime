@@ -74,6 +74,11 @@
       <Project>{74339ed3-11f9-477a-a8cb-30b881bf81ea}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\FSCL.KernelRunner.Metric.TransferEnergyMetric\FSCL.KernelRunner.Metric.TransferEnergyMetric.fsproj">
+      <Name>FSCL.KernelRunner.Metric.TransferEnergyMetric</Name>
+      <Project>{a84732b7-8090-4259-b0b6-106a330df59d}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\FSCL.KernelRunner.MetricTools\FSCL.KernelRunner.MetricTools.fsproj">
       <Name>FSCL.KernelRunner.MetricTools</Name>
       <Project>{cb4c5f5a-cdfd-4372-a565-bc7d2e362e22}</Project>

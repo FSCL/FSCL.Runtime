@@ -21,7 +21,7 @@ type EnergyEvaluationResult = Dictionary<ParameterInfo, BufferAccess>
 type EnergyCustomData = obj
 
 type TransferEnergyMetric(ammeterIp:string) =
-    inherit AbsoluteMetric<ComputeDevice, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult, EnergyCustomData>()
+    inherit AbsoluteMetric<int * int, EnergyProfilingResult, EnergyEvaluationResult, EnergyInstantiationResult, EnergyCustomData>()
 
     let mutable min_size = 1
     let mutable max_size = 1
@@ -66,12 +66,13 @@ type TransferEnergyMetric(ammeterIp:string) =
         with get() = validate
         and set valid = validate <- valid
 
-    override this.Profile(device:ComputeDevice) =
+    override this.Profile((plat, dev)) =
         // Create result
         let mutable result = []
 
         // Setup CL
-        let computePlatform = device.Platform;
+        let computePlatform = ComputePlatform.Platforms.[plat];
+        let device = computePlatform.Devices.[dev];
         let contextProperties = new ComputeContextPropertyList(computePlatform)
         let devices = new System.Collections.Generic.List<ComputeDevice>();
         devices.Add(device)
