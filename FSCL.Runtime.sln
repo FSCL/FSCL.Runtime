@@ -26,8 +26,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{9FEB
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AlgorithmSample", "..\FSCL.Compiler\Sample\AlgorithmSample.fsproj", "{05D3D829-9EEF-411D-BBF7-FE966B2D379B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GraphUtil", "..\FSCL.Compiler\GraphUtil\GraphUtil.fsproj", "{2581B89A-F555-48A7-94BE-9B21654901A7}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Compiler.Core.FunctionPreprocessing", "..\FSCL.Compiler\FSCL.Compiler.Core.FunctionPreprocessing\FSCL.Compiler.Core.FunctionPreprocessing.fsproj", "{ED8C50CD-4155-4D3A-A682-76757FB2B8D7}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Compiler.Core.FunctionPrettyPrinting", "..\FSCL.Compiler\FSCL.Compiler.Core.FunctionPrettyPrinting\FSCL.Compiler.Core.FunctionPrettyPrinting.fsproj", "{A0EB369A-A29E-4BB9-8B16-CF406E42F534}"
@@ -59,6 +57,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mono", "Mono", "{43FA6D01-5C5D-4355-9B8E-3F015FD3D2DA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.Reflection", "Mono.Reflection\mono.reflection\Mono.Reflection.csproj", "{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Compiler.Tools", "..\FSCL.Compiler\FSCL.Compiler.Tools\FSCL.Compiler.Tools.fsproj", "{2581B89A-F555-48A7-94BE-9B21654901A7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -94,10 +94,6 @@ Global
 		{05D3D829-9EEF-411D-BBF7-FE966B2D379B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{05D3D829-9EEF-411D-BBF7-FE966B2D379B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{05D3D829-9EEF-411D-BBF7-FE966B2D379B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2581B89A-F555-48A7-94BE-9B21654901A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2581B89A-F555-48A7-94BE-9B21654901A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2581B89A-F555-48A7-94BE-9B21654901A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2581B89A-F555-48A7-94BE-9B21654901A7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{ED8C50CD-4155-4D3A-A682-76757FB2B8D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{ED8C50CD-4155-4D3A-A682-76757FB2B8D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED8C50CD-4155-4D3A-A682-76757FB2B8D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -158,6 +154,10 @@ Global
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2581B89A-F555-48A7-94BE-9B21654901A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2581B89A-F555-48A7-94BE-9B21654901A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2581B89A-F555-48A7-94BE-9B21654901A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2581B89A-F555-48A7-94BE-9B21654901A7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

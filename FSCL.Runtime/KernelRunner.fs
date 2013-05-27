@@ -6,31 +6,22 @@ open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
 open FSCL.Compiler
-        
-module KernelRunner =
-    // Kernel run mode
-    type internal KernelRunningMode =
-    | OpenCL
-    | Multithread
-    | Sequential
+open FSCL.Compiler.KernelLanguage
+open System.Threading
 
+module KernelRunner =
     // The Kernel runner
     type internal Runner(compiler, metric) =    
         
         member val KernelManager = new KernelManager(compiler, metric) with get
         
-        member this.Run(kernelInfo: MethodInfo, arguments: obj[], argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array, mode: KernelRunningMode, fallback: bool) =
+        member this.RunOpenCL(kernel: FSCLKernelData, instanceIndex: int, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array) =
             let globalDataStorage = this.KernelManager.GlobalDataStorage
 
-            // Found a kernel in global data matching the call
-            let matchingKernel = ref (this.KernelManager.FindMatchingKernelInfo(kernelInfo, Array.map (fun a -> a.GetType()) arguments))
-            if (!matchingKernel).IsNone then
-                // Try add it to the compiler
-                this.KernelManager.Add(kernelInfo) |> ignore
-                matchingKernel := this.KernelManager.FindMatchingKernelInfo(kernelInfo, Array.map (fun a -> a.GetType()) arguments)
-            
+            let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) argumentsInfo                
+
             // Fix: here to be called INSTANTIATE on a metric to get the device to use
-            let kernelInstance = (!matchingKernel).Value.Instances.[0]
+            let kernelInstance = kernel.Instances.[instanceIndex]
             let queue = globalDataStorage.Devices.[kernelInstance.DeviceIndex.Value].Queue
             let context = globalDataStorage.Devices.[kernelInstance.DeviceIndex.Value].Context
             // FIX: determine best read/write strategy
@@ -44,20 +35,20 @@ module KernelRunner =
                 if par.ParameterType.IsArray then
                     let o = arguments.[pIndex]
                     // Check if constant buffer. In this case we pass the dimension (sizeof) the array and not a real buffer
-                    if (!matchingKernel).Value.Info.ParameterInfo.[par.Name].AddressSpace = KernelParameterAddressSpace.LocalSpace then
+                    if kernel.Info.ParameterInfo.[par.Name].AddressSpace = KernelParameterAddressSpace.LocalSpace then
                         let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
-                                   (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
+                                    (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
                         // Set kernel arg
                         kernelInstance.Kernel.SetLocalArgument(!argIndex, size) 
                     else
                         // Check if read or read_write modeS
-                        let matchingParameter = (!matchingKernel).Value.Info.ParameterInfo.[par.Name]
+                        let matchingParameter = kernel.Info.ParameterInfo.[par.Name]
                         let access = matchingParameter.Access
                         let mustInitBuffer =
                             ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
-                             (matchingParameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
+                                (matchingParameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
                             ((access = KernelParameterAccessMode.ReadOnly) || 
-                             (access = KernelParameterAccessMode.ReadWrite))
+                                (access = KernelParameterAccessMode.ReadWrite))
 
                         // Create buffer and eventually init it
                         let t = par.ParameterType.GetElementType()
@@ -115,18 +106,18 @@ module KernelRunner =
             // Read result if needed
             Array.iteri (fun index (par:ParameterInfo, dim:int, arg:Expr) ->
                 if par.ParameterType.IsArray then
-                    if (!matchingKernel).Value.Info.ParameterInfo.[par.Name].AddressSpace <> KernelParameterAddressSpace.LocalSpace then
+                    if kernel.Info.ParameterInfo.[par.Name].AddressSpace <> KernelParameterAddressSpace.LocalSpace then
                         // Get association between parameter, array and buffer object
                         let (o, buffer) = paramObjectBufferMap.[par.Name]
 
                         // Check if write or read_write mode
                         let mutable mustReadBuffer = false
-                        let matchingParameter = (!matchingKernel).Value.Info.ParameterInfo.[par.Name]
+                        let matchingParameter = kernel.Info.ParameterInfo.[par.Name]
                         let access = matchingParameter.Access
                         mustReadBuffer <-                     
                             ((matchingParameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace)) &&
                             ((access = KernelParameterAccessMode.WriteOnly) || 
-                             (access = KernelParameterAccessMode.ReadWrite))
+                                (access = KernelParameterAccessMode.ReadWrite))
 
                         if(mustReadBuffer) then
                             // Create buffer and eventually init it
@@ -146,12 +137,55 @@ module KernelRunner =
                             elif (t = typeof<bool>) then
                                 BufferTools.ReadBuffer<bool>(context, queue, o, dim, buffer :?> ComputeBuffer<bool>)) argumentsInfo 
 
+        member this.RunMultithread(kernel: FSCLKernelData, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array, multithread: bool) =
+            let globalDataStorage = this.KernelManager.GlobalDataStorage
+
+            let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) argumentsInfo 
+            // Normalize dimensions of workspace
+            // If the workspace is one dim, treansform into 3 dims with the second and the third equals to 1 (thread)
+            let normalizedGlobalSize, normalizedLocalSize = 
+                match globalSize.Rank with
+                | 1 ->
+                    ([| globalSize.[0]; 1; 1 |], [| localSize.[0]; 1; 1 |])
+                | 2 ->
+                    ([| globalSize.[0]; globalSize.[1]; 1 |], [| localSize.[0]; localSize.[1]; 1 |])
+                | _ ->
+                    (globalSize, localSize)
+
+            // Launch threads or execute sequential
+            let work = kernel.Info.Source
+            for i = 0 to normalizedGlobalSize.[0] - 1 do
+                for j = 0 to normalizedGlobalSize.[1] - 1 do
+                    for k = 0 to normalizedGlobalSize.[2] - 1 do
+                        // Create a ids container for each thread and run the thread
+                        let container = new WorkItemIdContainer(globalSize, 
+                                                                localSize, 
+                                                                [| i; j; k |], 
+                                                                [| i / normalizedGlobalSize.[0]; j / normalizedGlobalSize.[1]; k / normalizedGlobalSize.[2] |])
+                        if multithread then
+                            // Create thread
+                            let t = new Thread(new ThreadStart(fun () -> work.Invoke(null, Array.append arguments [| container |]) |> ignore))
+                            t.Start()
+                        else
+                            work.Invoke(null, Array.append arguments [| container |]) |> ignore
+        
+        member this.Run(kernelInfo: MethodInfo, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array, mode: KernelRunningMode, fallback: bool) =
+            let argumentsType = Array.map (fun (pi:ParameterInfo, _, _) -> pi.ParameterType) argumentsInfo
+            // Ask kernel manager to retrieve the proper executable kernel instance or to create it
+            let kernelInstance = this.KernelManager.FindOrAdd(kernelInfo, argumentsType, mode, fallback)
+            match mode with
+            | KernelRunningMode.OpenCL ->
+                this.RunOpenCL(kernelInstance, 0, argumentsInfo, globalSize, localSize)
+            | KernelRunningMode.Multithread ->
+                this.RunMultithread(kernelInstance, argumentsInfo, globalSize, localSize, true)
+            | _ ->
+                this.RunMultithread(kernelInstance, argumentsInfo, globalSize, localSize, false)
 
         // Run a kernel through a quoted kernel call        
         member this.Run(expr: Expr, globalSize: int array, localSize: int array, mode: KernelRunningMode, fallback: bool) =                     
-            let (c, kernelInfo, args) = KernelManagerTools.ExtractMethodInfo(expr)
-            let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) args
-            this.Run(kernelInfo, arguments, args, globalSize, localSize, mode, fallback)
+            let (kernelInfo, args) = KernelManagerTools.ExtractMethodInfo(expr)
+            this.Run(kernelInfo, args, globalSize, localSize, mode, fallback)
+          
     
     // Global kernel runner
     let internal kernelRunner = new Runner(new Compiler(), None)
@@ -190,5 +224,6 @@ module KernelRunner =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true)
         member this.RunSequential(globalSize: int array, localSize: int array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true)
+            
             
 

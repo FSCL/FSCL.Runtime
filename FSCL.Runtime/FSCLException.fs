@@ -11,3 +11,7 @@ type KernelDefinitionException(msg: string) =
 
 type KernelBindingException(msg: string) =
     inherit System.Exception(msg)
+
+type KernelSchedulingException(msg: string) =
+    inherit System.Exception(msg)
+

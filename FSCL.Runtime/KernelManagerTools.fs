@@ -3,8 +3,18 @@
 open FSCL.Compiler
 open System.Reflection
 open Microsoft.FSharp.Quotations
+open Cloo
 
 type internal KernelManagerTools() =
+    static member IsOpenCLAvailable() =
+        if ComputePlatform.Platforms.Count = 0 then
+            false
+        else
+            // At least one device in a platform available
+            ComputePlatform.Platforms |> 
+                Seq.map(fun (p: ComputePlatform) -> p.Devices.Count) |>
+                Seq.reduce(fun a b -> a + b) > 0
+
     // Kernel extraction tools
     static member GetKernelArrayDimensions (t:System.Type) =
         // If not array return 0
@@ -34,20 +44,7 @@ type internal KernelManagerTools() =
         else
             0
         
-    // Extract method info from kernel name or kernel call
-    static member private IsKernelCall(expr: Expr) =
-        match expr with
-        | Patterns.Call (e, i, a) ->
-            match i with
-            | DerivedPatterns.MethodWithReflectedDefinition(b) -> 
-                true
-            | _ ->
-                false
-        | _ ->
-            false
-        
     static member ExtractMethodInfo (expr:Expr) =
-        let isKernelCall = KernelManagerTools.IsKernelCall(expr)
         let rec ExtractMethodInfoInner (expr) = 
             match expr with
             | Patterns.Lambda(v, e) -> 
@@ -57,12 +54,12 @@ type internal KernelManagerTools() =
             | Patterns.Call (e, i, a) ->
                 match i with
                 | DerivedPatterns.MethodWithReflectedDefinition(b) ->                    
-                    (isKernelCall, i, Array.mapi (fun i (p:ParameterInfo) -> (p, KernelManagerTools.GetKernelArrayDimensions(p.ParameterType), a.[i])) (i.GetParameters()))
+                    (i, Array.mapi (fun i (p:ParameterInfo) -> (p, KernelManagerTools.GetKernelArrayDimensions(p.ParameterType), a.[i])) (i.GetParameters()))
                 | _ ->
                     raise (CompilerException("A kernel definition must provide a function marked with ReflectedDefinition attribute"))
             | _-> 
                 raise (CompilerException("Cannot find a kernel function definition inside the expression"))
         
         ExtractMethodInfoInner(expr)
-
+        
 

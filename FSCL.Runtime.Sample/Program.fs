@@ -9,16 +9,17 @@ open System.Reflection
 open System.Reflection.Emit
 open FSCL.Runtime.KernelRunner
 open Mono.Reflection
+open System
+open System.Collections.Generic
 
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
     
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
-let VectorAdd(a: float32[], b: float32[], c: float32[], iter: int) =
+let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = get_global_id(0)
-    for i in 0 .. iter - 1 do
-        c.[gid] <- c.[gid] + a.[gid]
+    c.[gid] <- a.[gid] + b.[gid]
     
 // Matrix multiplication
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -251,82 +252,27 @@ let main argv =
     *)
   
 type Temp() =
-    member this.DoIt() =
+    static member DoIt(i: int) =
         let c = get_global_id(0)
-        c
+        let d = 5
+        c + d
 
 type WorkItemIdContainer(global_id: int[], local_id: int []) =
     member this.GlobalId(i) =
         global_id.[i]
     
-type Temp2() =
-    member this.Della(i: int, j: int, k: int, l: int, w: WorkItemIdContainer) =
-        let b = 1
-        let c = w.GlobalId(b)
-        let d = System.Math.Sign(i)
-        d
+type Test() =
+    member this.Della(i: int, w: WorkItemIdContainer) =
+        w.GlobalId(0)
+
+type TestDel = delegate of int * WorkItemIdContainer -> int
 
 [<EntryPoint>]
 let main argv =
-    let a = Array.create (2 <<< 10) 2.0f 
-    let b = Array.create (2 <<< 10) 2.0f
-    let c = Array.zeroCreate<float32> (2 <<< 10)
-    let i = typeof<Temp2>.GetMethod("Della").GetInstructions()
-    let meth = typeof<Temp>.GetMethod("DoIt")
-    let instr = meth.GetInstructions()
-    let m = new DynamicMethod("DoItMultithread", meth.ReturnType, Array.concat(seq { 
-                                                                                       yield Array.map(fun (p: ParameterInfo) -> p.ParameterType) (meth.GetParameters())
-                                                                                       yield [| typeof<WorkItemIdContainer> |]
-                                                                                   }))
-    for i in 0 .. meth.GetParameters().Length - 1 do 
-        m.DefineParameter(i + 1, meth.GetParameters().[i].Attributes, meth.GetParameters().[i].Name) |> ignore
-    m.DefineParameter(meth.GetParameters().Length + 1, ParameterAttributes.None, "WorkItemIdContainer") |> ignore
-    
-    let l = List.ofSeq(instr)
-    let generator = m.GetILGenerator()
-    let List<byte>
-    for i = 0 to l.Length - 1 do   
-        let instr = l.[i]
-        let nextInstr = instr.Next
-        // Check if next instruction is a specific call
-        if nextInstr.OpCode = OpCodes.Call then
-            if (nextInstr.Operand.GetType() = typeof<MethodInfo>) then      
-                let m = nextInstr.Operand :?> MethodInfo
-                if m.Name = "get_global_id" then
-                    // Must generate a ldarg of the last parameter (WorkItemIdContainer)
-                    match m.GetParameters().Length with
-                    | 1 ->
-                        generator.Emit(OpCodes.Ldarg_0)                        
-                    | 2 ->
-                        generator.Emit(OpCodes.Ldarg_1)                        
-                    | 3 ->
-                        generator.Emit(OpCodes.Ldarg_2)                        
-                    | 4 ->
-                        generator.Emit(OpCodes.Ldarg_3)
-                    | _ ->
-                        generator.Emit(OpCodes.Ldarg_S, m.GetParameters().Length)
+    let a = Array.create (4) 2.0f 
+    let b = Array.create (4) 3.0f
+    let c = Array.zeroCreate<float32> (4)
 
-        match (instr.OpCode.OperandType) with
-        | OperandType.InlineNone ->
-            generator.Emit(instr.OpCode)
-        | OperandType.ShortInlineBrTarget ->
-            generator.Emit(instr.OpCode, (sbyte)(instr.Operand :?> int - instr.Offset))
-        | OperandType.InlineBrTarget ->
-            generator.Emit(instr.OpCode, instr.Operand :?> int - instr.Offset)
-        | OperandType.ShortInlineI ->
-            if (instr.OpCode = OpCodes.Ldc_I4_S) then
-                generator.Emit(instr.OpCode, instr.Operand :?> sbyte)
-            else
-                generator.Emit(instr.OpCode, instr.Operand :?> byte)
-        | OperandType.InlineI ->
-            generator.Emit(instr.OpCode, instr.Operand :?> int)
-        | OperandType.ShortInlineR ->
-            generator.Emit(instr.OpCode, instr.Operand :?> float32)
-        | OperandType.InlineR ->
-            generator.Emit(instr.OpCode, instr.Operand :?> double)
-        | OperandType.InlineI8 ->
-            generator.Emit(instr.OpCode, instr.Operand :?> int64)
-
-    <@ VectorAdd(a, b, c, 2) @>.Run(5, 2)
+    <@ VectorAdd(a, b, c) @>.Run(4, 2)
     0
     

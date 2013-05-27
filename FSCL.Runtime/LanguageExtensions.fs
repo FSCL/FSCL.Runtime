@@ -1,5 +1,12 @@
 ﻿namespace FSCL.Runtime
 open System
+open System.Collections.Generic
+
+// Kernel run mode
+type KernelRunningMode =
+| OpenCL
+| Multithread
+| Sequential
 
 type DeviceAttribute(platform: int, device: int) =
     inherit Attribute()
@@ -10,5 +17,7 @@ type DeviceAttribute(platform: int, device: int) =
 module HostFunctions =
     let notused b =
         b
+        
+        
 
 
