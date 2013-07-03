@@ -49,26 +49,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FSCL.Compiler\FSCL.Compiler.Core.Language\FSCL.Compiler.Core.Language.fsproj">
-      <Name>FSCL.Compiler.Core.Language</Name>
-      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\FSCL.Compiler.Core\FSCL.Compiler.Core.fsproj">
-      <Name>FSCL.Compiler.Core</Name>
-      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\FSCL.Compiler.Tools\FSCL.Compiler.Tools.fsproj">
-      <Name>FSCL.Compiler.Tools</Name>
-      <Project>{2581b89a-f555-48a7-94be-9b21654901a7}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\FSCL.Compiler\FSCL.Compiler.fsproj">
-      <Name>FSCL.Compiler</Name>
-      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Metric.InstructionEnergyMetric\FSCL.Runtime.Metric.InstructionEnergyMetric.fsproj">
       <Name>FSCL.Runtime.Metric.InstructionEnergyMetric</Name>
       <Project>{74339ed3-11f9-477a-a8cb-30b881bf81ea}</Project>
@@ -87,11 +67,6 @@
     <ProjectReference Include="..\FSCL.Runtime\FSCL.Runtime.fsproj">
       <Name>FSCL.Runtime</Name>
       <Project>{57a5e768-a0aa-4b4f-b538-2bea1b4e5895}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Mono.Reflection\mono.reflection\Mono.Reflection.csproj">
-      <Name>Mono.Reflection</Name>
-      <Project>{97b010ab-0756-46dc-b75a-7a6c4f6ff28d}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
