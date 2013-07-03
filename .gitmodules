@@ -1,0 +1,3 @@
+[submodule "Mono.Reflection"]
+	path = Mono.Reflection
+	url = https://github.com/jbevain/mono.reflection.git
