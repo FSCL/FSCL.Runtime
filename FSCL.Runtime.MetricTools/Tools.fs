@@ -31,7 +31,7 @@ type Tools() =
         (afterStop(), timer.ElapsedMilliseconds, finalIterations)
         
     static member GetEnergyConsumption ip time f =
-        let client = new Client("1")
+        let client = new Client("1", "1")
         Tools.ExcuteFor time client.start client.stop f
         
     static member InterpolateResults(findValue: double, prof: 'T list, getData: 'T -> double * double * double) =

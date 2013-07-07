@@ -1,14 +1,9 @@
-﻿// Learn more about F# at http://fsharp.net
-// See the 'F# Tutorial' project for more help.
-open FSCL.Runtime.Metric.InstructionEnergyMetric
-open FSCL.Runtime.Metric.TransferEnergyMetric
-open FSCL.Compiler
+﻿open FSCL.Compiler
 open FSCL.Compiler.KernelLanguage
 open FSCL.Runtime
 open System.Reflection
 open System.Reflection.Emit
 open FSCL.Runtime.KernelRunner
-open Mono.Reflection
 open System
 open System.Collections.Generic
 
@@ -250,29 +245,23 @@ let main argv =
     *)
     0
     *)
+
+
+[<ReflectedDefinition>]
+let vector4Sum(a:float32[], b:float32[], c:float32[]) =
+    let id = get_global_id(0)
+    c.[id] <- a.[id] + b.[id]
+        
+[<ReflectedDefinition>]
+let vector4Reduce(a:float32, b:float32) =
+    a + b
   
-type Temp() =
-    static member DoIt(i: int) =
-        let c = get_global_id(0)
-        let d = 5
-        c + d
-
-type WorkItemIdContainer(global_id: int[], local_id: int []) =
-    member this.GlobalId(i) =
-        global_id.[i]
-    
-type Test() =
-    member this.Della(i: int, w: WorkItemIdContainer) =
-        w.GlobalId(0)
-
-type TestDel = delegate of int * WorkItemIdContainer -> int
-
 [<EntryPoint>]
 let main argv =
-    let a = Array.create (4) 2.0f 
-    let b = Array.create (4) 3.0f
-    let c = Array.zeroCreate<float32> (4)
-
-    <@ VectorAdd(a, b, c) @>.Run(4, 2)
+    let a = Array.create (16) 3.0f
+    let b = Array.create (16) 2.0f
+    let c = Array.zeroCreate<float32> (16)
+    <@@ vector4Sum(a, b, c) @@>.Run(16, 8)
     0
+
     

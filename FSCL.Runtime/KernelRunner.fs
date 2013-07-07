@@ -4,7 +4,7 @@ open Cloo
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open FSCL.Compiler.Core.Util.QuotationEvaluation
 open FSCL.Compiler
 open FSCL.Compiler.KernelLanguage
 open System.Threading
@@ -161,7 +161,8 @@ module KernelRunner =
                         let container = new WorkItemIdContainer(globalSize, 
                                                                 localSize, 
                                                                 [| i; j; k |], 
-                                                                [| i / normalizedGlobalSize.[0]; j / normalizedGlobalSize.[1]; k / normalizedGlobalSize.[2] |])
+                                                                [| i / normalizedGlobalSize.[0]; j / normalizedGlobalSize.[1]; k / normalizedGlobalSize.[2] |],
+                                                                [| 0; 0; 0 |])
                         if multithread then
                             // Create thread
                             let t = new Thread(new ThreadStart(fun () -> work.Invoke(null, Array.append arguments [| container |]) |> ignore))

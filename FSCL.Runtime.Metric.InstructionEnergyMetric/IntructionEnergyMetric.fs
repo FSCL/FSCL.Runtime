@@ -10,7 +10,7 @@ open FSCL.Runtime.MetricTools
 open System.IO
 
 // The below one needs PowerPack :(
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open FSCL.Compiler.Core.Util.QuotationEvaluation
 
 type EnergyProfilingResult = (int * int64 * double * double * int64 * int) list
 type EnergyInstantiationResult = (double * double * double)

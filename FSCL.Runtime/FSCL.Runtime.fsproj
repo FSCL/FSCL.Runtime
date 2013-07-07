@@ -36,9 +36,6 @@
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
-    <Reference Include="QuotationEvaluation">
-      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Util\bin\Debug\QuotationEvaluation.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -53,6 +50,31 @@
     <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
+      <Name>FSCL.Compiler</Name>
+      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
+      <Name>FSCL.Compiler.Core</Name>
+      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+      <Name>FSCL.Compiler.Core.Language</Name>
+      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\FSCL.Compiler\Tools\FSCL.Compiler.Tools.fsproj">
+      <Name>FSCL.Compiler.Tools</Name>
+      <Project>{2581b89a-f555-48a7-94be-9b21654901a7}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
+      <Name>FSCL.Compiler.Core.Util</Name>
+      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
       <Name>Cloo.VS2010</Name>
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
@@ -61,6 +83,11 @@
     <ProjectReference Include="..\FSCL.Runtime.Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Mono.Reflection\Mono.Reflection.csproj">
+      <Name>Mono.Reflection</Name>
+      <Project>{97b010ab-0756-46dc-b75a-7a6c4f6ff28d}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

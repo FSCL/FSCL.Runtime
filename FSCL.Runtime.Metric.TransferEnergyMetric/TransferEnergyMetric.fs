@@ -9,7 +9,7 @@ open System
 open Microsoft.FSharp.Reflection
 open System.Reflection
 open System.Collections.Generic
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open FSCL.Compiler.Core.Util.QuotationEvaluation
 open System.Diagnostics
 open EnergyPatterns.RemoteAmmeter
 open System.Runtime.InteropServices
