@@ -3,7 +3,7 @@
 open Cloo
         
 type internal BufferTools() =    
-   static member WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T)>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
+   static member WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
         //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         match dims with
         | 1 ->
