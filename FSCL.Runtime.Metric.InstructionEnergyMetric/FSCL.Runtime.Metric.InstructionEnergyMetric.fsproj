@@ -54,21 +54,6 @@
     <Compile Include="IntructionEnergyMetric.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
-      <Name>FSCL.Compiler</Name>
-      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
-      <Name>FSCL.Compiler.Core</Name>
-      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
-      <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
       <Name>Cloo.VS2010</Name>
       <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>

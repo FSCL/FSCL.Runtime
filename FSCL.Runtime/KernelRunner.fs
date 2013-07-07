@@ -4,7 +4,7 @@ open Cloo
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
-open FSCL.Compiler.Core.Util.QuotationEvaluation
+open Microsoft.FSharp.Linq.QuotationEvaluation
 open FSCL.Compiler
 open FSCL.Compiler.KernelLanguage
 open System.Threading

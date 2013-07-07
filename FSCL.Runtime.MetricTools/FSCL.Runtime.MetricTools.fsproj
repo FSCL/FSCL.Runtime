@@ -44,45 +44,33 @@
     <Compile Include="MemoryAccess.Analysis.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Energon.Measuring">
-      <HintPath>..\..\EnergyPatterns\Ammeters\RemoteAmmeter\Energon.Measuring.dll</HintPath>
-    </Reference>
-    <Reference Include="Energon.Phidgets">
-      <HintPath>..\..\EnergyPatterns\Ammeters\RemoteAmmeter\Energon.Phidgets.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
-    </Reference>
-    <Reference Include="QuotationEvaluation">
-      <HintPath>..\..\FSCL.Compiler\FSCL.Compiler.Core.Util\bin\Debug\QuotationEvaluation.dll</HintPath>
-    </Reference>
-    <Reference Include="RemoteAmmeter">
-      <HintPath>..\..\EnergyPatterns\Ammeters\RemoteAmmeter\RemoteAmmeter.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
+    <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
+      <Name>Cloo.VS2010</Name>
+      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
       <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
+    <ProjectReference Include="..\Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
       <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
+    <ProjectReference Include="..\Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
       <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

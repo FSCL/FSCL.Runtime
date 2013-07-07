@@ -3,8 +3,7 @@
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Reflection
-open FSCL.Compiler.Core.Util
-open FSCL.Compiler.Core.Util.QuotationEvaluation
+open Microsoft.FSharp.Linq.QuotationEvaluation
 open System.Collections.Generic
 open Stack
 

@@ -4,10 +4,8 @@ open Cloo
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
-open FSCL.Compiler.Core.Util
 open System.Collections.Generic
 open FSCL.Compiler
-open FSCL.Compiler.Core
 open FSCL.Runtime.Metric
 open System
 

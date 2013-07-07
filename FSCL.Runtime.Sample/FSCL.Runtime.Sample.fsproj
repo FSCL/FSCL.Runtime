@@ -49,24 +49,14 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
+    <ProjectReference Include="..\Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
       <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+    <ProjectReference Include="..\Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
       <Name>FSCL.Compiler.Core.Language</Name>
       <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Runtime.Metric.InstructionEnergyMetric\FSCL.Runtime.Metric.InstructionEnergyMetric.fsproj">
-      <Name>FSCL.Runtime.Metric.InstructionEnergyMetric</Name>
-      <Project>{74339ed3-11f9-477a-a8cb-30b881bf81ea}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Runtime.Metric.TransferEnergyMetric\FSCL.Runtime.Metric.TransferEnergyMetric.fsproj">
-      <Name>FSCL.Runtime.Metric.TransferEnergyMetric</Name>
-      <Project>{a84732b7-8090-4259-b0b6-106a330df59d}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Metric\FSCL.Runtime.Metric.fsproj">

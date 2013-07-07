@@ -1,6 +1,5 @@
 ﻿namespace FSCL.Runtime.MetricTools
 
-open EnergyPatterns.RemoteAmmeter
 open System.Diagnostics
 
 exception EnergyMonitoringException of string
@@ -29,11 +28,11 @@ type Tools() =
             f()
         timer.Stop()
         (afterStop(), timer.ElapsedMilliseconds, finalIterations)
-        
+        (*
     static member GetEnergyConsumption ip time f =
         let client = new Client("1", "1")
         Tools.ExcuteFor time client.start client.stop f
-        
+        *)
     static member InterpolateResults(findValue: double, prof: 'T list, getData: 'T -> double * double * double) =
         let mutable found = false
         let mutable findIndex = 0
