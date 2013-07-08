@@ -19,22 +19,9 @@ To use the FSCL runtime to execute F# kernels, programmers must:
 2. Link the appropriate runtime libraries: *FSCL.Runtime.dll*;
 3. Open the appropriate namespaces: *FSCL.Compiler*, *FSCL.Compiler.KernelLanguage*, *FSCL.Runtime* and *FSCL.Runtime.HostLanguage*;
 4. Write the F# kernel *Fun* and mark it with the *ReflectedDefinition attribute*;
-5. Execute the kernel invoking *<@ Fun(x) @>.Run(globalSize, localSize)*
+5. Execute the kernel invoking *<@@ Fun(x) @@>.Run(globalSize, localSize)*
 
-    // Compiler user interface
-    open FSCL.Compiler
-    // Kernel language library
-    open FSCL.Compiler.KernelLanguage
-    // Kernel properly marked with ReflectedDefinition attribute
-    [<ReflectedDefinition>]
-    let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-        let gid = get_global_id(0)
-        c.[gid] <- a.[gid] + b.[gid]
-    [<EntryPoint>]
-    let main argv =
-        // Instantiate the compiler
-        let compiler = new Compiler()
-        // Compile the kernel
-        let compilationResult = compiler.Compile(<@@ VectorAdd @@>)
+
+
 
 
