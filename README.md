@@ -9,7 +9,7 @@ The FSCL runtime is built on top of the [FSCL compiler project](https://github.c
 OpenCL kernels inside .NET.
 The FSCL runtime provides two main services:
 
-+Manage kernel execution (compile OpenCL to device executable, handle buffer allocation/reading/writing, synchronization, etc.)
-+Provide a plugin-based device-selection system to schedule a kernel on the most suitable device
++ Manage kernel execution (compile OpenCL to device executable, handle buffer allocation/reading/writing, synchronization, etc.)
++ Provide a plugin-based device-selection system to schedule a kernel on the most suitable device
 
 
