@@ -14,9 +14,10 @@ type DeviceAttribute(platform: int, device: int) =
     member val Platform = platform with get
     member val Device = device with get
 
-module HostFunctions =
+module HostLanguage =
     let notused b =
         b
+        
         
         
 

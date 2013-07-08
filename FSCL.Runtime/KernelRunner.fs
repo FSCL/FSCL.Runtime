@@ -52,21 +52,7 @@ module KernelRunner =
 
                         // Create buffer and eventually init it
                         let t = par.ParameterType.GetElementType()
-                        let mutable buffer = None
-                        if (t = typeof<uint32>) then
-                            buffer <- Some(BufferTools.WriteBuffer<uint32>(context, queue, o, dim, mustInitBuffer))
-                        elif (t = typeof<uint64>) then
-                            buffer <- Some(BufferTools.WriteBuffer<uint64>(context, queue, o, dim ,mustInitBuffer))
-                        elif (t = typeof<int64>) then
-                            buffer <- Some(BufferTools.WriteBuffer<int64>(context, queue, o, dim, mustInitBuffer))
-                        elif (t = typeof<int>) then
-                            buffer <- Some(BufferTools.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
-                        elif (t = typeof<double>) then
-                            buffer <- Some(BufferTools.WriteBuffer<double>(context, queue, o, dim, mustInitBuffer))
-                        elif (t = typeof<float32>) then
-                            buffer <- Some(BufferTools.WriteBuffer<float32>(context, queue, o, dim, mustInitBuffer))
-                        elif (t = typeof<bool>) then
-                            buffer <- Some(BufferTools.WriteBuffer<int>(context, queue, o, dim, mustInitBuffer))
+                        let buffer = BufferTools.WriteBuffer(t, context, queue, o, dim, mustInitBuffer)                            
                  
                         // Stor association between parameter, array and buffer object
                         paramObjectBufferMap.Add(par.Name, (o, buffer.Value))
@@ -80,21 +66,7 @@ module KernelRunner =
                         kernelInstance.Kernel.SetValueArgument<int>(argumentsInfo.Length + !additionalArgCount + dimension, sizeOfDim)
                     additionalArgCount := !additionalArgCount + dim
                 else
-                    let t = par.ParameterType
-                    if (t = typeof<uint32>) then
-                        kernelInstance.Kernel.SetValueArgument<uint32>(!argIndex, arguments.[pIndex] :?> uint32)
-                    elif (t = typeof<uint64>) then
-                        kernelInstance.Kernel.SetValueArgument<uint64>(!argIndex, arguments.[pIndex] :?> uint64)
-                    elif (t = typeof<int64>) then
-                        kernelInstance.Kernel.SetValueArgument<int64>(!argIndex, arguments.[pIndex] :?> int64)
-                    elif (t = typeof<int>) then
-                        kernelInstance.Kernel.SetValueArgument<int>(!argIndex, arguments.[pIndex] :?> int)
-                    elif (t = typeof<double>) then
-                        kernelInstance.Kernel.SetValueArgument<double>(!argIndex, arguments.[pIndex] :?> double)
-                    elif (t = typeof<float32>) then
-                        kernelInstance.Kernel.SetValueArgument<float32>(!argIndex, arguments.[pIndex] :?> float32)
-                    elif (t = typeof<bool>) then
-                        kernelInstance.Kernel.SetValueArgument<bool>(!argIndex, arguments.[pIndex] :?> bool)
+                    kernelInstance.Kernel.SetValueArgumentAsObject(!argIndex, arguments.[pIndex])
             
                 argIndex := !argIndex + 1) (argumentsInfo)
 
@@ -121,21 +93,8 @@ module KernelRunner =
 
                         if(mustReadBuffer) then
                             // Create buffer and eventually init it
-                            let t = par.ParameterType.GetElementType()
-                            if (t = typeof<uint32>) then
-                                BufferTools.ReadBuffer<uint32>(context, queue, o, dim, buffer :?> ComputeBuffer<uint32>) 
-                            elif (t = typeof<uint64>) then
-                                BufferTools.ReadBuffer<uint64>(context, queue, o, dim, buffer :?> ComputeBuffer<uint64>) 
-                            elif (t = typeof<int64>) then
-                                BufferTools.ReadBuffer<int64>(context, queue, o, dim, buffer :?> ComputeBuffer<int64>) 
-                            elif (t = typeof<int>) then
-                                BufferTools.ReadBuffer<int>(context, queue, o, dim, buffer :?> ComputeBuffer<int>) 
-                            elif (t = typeof<double>) then
-                                BufferTools.ReadBuffer<double>(context, queue, o, dim, buffer :?> ComputeBuffer<double>) 
-                            elif (t = typeof<float32>) then
-                                BufferTools.ReadBuffer<float32>(context, queue, o, dim, buffer :?> ComputeBuffer<float32>) 
-                            elif (t = typeof<bool>) then
-                                BufferTools.ReadBuffer<bool>(context, queue, o, dim, buffer :?> ComputeBuffer<bool>)) argumentsInfo 
+                            let t = par.ParameterType.GetElementType()                          
+                            BufferTools.ReadBuffer(t, context, queue, o, dim, buffer)) argumentsInfo 
 
         member this.RunMultithread(kernel: FSCLKernelData, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array, multithread: bool) =
             let globalDataStorage = this.KernelManager.GlobalDataStorage

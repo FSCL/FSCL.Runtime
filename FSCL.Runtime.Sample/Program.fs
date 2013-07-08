@@ -1,6 +1,8 @@
 ﻿open FSCL.Compiler
 open FSCL.Compiler.KernelLanguage
+open FSCL.Runtime.HostLanguage
 open FSCL.Runtime
+open FSCL.Compiler.Plugins.AcceleratedCollections
 open System.Reflection
 open System.Reflection.Emit
 open FSCL.Runtime.KernelRunner
@@ -10,24 +12,6 @@ open System.Collections.Generic
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
     
-// Vector addition
-[<Device(0,0)>][<ReflectedDefinition>]
-let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = get_global_id(0)
-    c.[gid] <- a.[gid] + b.[gid]
-    
-// Matrix multiplication
-[<Device(0,0)>][<ReflectedDefinition>]
-let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
-    let x = get_global_id(0)
-    let y = get_global_id(1)
-
-    let mutable accum = 0.0f
-    for k = 0 to a.GetLength(1) - 1 do
-        accum <- accum + (a.[x,k] * b.[k,y])
-    c.[x,y] <- accum
-
-// Test functions
 (*
 let testMatrixMultEnergy() =    
     // Create insturction energy metric
@@ -245,23 +229,69 @@ let main argv =
     *)
     0
     *)
+    
+// Vector addition
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAdd(a: float32[], b: float32[], c: float32[]) =
+    let gid = get_global_id(0)
+    c.[gid] <- a.[gid] + b.[gid]
+    
+// Matrix multiplication
+[<Device(0,0)>][<ReflectedDefinition>]
+let MatrixMult(a: float32[,], b: float32[,], c: float32[,]) =
+    let x = get_global_id(0)
+    let y = get_global_id(1)
 
+    let mutable accum = 0.0f
+    for k = 0 to a.GetLength(1) - 1 do
+        accum <- accum + (a.[x,k] * b.[k,y])
+    c.[x,y] <- accum
 
+// Float4 vector addition
 [<ReflectedDefinition>]
-let vector4Sum(a:float32[], b:float32[], c:float32[]) =
+let Vector4Add(a:float4[], b:float4[], c:float4[]) =
     let id = get_global_id(0)
     c.[id] <- a.[id] + b.[id]
-        
+
+// Float4 reduce core to be used with accelerated collections
 [<ReflectedDefinition>]
-let vector4Reduce(a:float32, b:float32) =
-    a + b
-  
+let Vector4Reduce(a:float4[], sizeToConsider: int) =
+    let gid = get_global_id(0)
+    let size = get_global_size(0)
+    let mutable result = a.[gid]
+    
+    let mutable index = gid + size
+    while index < sizeToConsider do
+        result <- result + a.[gid]
+        index <- index + size
+    a.[gid] <- result
+        
+          
 [<EntryPoint>]
 let main argv =
-    let a = Array.create (16) 3.0f
-    let b = Array.create (16) 2.0f
-    let c = Array.zeroCreate<float32> (16)
-    <@@ vector4Sum(a, b, c) @@>.Run(16, 8)
+    let size = 2048
+
+    let a = Array.create (size) (float4(2.0f, 2.0f, 2.0f, 2.0f))
+    let b = Array.create (size) (float4(3.0f, 3.0f, 3.0f, 3.0f))
+    let c = Array.zeroCreate<float4> (size)
+    <@@ Vector4Add(a, b, notused(c)) @@>.Run(size, 8)
+    
+    // Do reduce
+    let mutable numberOfReduceWorkers = size / 2
+    while numberOfReduceWorkers >= 4 do
+        <@@ Vector4Reduce(notused(c), numberOfReduceWorkers * 2) @@>.Run(numberOfReduceWorkers, 4)
+        numberOfReduceWorkers <- numberOfReduceWorkers / 2
+    <@@ Vector4Reduce(notused(c), numberOfReduceWorkers * 2) @@>.Run(numberOfReduceWorkers, 2)
+
+    let result = c.[0].x + c.[0].y + c.[0].z + c.[0].w + c.[1].x + c.[1].y + c.[1].z + c.[1].w
+
+    // Check computation is ok
+    let correctResult = 
+        Array.reduce(fun (a1:float4) (a2:float4) -> a1 + a2) (Array.map2(fun (a1:float4) (b1:float4) -> a1 + b1) a b)
+    let correctValue = correctResult.x + correctResult.y + correctResult.z + correctResult.w
+
+    Console.WriteLine("OpenCL result: " + result.ToString() + " - Correct result: " + correctValue.ToString())
     0
+
 
     
