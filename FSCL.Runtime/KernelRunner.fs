@@ -15,7 +15,11 @@ module KernelRunner =
         
         member val KernelManager = new KernelManager(compiler, metric) with get
         
-        member this.RunOpenCL(kernel: FSCLKernelData, instanceIndex: int, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array) =
+        member this.RunOpenCL(kernel:FSCLKernelData,
+                              instanceIndex:int, 
+                              argumentsInfo:(ParameterInfo * int * Expr)[], 
+                              globalSize:int array, 
+                              localSize:int array) =
             let globalDataStorage = this.KernelManager.GlobalDataStorage
 
             let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) argumentsInfo                
@@ -129,10 +133,13 @@ module KernelRunner =
                         else
                             work.Invoke(null, Array.append arguments [| container |]) |> ignore
         
-        member this.Run(kernelInfo: MethodInfo, argumentsInfo: (ParameterInfo * int * Expr)[], globalSize: int array, localSize: int array, mode: KernelRunningMode, fallback: bool) =
-            let argumentsType = Array.map (fun (pi:ParameterInfo, _, _) -> pi.ParameterType) argumentsInfo
+        member this.Run(kernelModule: KernelModule, 
+                        globalSize: int array, 
+                        localSize: int array, 
+                        mode: KernelRunningMode, 
+                        fallback: bool) = 
             // Ask kernel manager to retrieve the proper executable kernel instance or to create it
-            let kernelInstance = this.KernelManager.FindOrAdd(kernelInfo, argumentsType, mode, fallback)
+            let kernelInstance = this.KernelManager.FindOrAdd(kernelModule, mode, fallback)
             match mode with
             | KernelRunningMode.OpenCL ->
                 this.RunOpenCL(kernelInstance, 0, argumentsInfo, globalSize, localSize)
@@ -142,9 +149,14 @@ module KernelRunner =
                 this.RunMultithread(kernelInstance, argumentsInfo, globalSize, localSize, false)
 
         // Run a kernel through a quoted kernel call        
-        member this.Run(expr: Expr, globalSize: int array, localSize: int array, mode: KernelRunningMode, fallback: bool) =                     
-            let (kernelInfo, args) = KernelManagerTools.ExtractMethodInfo(expr)
-            this.Run(kernelInfo, args, globalSize, localSize, mode, fallback)
+        member this.Run(expr: Expr, 
+                        globalSize: int array, 
+                        localSize: int array, 
+                        mode: KernelRunningMode, 
+                        fallback: bool) =                     
+            // Compile the expression
+            let kernelModule = this.KernelManager.Compiler.Compile(expr) :?> KernelModule
+            this.Run(kernelModule, globalSize, localSize, mode, fallback)
           
     
     // Global kernel runner
@@ -154,7 +166,7 @@ module KernelRunner =
     let Init(compiler, metric) =
         kernelRunner = new Runner(compiler, metric)
 
-    // List available device 
+    // List available devices
     let ListDevices() = 
         List.ofSeq(seq {
                         for platform in Cloo.ComputePlatform.Platforms do
@@ -164,6 +176,7 @@ module KernelRunner =
                                              })
                    })
 
+    // Extension methods to run a quoted kernel
     type Expr with
         member this.Run(globalSize: int, localSize: int) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true)

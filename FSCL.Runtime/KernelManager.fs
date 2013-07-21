@@ -20,56 +20,56 @@ type internal FSCLCompiledKernelData(program, kernel, device) =
     member val DeviceIndex = device with get
 
 type internal FSCLKernelData(parameters) =
-    member val Info:KernelInfo = parameters with get
+    member val Info:KernelInfo = parameters with get 
+    member val MultithreadVersion:FSCLKernelData option = None with get, set
+    member val OpenCLCode = "" with get, set
     // List of devices and kernel instances potentially executing the kernel
     member val Instances:List<FSCLCompiledKernelData> = new List<FSCLCompiledKernelData>() with get 
 
-type internal FSCLModuleData(genericKernel, code) =
-    member val SourceMethod:MethodInfo = genericKernel with get
-    member val Kernels:List<FSCLKernelData> = new List<FSCLKernelData>() with get     
-    member val Multithread:FSCLKernelData option = None with get, set
-    member val OpenCLSourceCode = code with get
-
 type internal FSCLGlobalData() =
-    member val Modules:List<FSCLModuleData> = new List<FSCLModuleData>() with get
+    member val Kernels:List<FSCLKernelData> = new List<FSCLKernelData>() with get
     member val Devices:List<FSCLDeviceData> = new List<FSCLDeviceData>() with get
     
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
 
 type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: SchedulingMetric option) =       
-    // Properties   
+    // The data structure caching devices (queues, contexts) and compiled kernels 
     member val GlobalDataStorage = new FSCLGlobalData() with get
-    member val SchedulingMetric = metric with get                
+    // The metric used to select the best devices for a kernel
+    member val SchedulingMetric = metric with get             
+    // The FSCL compiler   
     member val Compiler = compiler with get
+    // The multithread adaptor (compiler) to run kernels using multithreading
     member val KernelAdaptor = new MultithreadKernelAdaptor() with get
-     
-    member this.FindMatchingKernelModule(kernel: MethodInfo) =
+         
+    member this.FindMatchingKernel(kernel: MethodInfo) =
         let mutable result = None
         let mutable index = 0
-        while result.IsNone && index < this.GlobalDataStorage.Modules.Count do
-            let kernelModule = this.GlobalDataStorage.Modules.[index]
-            if kernel.IsGenericMethod && (kernelModule.SourceMethod = kernel.GetGenericMethodDefinition()) then
-                result <- Some(kernelModule)
-            elif (not kernel.IsGenericMethod) && (kernelModule.SourceMethod = kernel) then
-                result <- Some(kernelModule)
+        while result.IsNone && index < this.GlobalDataStorage.Kernels.Count do
+            let kernelInfo = this.GlobalDataStorage.Kernels.[index]
+            if kernel.IsGenericMethod && (kernelInfo.Info.ID = kernel.GetGenericMethodDefinition()) then
+                result <- Some(kernelInfo)
+            elif (not kernel.IsGenericMethod) && (kernelInfo.Info.ID = kernel) then
+                result <- Some(kernelInfo)
             else
                 index <- index + 1
         result
-            
-    member this.FindMatchingKernel(kernel: MethodInfo, pars: Type array, multithread: bool) =
-        let kernelModule = this.FindMatchingKernelModule(kernel)
+            (*
+    member this.FindMatchingCompiledKernel(kernel: MethodInfo, pars: Type array, multithread: bool) =
+        let discoveryResult = this.FindMatchingKernel(kernel)
         let mutable result = None
-        if kernelModule.IsSome then
+        match discoveryResult with
+        | Some(kernelModule, kernelData) ->
             if multithread then
-                result <- kernelModule.Value.Multithread
+                result <- kernelData.MultithreadVersion
             else
                 let mutable index = 0
-                while result.IsNone && index < kernelModule.Value.Kernels.Count do
+                while result.IsNone && index < kernelData.Instances.Count do
                     if (kernelModule.Value.Kernels.[index].Info.Source = kernel) then
                         result <- Some(kernelModule.Value.Kernels.[index])
                     else
                         index <- index + 1
-        result
+        result*)
 
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.StoreKernel(globalData:FSCLGlobalData, kernel:MethodInfo, multithread: bool, platformIndex, deviceIndex) =    
@@ -83,7 +83,7 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
                 // Create module                
                 let modul = new FSCLModuleData(kernel, conversionData)                               
                 // Store kernel instances
-                for k in kernelModule.Kernels do
+                for k in kernelModule.KernelsIDs do
                     modul.Kernels.Add(new FSCLKernelData(k))                
                 // Store kernel module
                 globalData.Modules.Add(modul)
@@ -184,16 +184,19 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
         // Return the module
         kernelModule.Value.Value
                 
-    member this.Add (kernel:MethodInfo, mode: KernelRunningMode, fallback: bool) =  
+    member this.Add(kernel: MethodInfo, 
+                    mode: KernelRunningMode, 
+                    fallback: bool) =  
         this.AnalyzeAndStoreKernel(kernel, mode, fallback)
         
-    member this.FindOrAdd (kernel:MethodInfo, argumentsType: Type[], mode: KernelRunningMode, fallback: bool) =  
-        let multithread = (mode <> KernelRunningMode.OpenCL)
-        // Finds a kernel in global data matching the call
-        let matchingKernel = ref (this.FindMatchingKernel(kernel, argumentsType, multithread))
+    member this.FindOrAdd(id: MethodInfo, 
+                          mode: KernelRunningMode, 
+                          fallback: bool) =  
+        let multithread = (mode <> KernelRunningMode.OpenCL)       
+        let matchingKernel = ref (this.FindMatchingKernel(id))
         if (!matchingKernel).IsNone then
             // Try add it to the compiler
-            this.Add(kernel, mode, fallback) |> ignore
-            matchingKernel := this.FindMatchingKernel(kernel, argumentsType, multithread)
+            this.Add(k, mode, fallback) |> ignore
+            matchingKernel := this.FindMatchingKernel(k, paramTypes, multithread)
             
         (!matchingKernel).Value
