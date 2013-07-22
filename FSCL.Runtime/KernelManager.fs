@@ -9,32 +9,11 @@ open FSCL.Compiler
 open FSCL.Runtime.Metric
 open System
 
-type internal FSCLDeviceData(device:ComputeDevice, context, queue) =
-    member val Device = device with get
-    member val Context = context with get
-    member val Queue = queue with get
-    
-type internal FSCLCompiledKernelData(program, kernel, device) =
-    member val Program = program with get 
-    member val Kernel = kernel with get
-    member val DeviceIndex = device with get
-
-type internal FSCLKernelData(parameters) =
-    member val Info:KernelInfo = parameters with get 
-    member val MultithreadVersion:FSCLKernelData option = None with get, set
-    member val OpenCLCode = "" with get, set
-    // List of devices and kernel instances potentially executing the kernel
-    member val Instances:List<FSCLCompiledKernelData> = new List<FSCLCompiledKernelData>() with get 
-
-type internal FSCLGlobalData() =
-    member val Kernels:List<FSCLKernelData> = new List<FSCLKernelData>() with get
-    member val Devices:List<FSCLDeviceData> = new List<FSCLDeviceData>() with get
-    
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
 
-type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: SchedulingMetric option) =       
+type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option) =       
     // The data structure caching devices (queues, contexts) and compiled kernels 
-    member val GlobalDataStorage = new FSCLGlobalData() with get
+    member val GlobalRuntimeCache = new RuntimeCache() with get
     // The metric used to select the best devices for a kernel
     member val SchedulingMetric = metric with get             
     // The FSCL compiler   
@@ -44,15 +23,17 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
          
     member this.FindMatchingKernel(kernel: MethodInfo) =
         let mutable result = None
-        let mutable index = 0
-        while result.IsNone && index < this.GlobalDataStorage.Kernels.Count do
-            let kernelInfo = this.GlobalDataStorage.Kernels.[index]
-            if kernel.IsGenericMethod && (kernelInfo.Info.ID = kernel.GetGenericMethodDefinition()) then
-                result <- Some(kernelInfo)
-            elif (not kernel.IsGenericMethod) && (kernelInfo.Info.ID = kernel) then
-                result <- Some(kernelInfo)
-            else
-                index <- index + 1
+        let mutable mindex = 0
+        let mutable kindex = 0
+        while result.IsNone && mindex < this.GlobalRuntimeCache.Modules.Count do
+            kindex <- 0
+            let kModule = this.GlobalRuntimeCache.Modules.[mindex]
+            while result.IsNone && kindex < kModule.Kernels.Count do
+                if kModule.Kernels.[kindex].Info.ID = kernel then
+                    result <- Some(kModule, kindex)
+                else
+                    kindex <- kindex + 1
+            mindex <- mindex + 1
         result
             (*
     member this.FindMatchingCompiledKernel(kernel: MethodInfo, pars: Type array, multithread: bool) =
@@ -145,7 +126,7 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
         // Return module
         matchKernelModule.Value
        
-    member private this.AnalyzeAndStoreKernel(kernel:MethodInfo, mode: KernelRunningMode, fallback: bool) =
+    member private this.AnalyzeKernel(kernel:RuntimeKernelData, mode: KernelRunningMode, fallback: bool) =
         // Check if OpenCL enabled platform (at least one opencl platform with one device)
         let kernelModule = ref None
         if KernelManagerTools.IsOpenCLAvailable() && mode = KernelRunningMode.OpenCL then
@@ -154,18 +135,17 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
             let mutable deviceIndex = 0
 
             // Check if a particular device is specified by the user via KernelAttribute
-            let kernelAttribute = List.ofSeq(kernel.GetCustomAttributes<DeviceAttribute>())
-            if kernelAttribute.Length > 0 then
+            if kernel.Info.TargetDevice.IsSome then
                 // Check if platform and device indexes are valid
-                platformIndex <- kernelAttribute.[0].Platform
-                deviceIndex <- kernelAttribute.[0].Device      
+                platformIndex <- kernel.Info.TargetDevice.Platform
+                deviceIndex <- kernel.Info.TargetDevice.Device      
                 if ComputePlatform.Platforms.Count <= platformIndex || (ComputePlatform.Platforms.[platformIndex]).Devices.Count <= deviceIndex then
-                    raise (new KernelDefinitionException("The platform and device indexes specified for the kernel " + kernel.Name + " are invalid"))
+                    raise (new KernelDeviceSelectionException("The platform and device indexes specified for the kernel " + kernel.Info.Name + " are invalid"))
                 
                 kernelModule := Some(this.StoreKernel(this.GlobalDataStorage, kernel, false, platformIndex, deviceIndex))
             // No statically determined device: build kernel for all the possible devices
             else
-                // The heart: find best device using a metric (by now fixed assignment)
+                // THE HEART: find best device using a metric (by now fixed assignment)
                 platformIndex <- 0
                 deviceIndex <- 0    
                 
@@ -183,20 +163,17 @@ type internal KernelManager(compiler: FSCL.Compiler.Compiler, metric: Scheduling
           
         // Return the module
         kernelModule.Value.Value
-                
-    member this.Add(kernel: MethodInfo, 
-                    mode: KernelRunningMode, 
-                    fallback: bool) =  
-        this.AnalyzeAndStoreKernel(kernel, mode, fallback)
         
-    member this.FindOrAdd(id: MethodInfo, 
-                          mode: KernelRunningMode, 
-                          fallback: bool) =  
+    member this.BuildRuntimeCallGraph(cg: ModuleCallGraph, 
+                                      mode: KernelRunningMode, 
+                                      fallback: bool) =  
         let multithread = (mode <> KernelRunningMode.OpenCL)       
-        let matchingKernel = ref (this.FindMatchingKernel(id))
-        if (!matchingKernel).IsNone then
-            // Try add it to the compiler
-            this.Add(k, mode, fallback) |> ignore
-            matchingKernel := this.FindMatchingKernel(k, paramTypes, multithread)
-            
-        (!matchingKernel).Value
+        for id in cg.KernelIDs do
+            let matchingKernel = this.FindMatchingKernel(id)
+            match matchingKernel with
+            | Some(moduleData, kernelIndex) ->
+                this.AnalyzeKernel(moduleData.Kernels.[kernelIndex], mode, fallback)
+            | None ->
+                this.StoreKernel(cg.GetKernel(id), mode, fallback)
+
+        null

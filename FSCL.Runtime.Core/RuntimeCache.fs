@@ -23,8 +23,7 @@ type RuntimeKernelData(parameters, mtv) =
 type RuntimeModuleData(program, kcg, code, kernels) =
     member val Program:ComputeProgram = program with get  
     member val OpenCLCode:String = code with get
-    member val CallGraph:ModuleCallGraph = kcg with get
-    member val Instances:List<RuntimeKernelData> = new List<RuntimeKernelData>() with get 
+    member val Kernels:List<RuntimeKernelData> = new List<RuntimeKernelData>() with get 
 
 type RuntimeCache() =
     member val Modules:List<RuntimeModuleData> = new List<RuntimeModuleData>() with get

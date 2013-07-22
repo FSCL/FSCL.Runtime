@@ -45,9 +45,6 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.fs" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
       <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
@@ -63,6 +60,9 @@
       <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
       <Private>True</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ModulePreparsingStep.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -74,6 +74,11 @@
       <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
+      <Name>FSCL.Runtime.Core</Name>
+      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
