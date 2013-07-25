@@ -39,6 +39,8 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="LanguageExtensions.fs" />
@@ -72,6 +74,11 @@
     <ProjectReference Include="..\Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
       <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.CompilerSteps\FSCL.Runtime.CompilerSteps.fsproj">
+      <Name>FSCL.Runtime.CompilerSteps</Name>
+      <Project>{1ad3e1dc-d7f0-4b0c-b58f-e7e443e81471}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">

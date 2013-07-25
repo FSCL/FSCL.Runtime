@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>3612534d-09e6-41aa-b7ae-5776fa484f89</ProjectGuid>
+    <ProjectGuid>30aedfa4-b91e-415e-a3cd-113c2e681418</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>FSCL.Runtime.CacheInspection</RootNamespace>
-    <AssemblyName>FSCL.Runtime.CacheInspection</AssemblyName>
+    <RootNamespace>FSCL.Runtime.SeparatedCodegen</RootNamespace>
+    <AssemblyName>FSCL.Runtime.SeparatedCodegen</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>FSCL.Runtime.CacheInspection</Name>
+    <Name>FSCL.Runtime.SeparatedCodegen</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSCL.Runtime.CacheInspection.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSCL.Runtime.SeparatedCodegen.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,7 +29,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSCL.Runtime.CacheInspection.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSCL.Runtime.SeparatedCodegen.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -41,22 +41,12 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CacheInspectionStep.fs" />
+    <Compile Include="SeparatedCodegenStep.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
       <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
-      <Name>FSCL.Runtime.Core</Name>
-      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

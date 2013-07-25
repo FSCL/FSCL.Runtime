@@ -9,3 +9,6 @@ type KernelTargetCodeGenerationException(msg: string) =
 type KernelDeviceSelectionException(msg: string) =
     inherit System.Exception(msg)
 
+type KernelSchedulingException(msg: string) =
+    inherit System.Exception(msg)
+

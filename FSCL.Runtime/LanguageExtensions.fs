@@ -8,12 +8,6 @@ type KernelRunningMode =
 | Multithread
 | Sequential
 
-type DeviceAttribute(platform: int, device: int) =
-    inherit Attribute()
-
-    member val Platform = platform with get
-    member val Device = device with get
-
 module HostLanguage =
     let notused b =
         b

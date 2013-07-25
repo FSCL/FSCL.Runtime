@@ -1,6 +1,5 @@
 ﻿namespace FSCL.Runtime.CacheInspection
 
-open Cloo
 open System
 open System.Reflection
 open System.Collections.Generic
@@ -21,18 +20,18 @@ type CacheInspectionStep(tm: TypeManager,
             // Get cache
             let cache = kmodule.CustomInfo.["RUNTIME_CACHE"] :?> RuntimeCache
             // Skip kernels already compiled
-            for k in kmodule.CallGraph.KernelIDs do
-                if cache.Kernels.ContainsKey(k) then
-                    let cachedKernel = cache.Kernels.[k]
-                    let kernel = kmodule.CallGraph.GetKernel(k)
-                    kernel.Skip <- true
-                    kernel.Body <- cachedKernel.Info.Body
-                    kernel.Codegen <- cachedKernel.Info.Codegen
+            for k in kmodule.CallGraph.Kernels do
+                // If a mathing kernel has been cached and it contains the opencl source code
+                if cache.Kernels.ContainsKey(k.ID) && cache.Kernels.[k.ID].OpenCLCode.IsSome then
+                    let cachedKernel = cache.Kernels.[k.ID]
+                    k.Skip <- true
+                    k.Body <- cachedKernel.Info.Body
+                    k.Codegen <- cachedKernel.Info.Codegen
                     for item in cachedKernel.Info.CustomInfo do
-                        kernel.CustomInfo.Add(item.Key, item.Value)
+                        k.CustomInfo.Add(item.Key, item.Value)
                     for item in cachedKernel.Info.ParameterInfo do
-                        kernel.ParameterInfo.Add(item.Key, item.Value)
-                    kernel.Signature <- cachedKernel.Info.Signature
+                        k.ParameterInfo.Add(item.Key, item.Value)
+                    k.Signature <- cachedKernel.Info.Signature
         kmodule
         
 

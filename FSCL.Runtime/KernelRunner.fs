@@ -6,6 +6,8 @@ open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.QuotationEvaluation
 open FSCL.Compiler
+open System
+open System.Collections.Generic
 open System.Threading
 
 module KernelRunner =
@@ -14,15 +16,18 @@ module KernelRunner =
         
         member val KernelManager = new KernelManager(compiler, metric) with get
         
-        member this.RunOpenCL(kcg:ModuleCallGraph,
-                              globalSize:int array, 
-                              localSize:int array) =
-            let globalDataStorage = this.KernelManager.GlobalDataStorage
-
-            for kernelID in kcg.KernelIDs do
-                let kernelInfo = kcg.GetKernel(kernelID)
+        member this.RunOpenCL(cg: ModuleCallGraph,
+                              execInfo: RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData,
+                              bufferBinding: Dictionary<MethodInfo, Dictionary<String, ComputeMemory>>,
+                              globalSize: int array, 
+                              localSize: int array) =
+            // The storage for buffers potentially used by successive kernels in the call graph flow
+            let deviceData, kernelData, compiledData = execInfo
+            let mutable argIndex = 0
+            // Foreach argument of the kernel
+            for par in  kernelData.Info.ParameterInfo.Values do
                 // Evaluate the arguments
-                let arguments = List.ofSeq(Seq.map (fun (p:KernelParameterInfo) -> p.ArgumentExpression) (kernelInfo.ParameterInfo.Values))
+                let arguments = List.ofSeq(Seq.map (fun (p:KernelParameterInfo) -> p.ArgumentExpression) (kernelData.Info.ParameterInfo.Values))
 
                 // Fix: here to be called INSTANTIATE on a metric to get the device to use
                 let kernelInstance = kernel.Instance
@@ -139,17 +144,13 @@ module KernelRunner =
                         localSize: int array, 
                         mode: KernelRunningMode, 
                         fallback: bool) =                     
-            // Compile the expression (TODO: pass the global cache to prevent compilation of already-compiler kernels)
-            let kernelModule = this.KernelManager.Compiler.Compile(expr) :?> KernelModule
-            // Ask kernel manager to retrieve the proper executable kernel instance or to create it
-            let kernelInstance = this.KernelManager.Store(kernelModule, mode, fallback)
             match mode with
             | KernelRunningMode.OpenCL ->
-                this.RunOpenCL(kernelInstance, 0, globalSize, localSize)
+                this.RunOpenCL(kernels, globalSize, localSize)
             | KernelRunningMode.Multithread ->
-                this.RunMultithread(kernelInstance, globalSize, localSize, true)
+                this.RunMultithread(kernels, globalSize, localSize, true)
             | _ ->
-                this.RunMultithread(kernelInstance, globalSize, localSize, false)
+                this.RunMultithread(kernels, globalSize, localSize, false)
           
     
     // Global kernel runner

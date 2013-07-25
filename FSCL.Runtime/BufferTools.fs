@@ -47,6 +47,12 @@ type internal BufferTools() =
             let region = Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2))
             q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
             
+    static member CopyBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, input:ComputeBuffer<'T>) =
+        //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
+        let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, input.Size)
+        q.CopyBuffer<'T>(input, buffer, null)
+        buffer :> ComputeMemory
+
     static member WriteBuffer(t, context, queue, o, dim, mustInitBuffer) =
         let mutable buffer = None
         if (t = typeof<uint32>) then
@@ -122,3 +128,43 @@ type internal BufferTools() =
             BufferTools.ReadBuffer<double3>(context, queue, o, dim, buffer :?> ComputeBuffer<double3>) 
         elif (t = typeof<double4>) then
             BufferTools.ReadBuffer<double4>(context, queue, o, dim, buffer :?> ComputeBuffer<double4>) 
+            
+    static member CopyBuffer(t, context, queue, input:ComputeMemory) =
+        let t = input.GetType().GetGenericArguments().[0]        
+        let mutable buffer = None
+        if (t = typeof<uint32>) then
+            buffer <- Some(BufferTools.CopyBuffer<uint32>(context, queue, input :?> ComputeBuffer<uint32>))
+        elif (t = typeof<uint64>) then
+            buffer <- Some(BufferTools.CopyBuffer<uint64>(context, queue, input :?> ComputeBuffer<uint64>))
+        elif (t = typeof<int64>) then
+            buffer <- Some(BufferTools.CopyBuffer<int64>(context, queue, input :?> ComputeBuffer<int64>))
+        elif (t = typeof<int>) then
+            buffer <- Some(BufferTools.CopyBuffer<int>(context, queue, input :?> ComputeBuffer<int>))
+        elif (t = typeof<double>) then
+            buffer <- Some(BufferTools.CopyBuffer<double>(context, queue, input :?> ComputeBuffer<double>))
+        elif (t = typeof<float32>) then
+            buffer <- Some(BufferTools.CopyBuffer<float32>(context, queue, input :?> ComputeBuffer<float32>))
+        elif (t = typeof<bool>) then
+            buffer <- Some(BufferTools.CopyBuffer<bool>(context, queue, input :?> ComputeBuffer<bool>))
+
+        elif (t = typeof<float2>) then
+            buffer <- Some(BufferTools.CopyBuffer<float2>(context, queue, input :?> ComputeBuffer<float2>))
+        elif (t = typeof<float3>) then
+            buffer <- Some(BufferTools.CopyBuffer<float3>(context, queue, input :?> ComputeBuffer<float3>))
+        elif (t = typeof<float4>) then
+            buffer <- Some(BufferTools.CopyBuffer<float4>(context, queue, input :?> ComputeBuffer<float4>))
+            
+        elif (t = typeof<int2>) then
+            buffer <- Some(BufferTools.CopyBuffer<int2>(context, queue, input :?> ComputeBuffer<int2>))
+        elif (t = typeof<int3>) then
+            buffer <- Some(BufferTools.CopyBuffer<int3>(context, queue, input :?> ComputeBuffer<int3>))
+        elif (t = typeof<int4>) then
+            buffer <- Some(BufferTools.CopyBuffer<int4>(context, queue, input :?> ComputeBuffer<int4>))
+            
+        elif (t = typeof<double2>) then
+            buffer <- Some(BufferTools.CopyBuffer<double2>(context, queue, input :?> ComputeBuffer<double2>))
+        elif (t = typeof<double3>) then
+            buffer <- Some(BufferTools.CopyBuffer<double3>(context, queue, input :?> ComputeBuffer<double3>))
+        elif (t = typeof<double4>) then
+            buffer <- Some(BufferTools.CopyBuffer<double4>(context, queue, input :?> ComputeBuffer<double4>))
+        buffer

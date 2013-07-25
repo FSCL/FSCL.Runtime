@@ -4,27 +4,27 @@ open System
 open Cloo
 open FSCL.Compiler
 open System.Collections.Generic
+open System.Reflection
 
-type RuntimeDeviceData(device:ComputeDevice, context, queue) =
+[<AllowNullLiteral>]
+type RuntimeDeviceData(device: ComputeDevice, context: ComputeContext, queue: ComputeCommandQueue) =
     member val Device = device with get
     member val Context = context with get
     member val Queue = queue with get
-    
-type RuntimeCompiledKernelData(program, kernel, device) =
-    member val Kernel = kernel with get
-    member val DeviceIndex = device with get
-
-type RuntimeKernelData(parameters, mtv) =
-    member val Info:KernelInfo = parameters with get 
-    member val MultithreadVersion:RuntimeDeviceData option = mtv with get
-    // List of devices and kernel instances potentially executing the kernel
-    member val Instances:List<RuntimeCompiledKernelData> = new List<RuntimeCompiledKernelData>() with get 
-
-type RuntimeModuleData(program, kcg, code, kernels) =
+   
+[<AllowNullLiteral>] 
+type RuntimeCompiledKernelData(program, kernel) =
     member val Program:ComputeProgram = program with get  
-    member val OpenCLCode:String = code with get
-    member val Kernels:List<RuntimeKernelData> = new List<RuntimeKernelData>() with get 
+    member val Kernel:ComputeKernel = kernel with get
 
+[<AllowNullLiteral>]
+type RuntimeKernelData(info, mtv, code) =
+    member val Info:KernelInfo = info with get 
+    member val MultithreadVersion:MethodInfo option = mtv with get, set
+    member val OpenCLCode:String option = code with get, set
+    // List of devices and kernel instances potentially executing the kernel
+    member val Instances:Dictionary<int * int, RuntimeCompiledKernelData> = new Dictionary<int * int, RuntimeCompiledKernelData>() with get 
+    
 type RuntimeCache() =
-    member val Modules:List<RuntimeModuleData> = new List<RuntimeModuleData>() with get
-    member val Devices:List<RuntimeDeviceData> = new List<RuntimeDeviceData>() with get
+    member val Kernels:Dictionary<MethodInfo, RuntimeKernelData> = Dictionary<MethodInfo, RuntimeKernelData>() with get
+    member val Devices:Dictionary<int * int, RuntimeDeviceData> = new Dictionary<int * int, RuntimeDeviceData>() with get
