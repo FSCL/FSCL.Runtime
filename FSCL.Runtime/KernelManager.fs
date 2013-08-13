@@ -9,11 +9,14 @@ open FSCL.Compiler
 open FSCL.Compiler.Configuration
 open FSCL.Runtime.Metric
 open System
+open System.Reflection
+open System.Collections.ObjectModel
 open FSCL.Runtime.CacheInspection
 
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
 
-type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option) =  
+type internal KernelManager(compiler: Compiler, 
+                            metric: SchedulingMetric option) =  
     // The data structure caching devices texts) and (queues, concompiled kernels 
     member val private GlobalCache = new RuntimeCache() with get
     // The metric used to select the best devices for a kernel
@@ -54,11 +57,11 @@ type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option)
         //#2: Check if the kernel has been already cached
         if not multithread then
             if not (this.GlobalCache.Kernels.ContainsKey(node.ID)) then
-                this.GlobalCache.Kernels.Add(node.ID, new RuntimeKernelData(node, None, Some(node.Codegen)))
+                this.GlobalCache.Kernels.Add(node.ID, new RuntimeKernelData(node, None, Some(node.Code)))
             else if this.GlobalCache.Kernels.[node.ID].OpenCLCode.IsNone then
                 //This happens if previously the kernel has been run in Multithread mode
                 // We thus have the entry in the cache but no opencl code produces
-                this.GlobalCache.Kernels.[node.ID].OpenCLCode <- Some(node.Codegen)
+                this.GlobalCache.Kernels.[node.ID].OpenCLCode <- Some(node.Code)
         else
             if not (this.GlobalCache.Kernels.ContainsKey(node.ID)) then
                 // Create multithread version
@@ -73,7 +76,7 @@ type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option)
         //#3: If OpenCL mode, check if the device target code has been already generated    
         if not multithread then        
             if not (this.GlobalCache.Kernels.[node.ID].Instances.ContainsKey(platformIndex, deviceIndex)) then
-                let computeProgram = new ComputeProgram(device.Context, kernel.OpenCLCode.Value)
+                let computeProgram = new ComputeProgram(device.Context, kernel.Info.CustomInfo.["SEPARATED_CODE"] :?> string)
                 try
                     computeProgram.Build([| device.Device |], "", null, System.IntPtr.Zero)
                 with
@@ -90,7 +93,9 @@ type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option)
         //#4: Return device, kernel and compiled kernel
         (device, kernel, compiledKernel)
        
-    member private this.AnalyzeAndStoreKernel(kernel:KernelInfo, mode: KernelRunningMode, fallback: bool) =
+    member private this.AnalyzeAndStoreKernel(kernel:KernelInfo, 
+                                              mode: KernelRunningMode, 
+                                              fallback: bool) =
         // Check if OpenCL enabled platform (at least one opencl platform with one device)
         let kernelModule = ref None
         if KernelManagerTools.IsOpenCLAvailable() && mode = KernelRunningMode.OpenCL then
@@ -119,7 +124,12 @@ type internal KernelManager(compiler: Compiler, metric: SchedulingMetric option)
 
         // Copile the input passing the global cache to skip kernels already compiled
         let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache)) :?> (KernelModule * string)
-        seq {
+        let s = seq {
             for k in kernelModule.CallGraph.Kernels do
-                 yield this.AnalyzeAndStoreKernel(k, mode, fallback)
+                 yield (this.AnalyzeAndStoreKernel(k, 
+                                                   mode, 
+                                                   fallback), 
+                        kernelModule.CallGraph.GetInputConnections(k.ID),
+                        kernelModule.CallGraph.GetOutputConnections(k.ID))
         }
+        s

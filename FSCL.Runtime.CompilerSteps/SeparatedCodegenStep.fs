@@ -29,8 +29,8 @@ type SeparatedCodegenStep(tm: TypeManager,
                 let directives = String.concat "\n\n" (km.CallGraph.GetRequireDirectives(k.ID))
                 let structs = km.CallGraph.GetTypesUsage(k.ID)
                 let pstructs = String.concat "\n" (List.map (fun (s: Type) -> PrintStructDefinition(s)) structs)
-                let functions = String.concat "\n\n" (List.map (fun (f: FunctionInfo) -> f.Codegen) (List.map (fun (m:MethodInfo) -> km.CallGraph.GetFunction(m)) (List.ofSeq(km.CallGraph.GetOutputCalls(k.ID).Keys))))
-                let code = k.Codegen
+                let functions = String.concat "\n\n" (List.map (fun (f: FunctionInfo) -> f.Code) (List.map (fun (m:MethodInfo) -> km.CallGraph.GetFunction(m)) (List.ofSeq(km.CallGraph.GetOutputCalls(k.ID).Keys))))
+                let code = k.Code
                 let result = String.concat "\n\n" [directives; pstructs; functions; code]
                 k.CustomInfo.Add("SEPARATED_CODE", result)
         (km, "")

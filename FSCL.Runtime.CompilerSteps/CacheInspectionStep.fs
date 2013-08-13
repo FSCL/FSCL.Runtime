@@ -26,12 +26,13 @@ type CacheInspectionStep(tm: TypeManager,
                     let cachedKernel = cache.Kernels.[k.ID]
                     k.Skip <- true
                     k.Body <- cachedKernel.Info.Body
-                    k.Codegen <- cachedKernel.Info.Codegen
+                    k.Code <- cachedKernel.Info.Code
+                    k.Name <- cachedKernel.Info.Name
+                    k.ReturnType <- cachedKernel.Info.ReturnType
                     for item in cachedKernel.Info.CustomInfo do
                         k.CustomInfo.Add(item.Key, item.Value)
-                    for item in cachedKernel.Info.ParameterInfo do
-                        k.ParameterInfo.Add(item.Key, item.Value)
-                    k.Signature <- cachedKernel.Info.Signature
+                    for item in cachedKernel.Info.Parameters do
+                        k.Parameters.Add(item)
         kmodule
         
 
