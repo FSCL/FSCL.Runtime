@@ -80,7 +80,7 @@ module KernelRunner =
                             let sizeOfDim = o.GetType().GetMethod("GetLength").Invoke(o, [| spIndex |]) :?> int
                             sizeParametersBinding.Add(par.SizeParameters.[spIndex].Name, sizeOfDim)  
                             sizeParametersValue.Add(sizeOfDim)
-                        // Create buffer is needed (no local address space)
+                        // Create buffer if needed (no local address space)
                         if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
                             let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
                                         (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
@@ -160,16 +160,14 @@ module KernelRunner =
                         if(mustReadBuffer) then                 
                             BufferTools.ReadBuffer(par.Type, deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
                             
-        member this.RunMultithread(deviceData: RuntimeDeviceData,
-                                   kernelData: RuntimeKernelData,
+        member this.RunMultithread(kernelData: RuntimeKernelData,
                                    compiledData: RuntimeCompiledKernelData,
                                    inputConnections: ConnectionTable,
                                    outputConnections: ConnectionTable,
                                    bufferBinding: Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>,
                                    globalSize: int array, 
                                    localSize: int array, 
-                                   multithread: bool) =
-            let arguments = Array.map (fun (p, d, e:Expr) -> e.EvalUntyped()) argumentsInfo 
+                                   multithread: bool) =                                               
             // Normalize dimensions of workspace
             // If the workspace is one dim, treansform into 3 dims with the second and the third equals to 1 (thread)
             let normalizedGlobalSize, normalizedLocalSize = 
@@ -181,6 +179,51 @@ module KernelRunner =
                 | _ ->
                     (globalSize, localSize)
 
+            // Analyze connections to build a parameter-based indexed structure
+            let ic, oc = this.BuildParameterBasedConnections(inputConnections, outputConnections)
+
+            // The list of arguments of the kernel (that must be passed to each cpu thread)
+            let arguments = new List<Object>()
+            // The storage for buffers potentially used by successive kernels in the call graph flow
+            let mutable argIndex = 0
+            // To remember the array associated to the length parameters
+            let sizeParametersBinding = new Dictionary<string, int>()
+            // Foreach argument of the kernel
+            for par in kernelData.Info.Parameters do      
+                if par.Type.IsArray then             
+                    // Check if this is the input coming from a previously executed kernel
+                    if not (ic.ContainsKey(par.Name)) then
+                        // No input from a  kernel, there must be an input from an actual argument
+                        if par.ArgumentExpression.IsNone then
+                            raise (new KernelSetupException("Cannot setup the parameter " + par.Name + " for the kernel " + kernelData.Info.Name + ": the parameter is not bound to any other kernel and no associated actual argument has been found"))
+                        let o = par.ArgumentExpression.Value.EvalUntyped()                        
+                        // Store buffer/object data
+                        if not (bufferBinding.ContainsKey(kernelData.Info.ID)) then
+                            bufferBinding.Add(kernelData.Info.ID, new Dictionary<string, ComputeMemory * Object * int array>())
+                        bufferBinding.[kernelData.Info.ID].Add(par.Name, (null, o, null))
+                        // Add the argument value to the list
+                        arguments.Add(o)
+                    // We get the input from a previously-executed kernel
+                    else
+                        let _, inputBuffer, _ = bufferBinding.[fst (ic.[par.Name])].[snd (ic.[par.Name])]
+                        // Check if this can be written to be the input of a successive kernel
+                        if not (bufferBinding.ContainsKey(kernelData.Info.ID)) then
+                            bufferBinding.Add(kernelData.Info.ID, new Dictionary<string, ComputeMemory * Object * int array>())
+                        bufferBinding.[kernelData.Info.ID].Add(par.Name, (null, inputBuffer, null))      
+                        // Add the argument value to the list
+                        arguments.Add(inputBuffer)          
+                else
+                    // Add the argument value to the list
+                    arguments.Add(par.ArgumentExpression.Value.EvalUntyped())
+            // Process next parameter
+            argIndex <- argIndex + 1
+
+            // Finalize the arguments (List -> array)            
+            // Add fake additional element to the list of arguments. It will be replaced with the appropriate instance of WorkItemIdContainer foreach thread executed
+            arguments.Add(new Object())
+            let finalArguments = Array.ofSeq(arguments)
+
+            // Run kernel
             // Launch threads or execute sequential
             let work = kernelData.MultithreadVersion.Value
             for i = 0 to normalizedGlobalSize.[0] - 1 do
@@ -192,12 +235,14 @@ module KernelRunner =
                                                                 [| i; j; k |], 
                                                                 [| i / normalizedGlobalSize.[0]; j / normalizedGlobalSize.[1]; k / normalizedGlobalSize.[2] |],
                                                                 [| 0; 0; 0 |])
+                        // Set container as last paramenter
+                        finalArguments.[finalArguments.Length - 1] <- container :> obj
                         if multithread then
                             // Create thread
-                            let t = new Thread(new ThreadStart(fun () -> work.Invoke(null, Array.append arguments [| container |]) |> ignore))
+                            let t = new Thread(new ThreadStart(fun () -> work.Invoke(null, finalArguments) |> ignore))
                             t.Start()
                         else
-                            work.Invoke(null, Array.append arguments [| container |]) |> ignore
+                            work.Invoke(null, finalArguments) |> ignore            
         
         // Run a kernel through a quoted kernel call        
         member this.Run(expr: Expr, 
@@ -208,15 +253,18 @@ module KernelRunner =
             let data = this.KernelManager.Process(expr, mode, fallback)                                 
             match mode with
             | KernelRunningMode.OpenCL ->                
-                let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * int arra>y>()
+                let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
                 for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
                     this.RunOpenCL(deviceData, kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize)
             | KernelRunningMode.Multithread ->
-                this.RunMultithread(expr, globalSize, localSize, true)
+                let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
+                for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
+                    this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, true)
             | _ ->
-                this.RunMultithread(expr, globalSize, localSize, false)
-          
-    
+                let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
+                for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
+                    this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, false)
+       
     // Global kernel runner
     let internal kernelRunner = new Runner(new Compiler(), None)
 
