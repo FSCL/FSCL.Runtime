@@ -8,7 +8,7 @@ open System.Reflection.Emit
 open FSCL.Runtime.KernelRunner
 open System
 open System.Collections.Generic
-
+open System.Diagnostics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
     
@@ -265,12 +265,30 @@ let Vector4Reduce(a:float4[], sizeToConsider: int) =
         result <- result + a.[gid]
         index <- index + size
     a.[gid] <- result
-        
-          
+                  
 [<EntryPoint>]
 let main argv =
-    let size = 2048
+    let timer = new Stopwatch()
+    let size = 20480
+    
+    // Create buffers
+    let a = Array.create (size) 2.0f
+    let b = Array.create (size) 3.0f
+    let c = Array.zeroCreate<float32> (size)
 
+    // Execute vector add in OpenCL mode
+    timer.Start()
+    <@@ VectorAdd(a, b, c) @@>.RunOpenCL(2048, 64)
+    timer.Stop()
+    Console.WriteLine("First vector add execution time: " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+    // Re-execute vector add exploiting runtime caching for kernels    
+    timer.Restart()
+    <@@ VectorAdd(a, b, c) @@>.RunOpenCL(2048, 64)
+    timer.Stop()
+    Console.WriteLine("Second vector add execution time: " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+    (*
     let a = Array.create (size) (float4(2.0f, 2.0f, 2.0f, 2.0f))
     let b = Array.create (size) (float4(3.0f, 3.0f, 3.0f, 3.0f))
     let c = Array.zeroCreate<float4> (size)
@@ -292,6 +310,7 @@ let main argv =
 
     Console.WriteLine("OpenCL result: " + result.ToString() + " - Correct result: " + correctValue.ToString())
     0
-
+    *)
+    0
 
     

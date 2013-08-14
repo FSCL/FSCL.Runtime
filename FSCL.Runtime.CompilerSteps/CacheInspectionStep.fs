@@ -30,7 +30,8 @@ type CacheInspectionStep(tm: TypeManager,
                     k.Name <- cachedKernel.Info.Name
                     k.ReturnType <- cachedKernel.Info.ReturnType
                     for item in cachedKernel.Info.CustomInfo do
-                        k.CustomInfo.Add(item.Key, item.Value)
+                        if not (k.CustomInfo.ContainsKey(item.Key)) then
+                            k.CustomInfo.Add(item.Key, item.Value)  
                     for item in cachedKernel.Info.Parameters do
                         k.Parameters.Add(item)
         kmodule

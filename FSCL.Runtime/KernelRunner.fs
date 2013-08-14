@@ -131,8 +131,8 @@ module KernelRunner =
                     else
                         let o = par.ArgumentExpression.Value.EvalUntyped()        
                         compiledData.Kernel.SetValueArgumentAsObject(argIndex, o)
-            // Process next parameter
-            argIndex <- argIndex + 1
+                // Process next parameter
+                argIndex <- argIndex + 1
 
             // Run kernel
             let offset = Array.zeroCreate<int64>(globalSize.Length)
@@ -158,7 +158,7 @@ module KernelRunner =
                                 (par.Access = KernelParameterAccessMode.ReadWrite))
 
                         if(mustReadBuffer) then                 
-                            BufferTools.ReadBuffer(par.Type, deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
+                            BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
                             
         member this.RunMultithread(kernelData: RuntimeKernelData,
                                    compiledData: RuntimeCompiledKernelData,

@@ -14,7 +14,7 @@ open System.Collections.ObjectModel
 open FSCL.Runtime.CacheInspection
 
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
-
+    
 type internal KernelManager(compiler: Compiler, 
                             metric: SchedulingMetric option) =  
     // The data structure caching devices texts) and (queues, concompiled kernels 
@@ -40,7 +40,7 @@ type internal KernelManager(compiler: Compiler,
         let mutable compiledKernel = null
 
         //#1: Check if there is the corresponding device info have been set
-        if not (this.GlobalCache.Devices.ContainsKey(platformIndex, deviceIndex)) then        
+        if not (this.GlobalCache.Devices.ContainsKey((platformIndex, deviceIndex))) then        
             // Get OpenCL info
             let platform = ComputePlatform.Platforms.[platformIndex]
             let dev = platform.Devices.[deviceIndex]   
@@ -52,7 +52,7 @@ type internal KernelManager(compiler: Compiler,
             let computeQueue = new ComputeCommandQueue(computeContext, dev, ComputeCommandQueueFlags.None) 
             // Add device to the global devices cache
             this.GlobalCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDeviceData(dev, computeContext, computeQueue))
-            device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]
+        device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]
 
         //#2: Check if the kernel has been already cached
         if not multithread then
@@ -123,7 +123,7 @@ type internal KernelManager(compiler: Compiler,
         let multithread = (mode <> KernelRunningMode.OpenCL)    
 
         // Copile the input passing the global cache to skip kernels already compiled
-        let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache)) :?> (KernelModule * string)
+        let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache))  :?> (KernelModule * string)        
         let s = seq {
             for k in kernelModule.CallGraph.Kernels do
                  yield (this.AnalyzeAndStoreKernel(k, 

@@ -7,10 +7,10 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open FSCL.Compiler
 
-[<Step("FSCL_SEPARATED_MODULE_CODEGENEN_STEP", Dependencies = [| "FSCL_FUNCTION_CODEGEN_STEP" |])>] 
+[<Step("FSCL_SEPARATED_MODULE_CODEGENEN_STEP", Dependencies = [| "FSCL_MODULE_CODEGEN_STEP" |])>] 
 type SeparatedCodegenStep(tm: TypeManager,
                           processors: ICompilerStepProcessor list) = 
-    inherit CompilerStep<KernelModule, KernelModule * String>(tm, processors)
+    inherit CompilerStep<KernelModule * String, KernelModule * String>(tm, processors)
     
     let PrintStructDefinition(t: Type) =
         let mutable print = "struct " + t.Name + " {\n";
@@ -23,7 +23,7 @@ type SeparatedCodegenStep(tm: TypeManager,
         print <- print + "}\n";
         print
 
-    override this.Run(km) =
+    override this.Run((km, globalCode)) =
         for k in km.CallGraph.Kernels do
             if not(km.CallGraph.GetKernel(k.ID).Skip) then
                 let directives = String.concat "\n\n" (km.CallGraph.GetRequireDirectives(k.ID))
@@ -33,7 +33,7 @@ type SeparatedCodegenStep(tm: TypeManager,
                 let code = k.Code
                 let result = String.concat "\n\n" [directives; pstructs; functions; code]
                 k.CustomInfo.Add("SEPARATED_CODE", result)
-        (km, "")
+        (km, globalCode)
 
         
 
