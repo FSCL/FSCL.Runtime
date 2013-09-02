@@ -20,20 +20,20 @@ type CacheInspectionStep(tm: TypeManager,
             // Get cache
             let cache = kmodule.CustomInfo.["RUNTIME_CACHE"] :?> RuntimeCache
             // Skip kernels already compiled
-            for k in kmodule.CallGraph.Kernels do
+            for k in kmodule.GetKernels() do
                 // If a mathing kernel has been cached and it contains the opencl source code
-                if cache.Kernels.ContainsKey(k.ID) && cache.Kernels.[k.ID].OpenCLCode.IsSome then
-                    let cachedKernel = cache.Kernels.[k.ID]
-                    k.Skip <- true
-                    k.Body <- cachedKernel.Info.Body
-                    k.Code <- cachedKernel.Info.Code
-                    k.Name <- cachedKernel.Info.Name
-                    k.ReturnType <- cachedKernel.Info.ReturnType
+                if cache.Kernels.ContainsKey(k.Info.ID) && cache.Kernels.[k.Info.ID].OpenCLCode.IsSome then
+                    let cachedKernel = cache.Kernels.[k.Info.ID]
+                    k.Info.Skip <- true
+                    k.Info.Body <- cachedKernel.Info.Body
+                    k.Info.Code <- cachedKernel.Info.Code
+                    k.Info.Name <- cachedKernel.Info.Name
+                    k.Info.ReturnType <- cachedKernel.Info.ReturnType
                     for item in cachedKernel.Info.CustomInfo do
-                        if not (k.CustomInfo.ContainsKey(item.Key)) then
-                            k.CustomInfo.Add(item.Key, item.Value)  
+                        if not (k.Info.CustomInfo.ContainsKey(item.Key)) then
+                            k.Info.CustomInfo.Add(item.Key, item.Value)  
                     for item in cachedKernel.Info.Parameters do
-                        k.Parameters.Add(item)
+                        k.Info.Parameters.Add(item)
         kmodule
         
 

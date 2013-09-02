@@ -124,12 +124,8 @@ type internal KernelManager(compiler: Compiler,
 
         // Copile the input passing the global cache to skip kernels already compiled
         let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache))  :?> (KernelModule * string)        
-        let s = seq {
-            for k in kernelModule.CallGraph.Kernels do
-                 yield (this.AnalyzeAndStoreKernel(k, 
-                                                   mode, 
-                                                   fallback), 
-                        kernelModule.CallGraph.GetInputConnections(k.ID),
-                        kernelModule.CallGraph.GetOutputConnections(k.ID))
-        }
-        s
+        // Collect runtime information (device resources, kernel OpenCL program, ecc) for each method info
+        let runtimeInfo = new Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>();
+        for k in kernelModule.GetKernels() do
+            runtimeInfo.Add(k.Info.ID, this.AnalyzeAndStoreKernel(k.Info, mode, fallback))
+        (runtimeInfo, FlowGraphManager.Flatten(kernelModule.FlowGraph))

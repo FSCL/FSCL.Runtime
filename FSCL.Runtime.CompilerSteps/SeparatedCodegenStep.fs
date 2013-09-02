@@ -24,15 +24,15 @@ type SeparatedCodegenStep(tm: TypeManager,
         print
 
     override this.Run((km, globalCode)) =
-        for k in km.CallGraph.Kernels do
-            if not(km.CallGraph.GetKernel(k.ID).Skip) then
-                let directives = String.concat "\n\n" (km.CallGraph.GetRequireDirectives(k.ID))
-                let structs = km.CallGraph.GetTypesUsage(k.ID)
+        for k in km.GetKernels() do
+            if not(k.Info.Skip) then
+                let directives = String.concat "\n\n" (km.GetFlattenRequiredDirectives(k.Info.ID))
+                let structs = km.GetFlattenRequiredGlobalTypes(k.Info.ID)
                 let pstructs = String.concat "\n" (List.map (fun (s: Type) -> PrintStructDefinition(s)) structs)
-                let functions = String.concat "\n\n" (List.map (fun (f: FunctionInfo) -> f.Code) (List.map (fun (m:MethodInfo) -> km.CallGraph.GetFunction(m)) (List.ofSeq(km.CallGraph.GetOutputCalls(k.ID).Keys))))
-                let code = k.Code
+                let functions = String.concat "\n\n" (List.map (fun (f: FunctionEnvironment) -> f.Info.Code) (km.GetFlattenRequiredFunctions(k.Info.ID))) 
+                let code = k.Info.Code
                 let result = String.concat "\n\n" [directives; pstructs; functions; code]
-                k.CustomInfo.Add("SEPARATED_CODE", result)
+                k.Info.CustomInfo.Add("SEPARATED_CODE", result)
         (km, globalCode)
 
         

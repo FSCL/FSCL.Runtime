@@ -12,80 +12,45 @@ open System.Collections.Generic
 open System.Threading
 open System.Collections.ObjectModel
 
-type ConnectionTable = ReadOnlyDictionary<MethodInfo, ReadOnlyDictionary<KernelConnection, KernelConnection>>
-
 module KernelRunner =
     // The Kernel runner
     type internal Runner(compiler, metric) =    
+
         
         member val KernelManager = new KernelManager(compiler, metric) with get
-        
-        member private this.BuildParameterBasedConnections(inputConnections: ConnectionTable,
-                                                           outputConnections: ConnectionTable) =       
-            let ic = new Dictionary<String, MethodInfo * String>()
-            let oc = new Dictionary<String, List<MethodInfo * String>>()
-            for inputSrc in inputConnections do
-                for inputConn in inputSrc.Value do
-                    match inputConn.Value with
-                    | ParameterConnection(par) ->
-                        match inputConn.Key with
-                        | ParameterConnection(srcPar) ->
-                            ic.Add(par, (inputSrc.Key, srcPar))
-                        | _ ->
-                            ()
-                    | _ ->
-                        ()
-            for outputDst in outputConnections do
-                for outputConn in outputDst.Value do
-                    match outputConn.Key with
-                    | ParameterConnection(par) ->
-                        if not(oc.ContainsKey(par)) then
-                            oc.Add(par, new List<MethodInfo * String>())
-                        match outputConn.Value with
-                        | ParameterConnection(dstPar) ->
-                            oc.[par].Add((outputDst.Key, dstPar))
-                        | _ ->
-                            ()
-                    | _ ->
-                        ()
-            (ic, oc)
-
-        member this.RunOpenCL(deviceData: RuntimeDeviceData,
+                        
+        member this.RunOpenCL(node: FlowGraphNode,
+                              deviceData: RuntimeDeviceData,
                               kernelData: RuntimeKernelData,
                               compiledData: RuntimeCompiledKernelData,
-                              inputConnections: ConnectionTable,
-                              outputConnections: ConnectionTable,
                               bufferBinding: Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>,
                               globalSize: int array, 
                               localSize: int array) =
-            // Analyze connections to build a parameter-based indexed structure
-            let ic, oc = this.BuildParameterBasedConnections(inputConnections, outputConnections)
 
-            // The storage for buffers potentially used by successive kernels in the call graph flow
             let mutable argIndex = 0
             // To remember the array associated to the length parameters
-            let sizeParametersBinding = new Dictionary<string, int>()
+            //let sizeParametersBinding = new Dictionary<string, int>()
+            // Get node input binding
+            let nodeInput = FlowGraphManager.GetNodeInput(node)
+            // To store the value of aready-evaluated arguments
+            let evaluatedArgs = new Dictionary<string, obj>()
+            
             // Foreach argument of the kernel
             for par in kernelData.Info.Parameters do      
-                if par.Type.IsArray then             
-                    // Check if this is the input coming from a previously executed kernel
-                    if not (ic.ContainsKey(par.Name)) then
-                        // No input from a  kernel, there must be an input from an actual argument
-                        if par.ArgumentExpression.IsNone then
-                            raise (new KernelSetupException("Cannot setup the parameter " + par.Name + " for the kernel " + kernelData.Info.Name + ": the parameter is not bound to any other kernel and no associated actual argument has been found"))
-                        let o = par.ArgumentExpression.Value.EvalUntyped()                        
-                        // Remember the size parameters for this array
-                        let sizeParametersValue = new List<int>()
-                        for spIndex = 0 to par.SizeParameters.Count - 1 do
-                            let sizeOfDim = o.GetType().GetMethod("GetLength").Invoke(o, [| spIndex |]) :?> int
-                            sizeParametersBinding.Add(par.SizeParameters.[spIndex].Name, sizeOfDim)  
-                            sizeParametersValue.Add(sizeOfDim)
+                if par.Type.IsArray then     
+                    // If the parameter is an array the argument value can be:
+                    // 1) ActualArgument: the argument value is given by the user that invokes the kernel
+                    // 2) KernelOutput: the argument value is the output of a kernel already executed
+                    // 3) CompilerPrecomputedValue: the argument value is established by the compiler (local arguments)
+                    // 4) ReturnExpression:        
+                    // Check if this is the input coming from a previously executed kernel or from a runtime (actual) value
+                    match nodeInput.[par.Name] with
+                    | ActualArgument(expr) ->
+                        // Input from an actual argument
+                        let o = expr.EvalUntyped()
                         // Create buffer if needed (no local address space)
                         if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
-                            let size = (o.GetType().GetProperty("LongLength").GetValue(o) :?> int64) * 
-                                        (int64 (System.Runtime.InteropServices.Marshal.SizeOf(o.GetType().GetElementType())))
-                            // Set kernel arg
-                            compiledData.Kernel.SetLocalArgument(argIndex, size) 
+                            compiledData.Kernel.SetLocalArgument(argIndex, o :?> int64) 
                         else
                             // Check if read or read_write mode
                             let access = par.Access
@@ -102,25 +67,30 @@ module KernelRunner =
                             // Store buffer/object data
                             if not (bufferBinding.ContainsKey(kernelData.Info.ID)) then
                                 bufferBinding.Add(kernelData.Info.ID, new Dictionary<string, ComputeMemory * Object * int array>())
-                            bufferBinding.[kernelData.Info.ID].Add(par.Name, (buffer.Value, o, Array.ofSeq(sizeParametersValue)))
-                    // We get the input from a previously-executed kernel
-                    else
-                        // WE SHOULD AVOID COPY!!!
-                        // Get buffer to be used as (an) input of the new kernel
-                        let inputBuffer, _, sizes = bufferBinding.[fst (ic.[par.Name])].[snd (ic.[par.Name])]
-                        let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, inputBuffer)                        
-                        // Remember the size parameters for this array
-                        let sizeParametersValue = new List<int>()
-                        for spIndex = 0 to par.SizeParameters.Count - 1 do
-                            let sizeOfDim = sizes.[spIndex]
-                            sizeParametersBinding.Add(par.SizeParameters.[spIndex].Name, sizeOfDim)  
-                            sizeParametersValue.Add(sizeOfDim)  
-                        // Set kernel arg
-                        compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
-                        // Check if this can be written to be the input of a successive kernel
-                        if not (bufferBinding.ContainsKey(kernelData.Info.ID)) then
-                            bufferBinding.Add(kernelData.Info.ID, new Dictionary<string, ComputeMemory * Object * int array>())
-                        bufferBinding.[kernelData.Info.ID].Add(par.Name, (buffer.Value, null, Array.ofSeq(sizeParametersValue)))
+                            bufferBinding.[kernelData.Info.ID].Add(par.Name, (buffer.Value, o, Array.ofSeq([])))
+                    | KernelOutput(node, point) ->
+                        match point with
+                        | ReturnValue(i) ->
+                            raise (new KernelSetupException("The parameter " + par.Name + " is bound to the return value of a kernel, but return values should be lifted during compilation and replaced with additional parameters"))
+                        | OutArgument(a) ->
+                            // WE SHOULD AVOID COPY!!!
+                            // Get buffer to be used as (an) input of the new kernel
+                            let inputBuffer, _, sizes = bufferBinding.[node.KernelID].[a]
+                            let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, inputBuffer)                        
+                            // Remember the size parameters for this array
+                            let sizeParametersValue = new List<int>()
+                            for spIndex = 0 to par.SizeParameters.Count - 1 do
+                                let sizeOfDim = sizes.[spIndex]
+                                sizeParametersBinding.Add(par.SizeParameters.[spIndex].Name, sizeOfDim)  
+                                sizeParametersValue.Add(sizeOfDim)  
+                            // Set kernel arg
+                            compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
+                            // Check if this can be written to be the input of a successive kernel
+                            if not (bufferBinding.ContainsKey(kernelData.Info.ID)) then
+                                bufferBinding.Add(kernelData.Info.ID, new Dictionary<string, ComputeMemory * Object * int array>())
+                            bufferBinding.[kernelData.Info.ID].Add(par.Name, (buffer.Value, null, Array.ofSeq(sizeParametersValue)))
+                    | _ ->
+                        raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
                 // Scalar parameter
                 else
                     // Check if this is an argument automatically inserted to represent the length af an array parameter
@@ -129,8 +99,18 @@ module KernelRunner =
                         let value = sizeParametersBinding.[par.Name]
                         compiledData.Kernel.SetValueArgument<int>(argIndex, value)
                     else
-                        let o = par.ArgumentExpression.Value.EvalUntyped()        
-                        compiledData.Kernel.SetValueArgumentAsObject(argIndex, o)
+                        if not (callGraphNode.Arguments.ContainsKey(par.Name)) then
+                            raise (new KernelSetupException("The parameter " + par.Name + " has not been set for the kernel " + kernelData.Info.Name + " in the call graph"))
+                        // Check if this is the input coming from a previously executed kernel or from a runtime (actual) value
+                        match callGraphNode.Arguments.[par.Name] with
+                        | RuntimeValue(e) ->
+                            let o = e.EvalUntyped()        
+                            compiledData.Kernel.SetValueArgumentAsObject(argIndex, o)
+                        | KernelOutput(_, _) ->
+                            raise (new KernelSetupException("The scalar parameter " + par.Name + " is bound to the output of a kernel, but only vector parameters (arrays) can be bound to the output of a kernel"))
+                        | _ ->
+                            raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this is not valid except for size parameters"))
+                            
                 // Process next parameter
                 argIndex <- argIndex + 1
 
@@ -141,6 +121,7 @@ module KernelRunner =
             deviceData.Queue.Execute(compiledData.Kernel, offset, Array.map(fun el -> int64(el)) globalSize, Array.map(fun el -> int64(el)) localSize, null)
             
             // Read result if needed
+            let returnedObjects = new List<Object>()
             // Foreach argument of the kernel
             for par in kernelData.Info.Parameters do      
                 if par.Type.IsArray then             
@@ -159,6 +140,17 @@ module KernelRunner =
 
                         if(mustReadBuffer) then                 
                             BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
+                            // Store the obj if it is returned by the F# kernel (exploiting return values in kernels)
+                            if par.IsReturnParameter then
+                                returnedObjects.Add(obj)
+
+            // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
+            if returnedObjects.Count = 0 then
+                () :> obj
+            else if returnedObjects.Count = 1 then
+                returnedObjects.[0]
+            else
+                FSharpValue.MakeTuple(returnedObjects.ToArray(), FSharpType.MakeTupleType(Array.ofSeq(Seq.map(fun (o:obj) -> o.GetType()) returnedObjects)))
                             
         member this.RunMultithread(kernelData: RuntimeKernelData,
                                    compiledData: RuntimeCompiledKernelData,
@@ -243,6 +235,7 @@ module KernelRunner =
                             t.Start()
                         else
                             work.Invoke(null, finalArguments) |> ignore            
+            () :> obj
         
         // Run a kernel through a quoted kernel call        
         member this.Run(expr: Expr, 
@@ -250,27 +243,32 @@ module KernelRunner =
                         localSize: int array, 
                         mode: KernelRunningMode, 
                         fallback: bool) =
-            let data = this.KernelManager.Process(expr, mode, fallback)                                 
+            let runtimeInfo, flatGraph = this.KernelManager.Process(expr, mode, fallback)                                 
+            let mutable returnObject = new Object() 
             match mode with
             | KernelRunningMode.OpenCL ->                
+                // Create storage for buffers to be used multiple times in the flow
                 let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
-                for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
-                    this.RunOpenCL(deviceData, kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize)
+                // Execute kernels for the last one to the first of the flat graph (dependency-based ordered)
+                for nodeIndex = flatGraph.Length - 1 downto 0 do
+                    let deviceData, kernelData, compiledData = runtimeInfo.[flatGraph.[nodeIndex].KernelID]
+                    returnObject <- this.RunOpenCL(flatGraph.[nodeIndex], deviceData, kernelData, compiledData, bufferBinding, globalSize, localSize)
             | KernelRunningMode.Multithread ->
                 let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
                 for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
-                    this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, true)
+                    returnObject <- this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, true)
             | _ ->
                 let bufferBinding = new Dictionary<MethodInfo, Dictionary<String, ComputeMemory * Object * int array>>()
                 for (deviceData, kernelData, compiledData), inputConn, outputConn in data do
-                    this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, false)
+                    returnObject <- this.RunMultithread(kernelData, compiledData, inputConn, outputConn, bufferBinding, globalSize, localSize, false)
+            returnObject
        
     // Global kernel runner
-    let internal kernelRunner = new Runner(new Compiler(), None)
+    let mutable internal kernelRunner = new Runner(new Compiler(), None)
 
     // Function to set custom kernel manager
     let Init(compiler, metric) =
-        kernelRunner = new Runner(compiler, metric)
+        kernelRunner <- new Runner(compiler, metric)
 
     // List available devices
     let ListDevices() = 
@@ -303,6 +301,28 @@ module KernelRunner =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true)
         member this.RunSequential(globalSize: int array, localSize: int array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true)
+            
+    // Extension methods to run a quoted kernel
+    type Expr<'T> with
+        member this.Run(globalSize: int, localSize: int) =
+            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true) :?> 'T
+        member this.Run(globalSize: int array, localSize: int array) =
+            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, true) :?> 'T
+            
+        member this.RunOpenCL(globalSize: int, localSize: int) =
+            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, false) :?> 'T
+        member this.RunOpenCL(globalSize: int array, localSize: int array) =
+            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, false) :?> 'T
+            
+        member this.RunMultithread(globalSize: int, localSize: int) =
+            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Multithread, true) :?> 'T
+        member this.RunMultithread(globalSize: int array, localSize: int array) =
+            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Multithread, true) :?> 'T
+            
+        member this.RunSequential(globalSize: int, localSize: int) =
+            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true) :?> 'T
+        member this.RunSequential(globalSize: int array, localSize: int array) =
+            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true) :?> 'T
             
             
 
