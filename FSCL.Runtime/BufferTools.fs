@@ -4,7 +4,7 @@ open Cloo
 open System
 open FSCL.Compiler
         
-type internal BufferTools() =    
+type internal BufferTools() =        
     static member WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
         //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         match dims with
@@ -52,6 +52,49 @@ type internal BufferTools() =
         let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, input.Size)
         q.CopyBuffer<'T>(input, buffer, null)
         buffer :> ComputeMemory
+        
+    static member CreateBuffer(t:Type, 
+                               count:int64,
+                               c:ComputeContext, 
+                               q:ComputeCommandQueue, 
+                               flags:ComputeMemoryFlags) =
+        let mutable buffer = None
+        if (t = typeof<uint32>) then
+            buffer <- Some(new ComputeBuffer<uint32>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<uint64>) then
+            buffer <- Some(new ComputeBuffer<uint64>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<int64>) then
+            buffer <- Some(new ComputeBuffer<int64>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<int>) then
+            buffer <- Some(new ComputeBuffer<int>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<double>) then
+            buffer <- Some(new ComputeBuffer<double>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<float32>) then
+            buffer <- Some(new ComputeBuffer<float32>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<bool>) then
+            buffer <- Some(new ComputeBuffer<int>(c, flags, count) :> ComputeMemory)
+
+        elif (t = typeof<float2>) then
+            buffer <- Some(new ComputeBuffer<float2>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<float3>) then
+            buffer <- Some(new ComputeBuffer<float3>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<float4>) then
+            buffer <- Some(new ComputeBuffer<float4>(c, flags, count) :> ComputeMemory)
+            
+        elif (t = typeof<int2>) then
+            buffer <- Some(new ComputeBuffer<int2>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<int3>) then
+            buffer <- Some(new ComputeBuffer<int3>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<int4>) then
+            buffer <- Some(new ComputeBuffer<int4>(c, flags, count) :> ComputeMemory)
+            
+        elif (t = typeof<double2>) then
+            buffer <- Some(new ComputeBuffer<double2>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<double3>) then
+            buffer <- Some(new ComputeBuffer<double3>(c, flags, count) :> ComputeMemory)
+        elif (t = typeof<double4>) then
+            buffer <- Some(new ComputeBuffer<double4>(c, flags, count) :> ComputeMemory)
+        buffer
 
     static member WriteBuffer(t, context, queue, o, dim, mustInitBuffer) =
         let mutable buffer = None

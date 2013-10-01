@@ -128,4 +128,4 @@ type internal KernelManager(compiler: Compiler,
         let runtimeInfo = new Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>();
         for k in kernelModule.GetKernels() do
             runtimeInfo.Add(k.Info.ID, this.AnalyzeAndStoreKernel(k.Info, mode, fallback))
-        (runtimeInfo, FlowGraphManager.Flatten(kernelModule.FlowGraph))
+        (runtimeInfo, kernelModule.FlowGraph)
