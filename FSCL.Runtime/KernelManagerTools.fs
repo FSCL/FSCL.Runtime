@@ -37,7 +37,7 @@ type internal KernelManagerTools() =
             for d in 0 .. dimensions - 1 do
                 let dimSize = o.GetType().GetMethod("GetLength").Invoke(o, [| d |]) :?> int
                 size <- size * dimSize
-            size * Marshal.SizeOf(o.GetType())
+            size * Marshal.SizeOf(o.GetType().GetElementType())
         else
             0
 
