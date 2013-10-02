@@ -4,6 +4,14 @@ FSCL.Runtime
 F# kernel scheduler and runtime support
 -----------------------------------------
 
+### Latest news
+
+*****
+
+October 15, 2013: FSCL.Runtime and Compiler compile correctly. Various updates to the Runtime. Sorry for the inconvenience.
+
+*****
+
 ###At a glance
 The FSCL runtime is built on top of the [FSCL compiler project](https://github.com/GabrieleCocco/FSCL.Compiler) to enable executing
 OpenCL kernels inside .NET.
