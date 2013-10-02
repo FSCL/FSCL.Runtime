@@ -43,13 +43,14 @@ module KernelRunner =
             let nodeInput = FlowGraphManager.GetNodeInput(node)
             // Check which parameters are bound to the output of a kernel
             for par in kernelData.Info.Parameters do
-                match nodeInput.[par.Name] with
-                | KernelOutput(otherKernel, otherParIndex) ->
-                    let kernelOutput = this.RunOpenCL(false, otherKernel, runtimeInfo, globalSize, localSize) :> obj
-                    // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
-                    inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])
-                | _ ->
-                    ()
+                if nodeInput.ContainsKey(par.Name) then
+                    match nodeInput.[par.Name] with
+                    | KernelOutput(otherKernel, otherParIndex) ->
+                        let kernelOutput = this.RunOpenCL(false, otherKernel, runtimeInfo, globalSize, localSize) :> obj
+                        // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
+                        inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])
+                    | _ ->
+                        ()
 
             // Now that we have executed all the preceding kernels, complete the evaluation of the arguments
             // We do this in a second time to avoid allocating many buffers ina recursive function, risking stack overflow
