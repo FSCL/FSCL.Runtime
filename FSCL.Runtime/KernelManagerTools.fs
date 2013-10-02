@@ -4,6 +4,8 @@ open FSCL.Compiler
 open System.Reflection
 open Microsoft.FSharp.Quotations
 open Cloo
+open System.Runtime.InteropServices
+open System
 
 type internal KernelManagerTools() =
     static member IsOpenCLAvailable() =
@@ -24,6 +26,18 @@ type internal KernelManagerTools() =
             let dimensions = ref 1
             String.iter (fun c -> if (c = ',') then dimensions := !dimensions + 1) dimensionsString
             !dimensions
+        else
+            0
+            
+    static member GetArrayAllocationSize (o:Object) =
+        // If not array return 0
+        if o.GetType().IsArray then
+            let dimensions = KernelManagerTools.GetKernelArrayDimensions(o.GetType())
+            let mutable size = 1
+            for d in 0 .. dimensions - 1 do
+                let dimSize = o.GetType().GetMethod("GetLength").Invoke(o, [| d |]) :?> int
+                size <- size * dimSize
+            size * Marshal.SizeOf(o.GetType())
         else
             0
 

@@ -100,7 +100,7 @@ module KernelRunner =
                         let o = expr.EvalUntyped()
                         // Create buffer if needed (no local address space)
                         if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
-                            compiledData.Kernel.SetLocalArgument(argIndex, o :?> int64) 
+                            compiledData.Kernel.SetLocalArgument(argIndex, KernelManagerTools.GetArrayAllocationSize(o) |> int64) 
                         else
                             // Check if read or read_write mode
                             let access = par.Access
