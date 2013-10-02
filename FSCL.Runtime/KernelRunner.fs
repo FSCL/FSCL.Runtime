@@ -101,6 +101,13 @@ module KernelRunner =
                         // Create buffer if needed (no local address space)
                         if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
                             compiledData.Kernel.SetLocalArgument(argIndex, KernelManagerTools.GetArrayAllocationSize(o) |> int64) 
+                            // Store dim sizes
+                            let sizeParameters = par.SizeParameters
+                            //bufferSizes.Add(par.Name, new Dictionary<string, int>())
+                            let getLengthMethod = o.GetType().GetMethod("GetLength")
+                            for i = 0 to sizeParameters.Count - 1 do
+                                //bufferSizes.[par.Name]
+                                arguments.Add(sizeParameters.[i].Name, getLengthMethod.Invoke(o, [| i |]))
                         else
                             // Check if read or read_write mode
                             let access = par.Access
