@@ -1,6 +1,9 @@
 [submodule "Compiler"]
 	path = Compiler
 	url = https://github.com/GabrieleCocco/FSCL.Compiler
+
+
+
 [submodule "mono.reflection"]
 	path = mono.reflection
-	url = https://github.com/jbevain/mono.reflection
+	url = git@github.com:GabrieleCocco/mono.reflection.git
