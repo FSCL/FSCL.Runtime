@@ -1,0 +1,45 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="CLWrapper/Cloo/Source/ComputePlatform.cs">
+    <Files>
+      <File FileName="FSCL.Runtime.Sample/Program.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Runtime/KernelRunner.fs" Line="338" Column="1" />
+      <File FileName="CLWrapper/Cloo/Source/ComputePlatform.cs" Line="143" Column="1" />
+      <File FileName="CLWrapper/Cloo/Source/Bindings/CL11.cs" Line="1" Column="1" />
+      <File FileName="CLWrapper/Cloo/Source/Bindings/CL10.cs" Line="1" Column="1" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State expanded="True" selected="True">
+          <Node name="Runtime" expanded="True">
+            <Node name="Core" expanded="True" />
+            <Node name="Cloo.VS2010" expanded="True">
+              <Node name="Source" expanded="True">
+                <Node name="Bindings" expanded="True" />
+              </Node>
+            </Node>
+          </Node>
+          <Node name="Samples" expanded="True">
+            <Node name="FSCL.Runtime.Sample" expanded="True" />
+          </Node>
+          <Node name="FSCL.Runtime" expanded="True" />
+        </State>
+      </Pad>
+      <Pad Id="ClassPad">
+        <State expanded="True" selected="True" />
+      </Pad>
+      <Pad Id="MonoDevelop.Debugger.WatchPad">
+        <State />
+      </Pad>
+      <Pad Id="ConnectionManagerPad">
+        <State selected="True" />
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore>
+      <Breakpoint file="/Users/naitu1510/FSCL/FSCL.Runtime/CLWrapper/Cloo/Source/ComputePlatform.cs" line="143" column="1" />
+    </BreakpointStore>
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

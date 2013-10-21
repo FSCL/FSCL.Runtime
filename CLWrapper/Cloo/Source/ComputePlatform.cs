@@ -137,7 +137,6 @@ namespace Cloo
                 {
                     if (platforms != null)
                         return;
-
                     CLPlatformHandle[] handles;
                     int handlesLength;
                     ComputeErrorCode error = CL10.GetPlatformIDs(0, null, out handlesLength);
