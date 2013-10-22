@@ -87,7 +87,7 @@ let main argv =
             Console.WriteLine("- Platform " + platformIndex.ToString())
             for (device, deviceName) in platforms.[platformIndex] do
                 Console.WriteLine("  - Device " + device.ToString() + ": " + deviceName)
-                
+              
         // Simple vector add
         Console.WriteLine("")
         Console.WriteLine("# Testing simple vector add with OpenCL on the first device")
@@ -134,22 +134,6 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second float4 add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
-        // Expression of multiple kernels
-        Console.WriteLine("")
-        Console.WriteLine("# Testing expressions made of multiple kernels (matrix multiplication followed by a sum) on the first device")
-        timer.Start()
-        <@@ MatrixAdd(MatrixMult(am, bm), cm, dm) @@>.RunOpenCL(size, 64) |> ignore
-        timer.Stop()
-        // Check result
-        let mutable isResultCorrect = true
-        for i = 0 to correctMapResult.Length - 1 do
-            if correctMapResult.[i] <> c.[i] then
-                isResultCorrect <- false
-        if not isResultCorrect then
-            Console.WriteLine("  First accelerated vector sum returned a wrong result!")
-        else
-            Console.WriteLine("  First accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
-            
         // Accelerated collection
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
@@ -166,6 +150,23 @@ let main argv =
         else
             Console.WriteLine("  First accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
+        // Expression of multiple kernels
+        Console.WriteLine("")
+        Console.WriteLine("# Testing expressions made of multiple kernels (matrix multiplication followed by a sum) on the first device")
+        timer.Start()
+        <@@ MatrixAdd(MatrixMult(am, bm), cm, dm) @@>.RunOpenCL(size, 64) |> ignore
+        timer.Stop()
+        
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMapResult.Length - 1 do
+            if correctMapResult.[i] <> c.[i] then
+                isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First accelerated vector sum returned a wrong result!")
+        else
+            Console.WriteLine("  First accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+            
             
     (*
     let a = Array.create (size) (float4(2.0f, 2.0f, 2.0f, 2.0f))

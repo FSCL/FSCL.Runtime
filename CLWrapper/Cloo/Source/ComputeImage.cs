@@ -94,7 +94,7 @@ namespace Cloo
         /// <param name="context"></param>
         /// <param name="flags"></param>
         protected ComputeImage(ComputeContext context, ComputeMemoryFlags flags)
-            : base(context, flags)
+			: base(context, flags, new long[] { })
         { }
 
         #endregion

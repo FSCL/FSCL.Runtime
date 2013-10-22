@@ -53,25 +53,29 @@ namespace Cloo
         /// <param name="context"> A <see cref="ComputeContext"/> used to create the <see cref="ComputeBuffer{T}"/>. </param>
         /// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="ComputeBuffer{T}"/>. </param>
         /// <param name="count"> The number of elements of the <see cref="ComputeBuffer{T}"/>. </param>
-        public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, long count)
-            : this(context, flags, count, IntPtr.Zero)
-        { }
+     
+		public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, long[] length)
+		: this(context, flags, length, IntPtr.Zero)
+		{ }
 
-        /// <summary>
-        /// Creates a new <see cref="ComputeBuffer{T}"/>.
-        /// </summary>
-        /// <param name="context"> A <see cref="ComputeContext"/> used to create the <see cref="ComputeBuffer{T}"/>. </param>
-        /// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="ComputeBuffer{T}"/>. </param>
-        /// <param name="count"> The number of elements of the <see cref="ComputeBuffer{T}"/>. </param>
-        /// <param name="dataPtr"> A pointer to the data for the <see cref="ComputeBuffer{T}"/>. </param>
-        public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, long count, IntPtr dataPtr)
-            : base(context, flags)
-        {
-            ComputeErrorCode error = ComputeErrorCode.Success;
-            Handle = CL10.CreateBuffer(context.Handle, flags, new IntPtr(Marshal.SizeOf(typeof(T)) * count), dataPtr, out error);
-            ComputeException.ThrowOnError(error);
-            Init();
-        }
+  		/// <summary>
+		/// Creates a new <see cref="ComputeBuffer{T}"/>.
+		/// </summary>
+		/// <param name="context"> A <see cref="ComputeContext"/> used to create the <see cref="ComputeBuffer{T}"/>. </param>
+		/// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="ComputeBuffer{T}"/>. </param>
+		/// <param name="length"> The number of elements in each dimension <see cref="ComputeBuffer{T}"/>. </param>
+		/// <param name="dataPtr"> A pointer to the data for the <see cref="ComputeBuffer{T}"/>. </param>
+		public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, long[] length, IntPtr dataPtr)
+		: base(context, flags, length)
+		{
+			ComputeErrorCode error = ComputeErrorCode.Success;
+			long count = 1;
+			foreach (var l in length)
+				count *= l;
+			Handle = CL10.CreateBuffer(context.Handle, flags, new IntPtr(Marshal.SizeOf(typeof(T)) * count), dataPtr, out error);
+			ComputeException.ThrowOnError(error);
+			Init();
+		}
 
         /// <summary>
         /// Creates a new <see cref="ComputeBuffer{T}"/>.
@@ -80,8 +84,8 @@ namespace Cloo
         /// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="ComputeBuffer{T}"/>. </param>
         /// <param name="data"> The data for the <see cref="ComputeBuffer{T}"/>. </param>
         /// <remarks> Note, that <paramref name="data"/> cannot be an "immediate" parameter, i.e.: <c>new T[100]</c>, because it could be quickly collected by the GC causing Cloo to send and invalid reference to OpenCL. </remarks>
-        public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, T[] data)
-            : base(context, flags)
+        public ComputeBuffer(ComputeContext context, ComputeMemoryFlags flags, T[] data, bool withData)
+		: base(context, flags, new long[] { data.Length })
         {
             GCHandle dataPtr = GCHandle.Alloc(data, GCHandleType.Pinned);
             try
@@ -98,7 +102,7 @@ namespace Cloo
         }
 
         private ComputeBuffer(CLMemoryHandle handle, ComputeContext context, ComputeMemoryFlags flags)
-            : base(context, flags)
+            : base(context, flags, new long[] { })
         {
             Handle = handle;
             Init();

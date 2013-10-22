@@ -35,6 +35,7 @@ namespace Cloo
     using System.Diagnostics;
     using System.Threading;
     using Cloo.Bindings;
+	using System.Collections.Generic;
 
     /// <summary>
     /// Represents an OpenCL memory object.
@@ -51,6 +52,8 @@ namespace Cloo
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly ComputeMemoryFlags flags;
+
+		private List<long> count;
 
         #endregion
 
@@ -83,6 +86,14 @@ namespace Cloo
         /// <value> The size in bytes of the <see cref="ComputeMemory"/>. </value>
         public long Size { get; protected set; }
 
+		// HACK
+		public long[] Count {
+			get {
+				return count.ToArray ();
+			}
+		}
+
+		// END HACK
         #endregion
 
         #region Constructors
@@ -92,10 +103,13 @@ namespace Cloo
         /// </summary>
         /// <param name="context"></param>
         /// <param name="flags"></param>
-        protected ComputeMemory(ComputeContext context, ComputeMemoryFlags flags)
+        protected ComputeMemory(ComputeContext context, ComputeMemoryFlags flags, long[] c)
         {
             this.context = context;
             this.flags = flags;
+			this.count = new List<long> ();
+			foreach (long l in c)
+				this.count.Add(l);
         }
 
         #endregion

@@ -686,7 +686,7 @@
             <seealso cref="T:Cloo.ComputeKernel" />
             <seealso cref="T:Cloo.ComputeMemory" />
         </member>
-        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64)">
+        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64[])">
             <summary>
             Creates a new <see cref="T:Cloo.ComputeBuffer`1" />.
             </summary>
@@ -694,16 +694,16 @@
             <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
             <param name="count"> The number of elements of the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
         </member>
-        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64,System.IntPtr)">
+        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64[],System.IntPtr)">
             <summary>
             Creates a new <see cref="T:Cloo.ComputeBuffer`1" />.
             </summary>
             <param name="context"> A <see cref="T:Cloo.ComputeContext" /> used to create the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
             <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
-            <param name="count"> The number of elements of the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
+            <param name="length"> The number of elements in each dimension <see cref="T:Cloo.ComputeBuffer`1" />. </param>
             <param name="dataPtr"> A pointer to the data for the <see cref="T:Cloo.ComputeBuffer`1" />. </param>
         </member>
-        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,`0[])">
+        <member name="M:Cloo.ComputeBuffer`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,`0[],System.Boolean)">
             <summary>
             Creates a new <see cref="T:Cloo.ComputeBuffer`1" />.
             </summary>
@@ -728,13 +728,13 @@
             </summary>
             <typeparam name="T"> The type of the elements of the buffer. </typeparam>
         </member>
-        <member name="P:Cloo.ComputeBufferBase`1.Count">
+        <member name="P:Cloo.ComputeBufferBase`1.TotalCount">
             <summary>
             Gets the number of elements in the <see cref="T:Cloo.ComputeBufferBase`1" />.
             </summary>
             <value> The number of elements in the <see cref="T:Cloo.ComputeBufferBase`1" />. </value>
         </member>
-        <member name="M:Cloo.ComputeBufferBase`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags)">
+        <member name="M:Cloo.ComputeBufferBase`1.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64[])">
             <summary>
             </summary>
             <param name="context">
@@ -2767,7 +2767,7 @@
             </summary>
             <value> The size in bytes of the <see cref="T:Cloo.ComputeMemory" />. </value>
         </member>
-        <member name="M:Cloo.ComputeMemory.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags)">
+        <member name="M:Cloo.ComputeMemory.#ctor(Cloo.ComputeContext,Cloo.ComputeMemoryFlags,System.Int64[])">
             <summary>
             </summary>
             <param name="context">

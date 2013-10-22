@@ -49,7 +49,7 @@ namespace Cloo
         /// Gets the number of elements in the <see cref="ComputeBufferBase{T}"/>.
         /// </summary>
         /// <value> The number of elements in the <see cref="ComputeBufferBase{T}"/>. </value>
-        public long Count { get; private set; }
+        public long TotalCount { get; private set; }
 
         #endregion
 
@@ -60,8 +60,8 @@ namespace Cloo
         /// </summary>
         /// <param name="context"></param>
         /// <param name="flags"></param>
-        protected ComputeBufferBase(ComputeContext context, ComputeMemoryFlags flags)
-            : base(context, flags)
+        protected ComputeBufferBase(ComputeContext context, ComputeMemoryFlags flags, long[] l)
+            : base(context, flags, l)
         { }
 
         #endregion
@@ -76,7 +76,7 @@ namespace Cloo
             SetID(Handle.Value);
 
             Size = (long)GetInfo<CLMemoryHandle, ComputeMemoryInfo, IntPtr>(Handle, ComputeMemoryInfo.Size, CL10.GetMemObjectInfo);
-            Count = Size / Marshal.SizeOf(typeof(T));
+			TotalCount = Size / Marshal.SizeOf(typeof(T));
 
             Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }

@@ -29,23 +29,30 @@ type internal KernelManagerTools() =
         else
             0
             
-    static member GetArrayAllocationSize (o:Object) =
-        // If not array return 0
+    static member GetArrayAllocationSize (o) =
+        // If not array return -1
         if o.GetType().IsArray then
-            let dimensions = KernelManagerTools.GetKernelArrayDimensions(o.GetType())
-            let mutable size = 1
-            for d in 0 .. dimensions - 1 do
-                let dimSize = o.GetType().GetMethod("GetLength").Invoke(o, [| d |]) :?> int
-                size <- size * dimSize
-            size * Marshal.SizeOf(o.GetType().GetElementType())
+            let elementsCount = o.GetType().GetProperty("LongLength").GetValue(o) :?> int64
+            elementsCount * (int64)(Marshal.SizeOf(o.GetType().GetElementType()))
         else
-            0
+            -1L
 
-    static member GetKernelArrayLength (o) =
+    static member GetArrayLength (o) =
         if o.GetType().IsArray then
-            Some(o.GetType().GetProperty("Length").GetValue(o) :?> int)
+            o.GetType().GetProperty("Length").GetValue(o) :?> int
         else
-            None
+            -1
+            
+    static member GetArrayLengths (o) =
+        if o.GetType().IsArray then     
+            // Any better way to do this?
+            let rank = o.GetType().GetProperty("Rank").GetValue(o) :?> int
+            (seq {
+                for i = 0 to rank - 1 do
+                    yield o.GetType().GetMethod("GetLongLength").Invoke(o, [| i |]) :?> int64
+                    }) |> Seq.toArray
+        else
+            [||]
             
     static member GetKernelAdditionalParameters(t:System.Type) =
         // If not array return 0

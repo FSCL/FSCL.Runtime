@@ -48,7 +48,7 @@ namespace Cloo
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
         public void CopyBuffer<T>(ComputeBufferBase<T> source, ComputeBufferBase<T> destination, ICollection<ComputeEventBase> events) where T : struct
         {
-            Copy(source, destination, 0, 0, source.Count, events);
+            Copy(source, destination, 0, 0, source.TotalCount, events);
         }
 
         /// <summary>
@@ -309,7 +309,7 @@ namespace Cloo
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
         public void ReadFromBuffer<T>(ComputeBufferBase<T> source, ref T[] destination, bool blocking, IList<ComputeEventBase> events) where T : struct
         {
-            ReadFromBuffer(source, ref destination, blocking, 0, 0, source.Count, events);
+            ReadFromBuffer(source, ref destination, blocking, 0, 0, source.TotalCount, events);
         }
 
         /// <summary>
@@ -530,7 +530,7 @@ namespace Cloo
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
         public void WriteToBuffer<T>(T[] source, ComputeBufferBase<T> destination, bool blocking, IList<ComputeEventBase> events) where T : struct
         {
-            WriteToBuffer(source, destination, blocking, 0, 0, destination.Count, events);
+            WriteToBuffer(source, destination, blocking, 0, 0, destination.TotalCount, events);
         }
 
         /// <summary>

@@ -73,18 +73,22 @@ module KernelRunner =
                         let elementCount = 
                             match size with
                             | ExplicitAllocationSize(sizes) ->                 
-                                // Store dim sizes
-                                let sizeParameters = par.SizeParameters
-                                //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                                for i = 0 to sizeParameters.Count - 1 do
-                                    arguments.Add(sizeParameters.[i].Name, sizes.[i])
-                                    //bufferSizes.[par.Name].Add
-                                Array.fold(fun (total:int) (dimSize:int) -> total * dimSize) 1 sizes |> int64
-                            | BufferReferenceAllocationExpression(bufferName) ->
-                                let othBuffer = arguments.[bufferName] :?> ComputeMemory
-                                // Divide the size in byte of the referred buffer by the size of the buffer element type
-                                othBuffer.Size / (int64 (Marshal.SizeOf(elementType)))
+                                sizes
+                            | BufferReferenceAllocationExpression(bufferName) ->                                    
+                                let oth = arguments.[bufferName]
+                                // oth can be either an array passed by the user or a buffer (ComputeMemory) passed by a previous kernel
+                                if oth :? ComputeMemory then
+                                    let othBuffer = arguments.[bufferName] :?> ComputeMemory                                    
+                                    othBuffer.Count
+                                else
+                                    KernelManagerTools.GetArrayLengths(oth)
                         
+                        // Store dim sizes
+                        let sizeParameters = par.SizeParameters
+                        //bufferSizes.Add(par.Name, new Dictionary<string, int>())
+                        for i = 0 to sizeParameters.Count - 1 do
+                            arguments.Add(sizeParameters.[i].Name, elementCount.[i] |> int64)
+                            
                         // Allocate the buffer
                         // Since returned, the buffer must not be initialized and it is obiously written
                         let buffer = BufferTools.CreateBuffer(elementType, elementCount, deviceData.Context, deviceData.Queue, ComputeMemoryFlags.WriteOnly)                            
@@ -104,7 +108,7 @@ module KernelRunner =
                             // Store dim sizes
                             let sizeParameters = par.SizeParameters
                             //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                            let getLengthMethod = o.GetType().GetMethod("GetLength")
+                            let getLengthMethod = o.GetType().GetMethod("GetLongLength")
                             for i = 0 to sizeParameters.Count - 1 do
                                 //bufferSizes.[par.Name]
                                 arguments.Add(sizeParameters.[i].Name, getLengthMethod.Invoke(o, [| i |]))
@@ -124,7 +128,7 @@ module KernelRunner =
                             // Store dim sizes
                             let sizeParameters = par.SizeParameters
                             //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                            let getLengthMethod = o.GetType().GetMethod("GetLength")
+                            let getLengthMethod = o.GetType().GetMethod("GetLongLength")
                             for i = 0 to sizeParameters.Count - 1 do
                                 //bufferSizes.[par.Name]
                                 arguments.Add(sizeParameters.[i].Name, getLengthMethod.Invoke(o, [| i |]))
@@ -140,13 +144,13 @@ module KernelRunner =
                         // WE SHOULD AVOID COPY!!!
                         // Copy the output buffer of the input kernel
                         let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, arguments.[par.Name] :?> ComputeMemory)                        
-                        // Remember the size parameters for this array
-                        (*let sizeParametersValue = new List<int>()
-                        for spIndex = 0 to par.SizeParameters.Count - 1 do
-                            let sizeOfDim = sizes.[spIndex]
-                            sizeParametersBinding.Add(par.SizeParameters.[spIndex].Name, sizeOfDim)  
-                            sizeParametersValue.Add(sizeOfDim)  *)
-                        // Set kernel arg
+                        
+                        // Store dim sizes
+                        let sizeParameters = par.SizeParameters
+                        //bufferSizes.Add(par.Name, new Dictionary<string, int>())
+                        for i = 0 to sizeParameters.Count - 1 do
+                            arguments.Add(sizeParameters.[i].Name, buffer.Value.Count.[i])
+                                    
                         compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
                         // Store buffer/object data
                         arguments.Add(par.Name, buffer.Value)
@@ -161,8 +165,15 @@ module KernelRunner =
                 else
                     // Check if this is an argument automatically inserted to represent the length af an array parameter
                     if par.IsSizeParameter then
-                        // Value of this argument stored when the buffer was evaluated (buffer must appear before!)
-                        compiledData.Kernel.SetValueArgument<int>(argIndex, arguments.[par.Name] :?> int)
+                        let v = arguments.[par.Name]
+                        // Array length should be int64 (the type returned from LongLength method and from Marshal.SizeOf-based operations)
+                        // Users might provide int32, therefore check
+                        //try                          
+                            // Value of this argument stored when the buffer was evaluated (buffer must appear before!)
+                          //  compiledData.Kernel.SetValueArgument<int>(argIndex, v :?> int)
+                        //with
+                        //| :? InvalidCastException ->                            
+                        compiledData.Kernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
                     else
                         // If the parameter is not an array nor a size parameter, it can be:
                         // 1) ActualArgument: a simples scalar value given by the user
@@ -199,11 +210,14 @@ module KernelRunner =
                 // This happens if the buffer have been stored in the outputBuffers dictionary
                 // and, if this is a returned buffer, the kernel is the call graph root (value returned to the user)
                 if outputBuffers.ContainsKey(par.Name) then
-                    if par.IsReturnParameter then
+                    let buffer, obj = outputBuffers.[par.Name]
+                    // If obj is null then the buffer should be returned as part of the F# kernel return value
+                    // This can happen only if the kernel is the root
+                    if obj = null then
                         if isRoot then
                             // Allocate array (since if this is a return parameter it has no .NET array matching it)
                             let sizes = 
-                                par.SizeParameters |> Seq.map(fun (pInfo:KernelParameterInfo) -> arguments.[pInfo.Name] :?> int) |> Seq.toArray
+                                par.SizeParameters |> Seq.map(fun (pInfo:KernelParameterInfo) -> arguments.[pInfo.Name] :?> int64) |> Seq.toArray
                             let obj = Array.CreateInstance(par.Type.GetElementType(), sizes)
                             BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, fst(outputBuffers.[par.Name]))
                             returnedObjects.Add(obj)
