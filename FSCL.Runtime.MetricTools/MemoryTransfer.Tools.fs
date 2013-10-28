@@ -47,7 +47,7 @@ module TransferTools =
         ref (Array.zeroCreate<float32>(currSize / sizeof<float32>))
             
     let AllocateBuffer(computeContext, currSize, info:TransferEndpoint) =
-        ref (new ComputeBuffer<float32>(computeContext, info.Flags, (int64)(currSize / sizeof<float32>)))
+        ref (new ComputeBuffer<float32>(computeContext, info.Flags, [| (int64)(currSize / sizeof<float32>) |]))
 
     let InitializeHostPtr(currSize, source: float32[] ref) =
         // Init source

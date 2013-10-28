@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>12.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{C4458EF0-943D-48C3-8F42-D90E4AE2C6D8}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FSCL.Runtime.FaceDetection</RootNamespace>
+    <AssemblyName>FSCL.Runtime.FaceDetection</AssemblyName>
+    <BuildOrder>
+      <BuildOrder>
+        <String>AssemblyInfo.fs</String>
+        <String>ImageProcessing.fs</String>
+        <String>Program.fs</String>
+      </BuildOrder>
+    </BuildOrder>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>
+    </PlatformTarget>
+    <Externalconsole>true</Externalconsole>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>
+    </PlatformTarget>
+    <Externalconsole>true</Externalconsole>
+    <Tailcalls>true</Tailcalls>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Program.fs" />
+    <Compile Include="ImageProcessing.fs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\FSCL.Runtime\FSCL.Runtime.fsproj">
+      <Project>57A5E768-A0AA-4B4F-B538-2BEA1B4E5895</Project>
+      <Name>FSCL.Runtime</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Compiler\Compiler\FSCL.Compiler.fsproj">
+      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
+      <Name>FSCL.Compiler</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Compiler\Core\FSCL.Compiler.Core.fsproj">
+      <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
+      <Name>FSCL.Compiler.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
+      <Name>FSCL.Compiler.Core.Language</Name>
+    </ProjectReference>
+  </ItemGroup>
+</Project>
