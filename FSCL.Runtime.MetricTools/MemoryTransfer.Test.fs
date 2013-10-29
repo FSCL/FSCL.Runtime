@@ -34,7 +34,7 @@ open System.Collections.Generic
             dstBuffer := Some(TransferTools.AllocateBuffer(computeContext, currSize, dstInfo))
 
         // Run test
-        let (_, time, iterations) = Tools.ExcuteFor(duration) (fun () -> "OK") (fun () -> ()) (fun () ->
+        let (time, iterations) = Tools.ExcuteFor duration (fun () ->
             if srcInfo.IsHostPtr then
                 if dstInfo.IsHostPtr then
                     TransferTools.HostPtrToHostPtr(currSize, validate, (!srcPtr).Value, (!dstPtr).Value)

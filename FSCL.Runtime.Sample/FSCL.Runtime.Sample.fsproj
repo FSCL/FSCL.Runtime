@@ -72,6 +72,10 @@
       <Name>FSCL.Runtime</Name>
       <Project>57A5E768-A0AA-4B4F-B538-2BEA1B4E5895</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
+      <Name>FSCL.Compiler.Core.Util</Name>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
