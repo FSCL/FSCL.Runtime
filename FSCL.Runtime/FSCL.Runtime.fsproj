@@ -42,7 +42,6 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="LanguageExtensions.fs" />
     <Compile Include="MultithreadSupport.fs" />
     <Compile Include="KernelManagerTools.fs" />
     <Compile Include="BufferTools.fs" />

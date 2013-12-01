@@ -16,15 +16,32 @@ open System.Runtime.InteropServices
 module KernelRunner =
     // The Kernel runner
     type internal Runner(compiler, metric) =    
-
-        
         member val KernelManager = new KernelManager(compiler, metric) with get
                         
         member this.RunOpenCL(isRoot: bool,
                               node: FlowGraphNode,
                               runtimeInfo: Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>,
-                              globalSize: int array, 
-                              localSize: int array) =
+                              gSize: int array, 
+                              lSize: int array) =
+
+
+            // If globalSize or localSize are 0-length they should be retrieved in the kernel expression, i.e. in the graph node custom info
+            let globalSize =
+                if gSize.Length = 0 then
+                    if node.CustomInfo.ContainsKey("GLOBAL_SIZE") then
+                        node.CustomInfo.["GLOBAL_SIZE"] :?> int array
+                    else
+                        raise (new KernelSetupException("No runtime global size value has been specified and no global size information can be found inside the kernel expression"))
+                else
+                    gSize
+            let localSize =
+                if lSize.Length = 0 then
+                    if node.CustomInfo.ContainsKey("LOCAL_SIZE") then
+                        node.CustomInfo.["LOCAL_SIZE"] :?> int array
+                    else
+                        raise (new KernelSetupException("No runtime local size value has been specified and no local size information can be found inside the kernel expression"))
+                else
+                    lSize
 
             // Get interesting data
             let deviceData, kernelData, compiledData = runtimeInfo.[node.KernelID]
@@ -48,7 +65,12 @@ module KernelRunner =
                     | KernelOutput(otherKernel, otherParIndex) ->
                         let kernelOutput = this.RunOpenCL(false, otherKernel, runtimeInfo, globalSize, localSize) :> obj
                         // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
-                        inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])
+                        inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])            
+                        // TEST
+                        let o = Array2D.create<float32> 64 64 1.0f
+                        BufferTools.ReadBuffer(typeof<float32>, deviceData.Context, deviceData.Queue, o, 2, inputBuffers.[par.Name]);
+                        let i = 0
+                        ()
                     | _ ->
                         ()
 
@@ -143,8 +165,7 @@ module KernelRunner =
                     | KernelOutput(node, a) ->
                         // WE SHOULD AVOID COPY!!!
                         // Copy the output buffer of the input kernel
-                        let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, arguments.[par.Name] :?> ComputeMemory)                        
-                        
+                        let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, inputBuffers.[par.Name])            
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         //bufferSizes.Add(par.Name, new Dictionary<string, int>())
@@ -202,7 +223,7 @@ module KernelRunner =
             // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
             // We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
             deviceData.Queue.Execute(compiledData.Kernel, offset, Array.map(fun el -> int64(el)) globalSize, Array.map(fun el -> int64(el)) localSize, null)
-            
+
             // Foreach argument of the kernel
             let returnedObjects = new List<obj>()
             for par in kernelData.Info.Parameters do      
@@ -211,6 +232,10 @@ module KernelRunner =
                 // and, if this is a returned buffer, the kernel is the call graph root (value returned to the user)
                 if outputBuffers.ContainsKey(par.Name) then
                     let buffer, obj = outputBuffers.[par.Name]
+                                   
+                    // TEST
+                    //let o = Array2D.create<float32> 64 64 0.0f
+                    //BufferTools.ReadBuffer(typeof<float32>, deviceData.Context, deviceData.Queue, o, 2, buffer);
                     // If obj is null then the buffer should be returned as part of the F# kernel return value
                     // This can happen only if the kernel is the root
                     if obj = null then
@@ -226,6 +251,10 @@ module KernelRunner =
                         let buffer, obj = outputBuffers.[par.Name]
                         // Read buffer
                         BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
+                        let i = 0
+                        ()
+                        
+            deviceData.Queue.Finish()
                         
             // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
             if isRoot then
@@ -331,6 +360,7 @@ module KernelRunner =
                         localSize: int array, 
                         mode: KernelRunningMode, 
                         fallback: bool) =
+            // If global or local size empty theyshould be embedded in kernel expression
             let runtimeInfo, callGraphRoot = this.KernelManager.Process(expr, mode, fallback)    
             match mode with
             | KernelRunningMode.OpenCL ->                
@@ -356,36 +386,18 @@ module KernelRunner =
                                                         yield (device.VendorId, device.Name)
                                              })
                    })
-
-    // Extension methods to run a quoted kernel
-    type Expr with
-        member this.Run(globalSize: int, localSize: int) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true)
-        member this.Run(globalSize: int array, localSize: int array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, true)
-            
-        member this.RunOpenCL(globalSize: int, localSize: int) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, false)
-        member this.RunOpenCL(globalSize: int array, localSize: int array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, false)
-            
-        member this.RunMultithread(globalSize: int, localSize: int) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Multithread, true)
-        member this.RunMultithread(globalSize: int array, localSize: int array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Multithread, true)
-            
-        member this.RunSequential(globalSize: int, localSize: int) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true)
-        member this.RunSequential(globalSize: int array, localSize: int array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true)
-            
+                               
     // Extension methods to run a quoted kernel
     type Expr<'T> with
+        member this.Run() =
+            kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
         member this.Run(globalSize: int, localSize: int) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true) :?> 'T
         member this.Run(globalSize: int array, localSize: int array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, true) :?> 'T
             
+        member this.RunOpenCL() =
+            kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
         member this.RunOpenCL(globalSize: int, localSize: int) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, false) :?> 'T
         member this.RunOpenCL(globalSize: int array, localSize: int array) =
@@ -400,6 +412,5 @@ module KernelRunner =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true) :?> 'T
         member this.RunSequential(globalSize: int array, localSize: int array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true) :?> 'T
-            
             
 

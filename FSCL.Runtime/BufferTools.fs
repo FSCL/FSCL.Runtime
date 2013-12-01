@@ -3,6 +3,7 @@
 open Cloo
 open System
 open FSCL.Compiler
+open System.Runtime.InteropServices
         
 type internal BufferTools() =  
     static member WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
@@ -45,8 +46,13 @@ type internal BufferTools() =
         | 2 ->
             let actualArg = arg :?> 'T[,]
             let offset = Cloo.SysIntX2(0,0)
-            let region = Cloo.SysIntX2(actualArg.GetLength(0),actualArg.GetLength(1))
-            q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
+            let region = Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
+            //q.ReadFromBuffer<'T>(buffer, ref actualArg, true, null); 
+            q.ReadFromBuffer<'T>(buffer, 
+                ref actualArg, 
+                true, 
+                offset, offset, region, 
+                (actualArg.GetLength(0) * Marshal.SizeOf(typeof<'T>)) |> int64, (actualArg.GetLength(0) *Marshal.SizeOf(typeof<'T>)) |> int64, null)
         | _ ->
             let actualArg = arg :?> 'T[,,]
             let offset = Cloo.SysIntX3(0,0,0)
@@ -56,7 +62,7 @@ type internal BufferTools() =
     static member CopyBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, input:ComputeBuffer<'T>) =
         //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         let buffer = new ComputeBuffer<'T>(c, ComputeMemoryFlags.None, input.Count)
-        q.CopyBuffer<'T>(input, buffer, null)
+        q.CopyBuffer<'T>(input, buffer, 0L, 0L, input.TotalCount, null)
         buffer :> ComputeMemory
         
     static member CreateBuffer(t:Type, 
