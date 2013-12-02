@@ -12,6 +12,7 @@ open System.Collections.Generic
 open System.Diagnostics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
+open Microsoft.FSharp.Linq.QuotationEvaluation
         
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -51,7 +52,7 @@ let MatrixMult(a: float32[,], b: float32[,]) =
 let main argv =
     let timer = new Stopwatch()
     let size = 2048
-    
+    let aaa = <@@ argv.GetLongLength(0) @@>.EvalUntyped()
     // Create buffers
     let a = Array.create size 2.0f
     let b = Array.create size 3.0f
