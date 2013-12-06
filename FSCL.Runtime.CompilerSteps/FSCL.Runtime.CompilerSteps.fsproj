@@ -56,13 +56,11 @@
     </ProjectReference>
     <ProjectReference Include="..\Compiler\NativeComponents\ModuleParsing\FSCL.Compiler.Core.ModuleParsing.fsproj">
       <Name>FSCL.Compiler.Core.ModuleParsing</Name>
-      <Project>{a42da267-4d0e-4f14-a7e0-f2f9ab587005}</Project>
-      <Private>True</Private>
+      <Project>A42DA267-4D0E-4F14-A7E0-F2F9AB587005</Project>
     </ProjectReference>
     <ProjectReference Include="..\Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>

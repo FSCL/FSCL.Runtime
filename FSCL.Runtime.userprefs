@@ -15,38 +15,15 @@
       <File FileName="FSCL.Runtime.Sample/App.config" Line="1" Column="1" />
       <File FileName="CLWrapper/Cloo/Cloo.dll.config" Line="1" Column="1" />
       <File FileName="Compiler/Util/QuotationEvaluation.fs" Line="1" Column="1" />
-      <File FileName="Compiler/Language/KernelLanguage.fs" Line="422" Column="10" />
+      <File FileName="Compiler/Language/KernelLanguage.fs" Line="1" Column="1" />
       <File FileName="Compiler/Types/VectorTypeHandler.fs" Line="1" Column="1" />
       <File FileName="Compiler/Language/IntVectors.fs" Line="1" Column="1" />
       <File FileName="Compiler/Language/SByteVectors.fs" Line="1" Column="1" />
       <File FileName="Compiler/Language/ByteVectors.fs" Line="1" Column="1" />
-      <File FileName="FSCL.Runtime.MetricTools/MemoryTransfer.Tools.fs" Line="24" Column="25" />
+      <File FileName="FSCL.Runtime.MetricTools/MemoryTransfer.Tools.fs" Line="1" Column="1" />
       <File FileName="FSCL.Runtime.Sample/FSCL.Runtime.FaceDetection/Program.fs" Line="13" Column="5" />
-      <File FileName="FSCL.Runtime.Sample/FSCL.Runtime.FaceDetection/ImageProcessing.fs" Line="6" Column="1" />
+      <File FileName="FSCL.Runtime.Sample/FSCL.Runtime.FaceDetection/ImageProcessing.fs" Line="1" Column="1" />
     </Files>
-    <Pads>
-      <Pad Id="ProjectPad">
-        <State expanded="True">
-          <Node name="Compiler" expanded="True" />
-          <Node name="Runtime" expanded="True">
-            <Node name="FSCL.Runtime.MetricTools" expanded="True" />
-          </Node>
-          <Node name="Samples" expanded="True">
-            <Node name="FSCL.Runtime.FaceDetection" expanded="True" selected="True" />
-          </Node>
-          <Node name="FSCL.Runtime" expanded="True" />
-        </State>
-      </Pad>
-      <Pad Id="ClassPad">
-        <State expanded="True" selected="True" />
-      </Pad>
-      <Pad Id="MonoDevelop.Debugger.WatchPad">
-        <State />
-      </Pad>
-      <Pad Id="ConnectionManagerPad">
-        <State selected="True" />
-      </Pad>
-    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
