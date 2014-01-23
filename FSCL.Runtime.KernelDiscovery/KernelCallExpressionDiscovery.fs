@@ -38,7 +38,7 @@ type KernelCallExpressionDiscovery() =
                         with
                             | :? KernelDiscoveryException -> 
                                 arguments.Add(DataExpression(e))) args
-                    kernels.
+                    kernels
                              
                 | Patterns.Let(v, value, body) ->
                     (* 

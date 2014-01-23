@@ -56,10 +56,6 @@
       <Name>Cloo.VS2010</Name>
       <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\Compiler\Compiler\FSCL.Compiler.fsproj">
-      <Name>FSCL.Compiler</Name>
-      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
-    </ProjectReference>
     <ProjectReference Include="..\Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
       <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>

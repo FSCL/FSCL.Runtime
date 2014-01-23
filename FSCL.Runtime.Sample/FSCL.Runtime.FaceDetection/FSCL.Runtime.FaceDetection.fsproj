@@ -53,21 +53,13 @@
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" />
   <ItemGroup>
-    <ProjectReference Include="..\..\FSCL.Runtime\FSCL.Runtime.fsproj">
-      <Project>57A5E768-A0AA-4B4F-B538-2BEA1B4E5895</Project>
-      <Name>FSCL.Runtime</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Compiler\Compiler\FSCL.Compiler.fsproj">
-      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
-      <Name>FSCL.Compiler</Name>
+    <ProjectReference Include="..\..\Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
+      <Name>FSCL.Compiler.Core.Language</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
       <Name>FSCL.Compiler.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
-      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
-      <Name>FSCL.Compiler.Core.Language</Name>
     </ProjectReference>
   </ItemGroup>
 </Project>

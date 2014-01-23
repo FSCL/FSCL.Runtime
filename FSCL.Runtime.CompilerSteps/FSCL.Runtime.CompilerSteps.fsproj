@@ -46,10 +46,6 @@
     <Compile Include="WorkSizeWrapperParsingStepProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Compiler\Compiler\FSCL.Compiler.fsproj">
-      <Name>FSCL.Compiler</Name>
-      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
-    </ProjectReference>
     <ProjectReference Include="..\Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
       <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
@@ -63,8 +59,8 @@
       <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
-      <Name>FSCL.Runtime.Core</Name>
       <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>
+      <Name>FSCL.Runtime.Core</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
