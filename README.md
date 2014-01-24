@@ -8,6 +8,12 @@ F# kernel scheduler and runtime support
 
 *****
 
+January 24, 2014: FSCL.Runtime and Compiler compile and execute on Mono 3.2.3 + OSX 10.8.5 and Visual Studio 2012 + Window 7 and Windows 8.
+
+The repo has changed, the submodule Compiler is now tracking the master branch of the relative repo. Please do "git submodule update --remote" everytime you need want to update it.
+
+*****
+
 October 20, 2013: FSCL.Runtime and Compiler compile and execute on Mono 3.2.3 + OSX 10.8.5. 
 Porting required only to add a configuration file to dll-map OSX OpenCL framework to the conventional name (OpenCL.dll) used by the .NET OpenCL wrapper. Sorry for the inconvenience.
 Visual Studio solutions files can be open and built using Xamarin Studio with no effects on the repo content. 
