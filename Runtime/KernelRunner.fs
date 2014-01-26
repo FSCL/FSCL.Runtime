@@ -63,14 +63,9 @@ module KernelRunner =
                 if nodeInput.ContainsKey(par.Name) then
                     match nodeInput.[par.Name] with
                     | KernelOutput(otherKernel, otherParIndex) ->
-                        let kernelOutput = this.RunOpenCL(false, otherKernel, runtimeInfo, globalSize, localSize) :> obj
+                        let kernelOutput = this.RunOpenCL(false, otherKernel, runtimeInfo, [||], [||]) :> obj
                         // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
-                        inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])            
-                        // TEST
-                        let o = Array2D.create<float32> 64 64 1.0f
-                        BufferTools.ReadBuffer(typeof<float32>, deviceData.Context, deviceData.Queue, o, 2, inputBuffers.[par.Name]);
-                        let i = 0
-                        ()
+                        inputBuffers.Add(par.Name, (kernelOutput :?> List<ComputeMemory>).[0])    
                     | _ ->
                         ()
 
@@ -253,8 +248,6 @@ module KernelRunner =
                         BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
                         let i = 0
                         ()
-                        
-            deviceData.Queue.Finish()
                         
             // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
             if isRoot then
