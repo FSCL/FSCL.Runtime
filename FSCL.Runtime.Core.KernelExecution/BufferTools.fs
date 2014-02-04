@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime
+﻿namespace FSCL.Runtime.KernelExecution
 
 open Cloo
 open System

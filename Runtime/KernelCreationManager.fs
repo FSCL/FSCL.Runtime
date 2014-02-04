@@ -15,8 +15,8 @@ open FSCL.Runtime.CacheInspection
 
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
     
-type internal KernelManager(compiler: Compiler, 
-                            metric: SchedulingMetric option) =  
+type internal KernelCreationManager(compiler: Compiler, 
+                                    metric: SchedulingMetric option) =  
     // The data structure caching devices texts) and (queues, concompiled kernels 
     member val private GlobalCache = new RuntimeCache() with get
     // The metric used to select the best devices for a kernel
@@ -24,7 +24,7 @@ type internal KernelManager(compiler: Compiler,
     // The FSCL compiler   
     // Add the additional steps for the compiler to skip kernel recompilation and produce separated source codes for kernels
     member val Compiler = new Compiler(
-                            new CompilerConfiguration(
+                            new PipelineConfiguration(
                                 compiler.Configuration.LoadDefaultSteps, 
                                 compiler.Configuration.Sources @ [new SourceConfiguration(AssemblySource(typeof<CacheInspectionStep>.Assembly)) ]))
           with get

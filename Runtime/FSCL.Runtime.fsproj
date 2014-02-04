@@ -44,65 +44,62 @@
   <ItemGroup>
     <Compile Include="MultithreadSupport.fs" />
     <Compile Include="KernelManagerTools.fs" />
-    <Compile Include="BufferTools.fs" />
-    <Compile Include="KernelManager.fs" />
+    <Compile Include="KernelCreationManager.fs" />
+    <Compile Include="KernelExecutionManager.fs" />
     <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
       <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
-      <Private>True</Private>
+      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
     </ProjectReference>
     <ProjectReference Include="..\CompilerSteps\FSCL.Runtime.CompilerSteps.fsproj">
       <Name>FSCL.Runtime.CompilerSteps</Name>
-      <Project>{1ad3e1dc-d7f0-4b0c-b58f-e7e443e81471}</Project>
-      <Private>True</Private>
+      <Project>1AD3E1DC-D7F0-4B0C-B58F-E7E443E81471</Project>
     </ProjectReference>
     <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
-      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
-      <Private>True</Private>
+      <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
-      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
-      <Private>True</Private>
+      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
-      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
+      <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
       <Name>FSCL.Compiler.Core.Language</Name>
-      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
-      <Private>True</Private>
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Tools\FSCL.Compiler.Tools.fsproj">
       <Name>FSCL.Compiler.Tools</Name>
-      <Project>{2581b89a-f555-48a7-94be-9b21654901a7}</Project>
-      <Private>True</Private>
+      <Project>2581B89A-F555-48A7-94BE-9B21654901A7</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
-      <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
-      <Private>True</Private>
+      <Project>CD77F2CA-F702-4A05-A6E6-7725FC656084</Project>
     </ProjectReference>
     <ProjectReference Include="..\Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
-      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
-      <Private>True</Private>
+      <Project>A329E02A-C967-4F11-99BF-CF6C16A009AF</Project>
     </ProjectReference>
     <ProjectReference Include="..\mono.reflection\Mono.Reflection.csproj">
       <Name>Mono.Reflection</Name>
-      <Project>{97b010ab-0756-46dc-b75a-7a6c4f6ff28d}</Project>
-      <Private>True</Private>
+      <Project>{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\StepProcessorConfigurationManager\PipelineConfigurationManager.fsproj">
+      <Project>{F1124EAE-D35E-4C29-96FE-D88E7ADECC84}</Project>
+      <Name>PipelineConfigurationManager</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Core.KernelExecution\FSCL.Runtime.Core.KernelExecution.fsproj">
+      <Project>{C0B03FA8-DF51-417D-8F17-BD41F59FC313}</Project>
+      <Name>FSCL.Runtime.Core.KernelExecution</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

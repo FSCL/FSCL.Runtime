@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>12.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{C0B03FA8-DF51-417D-8F17-BD41F59FC313}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>FSCL.Runtime.Core.KernelExecution</RootNamespace>
+    <AssemblyName>FSCL.Runtime.Core.KernelExecution</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>
+    </PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>
+    </PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+    <Tailcalls>true</Tailcalls>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BufferTools.fs" />
+    <Compile Include="KernelExecutionInputOutput.fs" />
+    <Compile Include="KernelExecutionStep.fs" />
+    <Compile Include="DefaultKernelExecution.fs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
+      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
+      <Name>Cloo.VS2010</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Util\FSCL.Runtime.Util.fsproj">
+      <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
+      <Name>FSCL.Runtime.Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
+      <Name>FSCL.Compiler.Core.Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
+      <Name>FSCL.Compiler.Core.Language</Name>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

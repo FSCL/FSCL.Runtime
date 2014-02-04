@@ -1,0 +1,56 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="FSCL.Runtime.AcceleratedCollections/ReduceKernelExecution.fs">
+    <Files>
+      <File FileName="FSCL.Compiler/Compiler/Compiler.fs" Line="83" Column="25" />
+      <File FileName="FSCL.Compiler/StepProcessorConfigurationManager/PipelineConfigurationManager.fs" Line="16" Column="50" />
+      <File FileName="FSCL.Compiler/StepProcessorConfigurationManager/PipelineBuilder.fs" Line="37" Column="35" />
+      <File FileName="FSCL.Compiler/CompilerConfigurationSample/Program.fs" Line="43" Column="79" />
+      <File FileName="Runtime/KernelRunner.fs" Line="121" Column="114" />
+      <File FileName="FSCL.Compiler/AcceleratedArraySample/Program.fs" Line="22" Column="28" />
+      <File FileName="FSCL.Compiler/AlgorithmSample/Program.fs" Line="8" Column="20" />
+      <File FileName="FSCL.Compiler/AlgorithmSample/AdvancedFeatures.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/KernelExpressionSample/Program.fs" Line="80" Column="20" />
+      <File FileName="FSCL.Compiler/VectorTypeSample/Program.fs" Line="30" Column="20" />
+      <File FileName="Runtime/KernelCreationManager.fs" Line="105" Column="17" />
+      <File FileName="Runtime/KernelManagerTools.fs" Line="29" Column="14" />
+      <File FileName="Core/RuntimeCache.fs" Line="21" Column="34" />
+      <File FileName="CompilerSteps/WorkSizeWrapperParsingStepProcessor.fs" Line="10" Column="19" />
+      <File FileName="Runtime/KernelExecutionManager.fs" Line="68" Column="210" />
+      <File FileName="FSCL.Runtime.Core.KernelExecution/KernelExecutionStep.fs" Line="19" Column="9" />
+      <File FileName="FSCL.Compiler/FunctionCodegen/SignatureCodegen.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Runtime.Core.KernelExecution/DefaultKernelExecution.fs" Line="263" Column="68" />
+      <File FileName="FSCL.Compiler/Core/CompilerStep.fs" Line="30" Column="4" />
+      <File FileName="FSCL.Compiler/Core/CompilerAttributes.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/StepProcessorConfigurationManager/PipelineConfiguration.fs" Line="83" Column="46" />
+      <File FileName="FSCL.Compiler/StepProcessorConfigurationManager/ConfigurationUtil.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/ModuleParsing/ModuleParsing.fs" Line="37" Column="1" />
+      <File FileName="FSCL.Runtime.Core.KernelExecution/KernelExecutionInputOutput.fs" Line="54" Column="31" />
+      <File FileName="Core/RuntimeException.fs" Line="9" Column="21" />
+      <File FileName="FSCL.Compiler/ModuleParsing/KernelReferenceParser.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/Core/KernelCallGraph.fs" Line="24" Column="11" />
+      <File FileName="FSCL.Runtime.Util/ArrayUtil.fs" Line="23" Column="33" />
+      <File FileName="FSCL.Runtime.Core.KernelExecution/BufferTools.fs" Line="5" Column="19" />
+      <File FileName="FSCL.Compiler/VectorTypes/VectorTypeHandler.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/Types/VectorTypeHandler.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Compiler/Language/FloatVectors.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Runtime.AcceleratedCollections/ReduceKernelExecution.fs" Line="49" Column="29" />
+      <File FileName="FSCL.Compiler/AcceleratedCollections/AcceleratedCollectionHandler.fs" Line="13" Column="5" />
+      <File FileName="FSCL.Compiler/AcceleratedCollections/AcceleratedCollectionUtil.fs" Line="14" Column="19" />
+      <File FileName="FSCL.Compiler/AcceleratedCollections/AcceleratedArrayParser.fs" Line="17" Column="44" />
+      <File FileName="FSCL.Compiler/AcceleratedCollections/AcceleratedArrayReduceHandler.fs" Line="26" Column="17" />
+      <File FileName="FSCL.Compiler/FunctionTransformation/FunctionTransformation.fs" Line="1" Column="1" />
+      <File FileName="Sample/Program.fs" Line="162" Column="76" />
+      <File FileName="FSCL.Compiler/AcceleratedCollections/AcceleratedArrayMapHandler.fs" Line="29" Column="27" />
+      <File FileName="FSCL.Compiler/Language/KernelLanguage.fs" Line="40" Column="20" />
+      <File FileName="FSCL.Compiler/FunctionPreprocessing/ParametersBuilding.fs" Line="42" Column="61" />
+      <File FileName="FSCL.Compiler/Core/KernelParameterInfo.fs" Line="46" Column="32" />
+      <File FileName="FSCL.Compiler/Core/KernelInfo.fs" Line="1" Column="1" />
+      <File FileName="FSCL.Runtime.Util/MathUtil.fs" Line="17" Column="37" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

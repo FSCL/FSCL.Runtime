@@ -52,17 +52,13 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CLWrapper\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
+    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
       <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
+      <Name>Cloo.VS2010</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Compiler\Core\FSCL.Compiler.Core.fsproj">
-      <Name>FSCL.Compiler.Core</Name>
-      <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
-      <Name>FSCL.Compiler.Core.Util</Name>
+    <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
+      <Name>FSCL.Compiler.Core.Util</Name>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

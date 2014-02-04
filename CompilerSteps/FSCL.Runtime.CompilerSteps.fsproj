@@ -46,35 +46,9 @@
     <Compile Include="WorkSizeWrapperParsingStepProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
-      <Name>FSCL.Runtime.Core</Name>
-      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
-      <Name>FSCL.Compiler</Name>
-      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
-      <Name>FSCL.Compiler.Core</Name>
-      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\ModuleCodegen\FSCL.Compiler.Core.ModuleCodegen.fsproj">
-      <Name>FSCL.Compiler.Core.ModuleCodegen</Name>
-      <Project>{431cb9ed-c613-46be-ad84-b4a0d8532487}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\ModuleParsing\FSCL.Compiler.Core.ModuleParsing.fsproj">
-      <Name>FSCL.Compiler.Core.ModuleParsing</Name>
-      <Project>{a42da267-4d0e-4f14-a7e0-f2f9ab587005}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
