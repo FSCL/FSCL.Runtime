@@ -45,23 +45,60 @@
     <Compile Include="KernelExecutionStep.fs" />
     <Compile Include="DefaultKernelExecution.fs" />
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets'))" />
+  <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (!Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets'))" />
   <ItemGroup>
     <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
       <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
       <Name>Cloo.VS2010</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
+      <Name>FSCL.Runtime.Core</Name>
+      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
+      <Name>FSCL.Compiler</Name>
+      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
+      <Name>FSCL.Compiler.Core</Name>
+      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
+      <Name>FSCL.Compiler.Core.Language</Name>
+      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Types\FSCL.Compiler.Core.Types.fsproj">
+      <Name>FSCL.Compiler.Core.Types</Name>
+      <Project>{ec288651-4f88-44d7-9206-7a0260552ecc}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
+      <Name>FSCL.Compiler.Core.Util</Name>
+      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\VectorTypes\FSCL.Compiler.Core.VectorTypes.fsproj">
+      <Name>FSCL.Compiler.Core.VectorTypes</Name>
+      <Project>{4e60e123-e793-4fed-a316-b0d6039764e8}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Util\FSCL.Runtime.Util.fsproj">
       <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
       <Name>FSCL.Runtime.Util</Name>
     </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
-      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
-      <Name>FSCL.Compiler.Core.Util</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
-      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
-      <Name>FSCL.Compiler.Core.Language</Name>
+    <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
+      <Name>FSCL.Runtime.Core.Language</Name>
+      <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
 </Project>

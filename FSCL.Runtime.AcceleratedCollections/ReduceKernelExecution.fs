@@ -20,7 +20,8 @@ type DefaultKerernelExecutionProcessor() =
     
     override this.Run(input, s) =
         let step = s :?> KernelExecutionStep
-
+        new KernelExecutionOutput()
+        (*
         let node = input.Node
 
         // Check if this is an accelerated collection array reduce
@@ -73,4 +74,4 @@ type DefaultKerernelExecutionProcessor() =
         else
             // Return buffers to be used by other kernels
             new KernelExecutionOutput(returnedBuffers)
-                  
+                  *)

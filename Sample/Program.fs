@@ -71,8 +71,8 @@ let main argv =
     let correctMatMulAdd = Array2D.create 64 64 (2.0f * 3.0f * 64.0f + 116.0f)
 
     // Init the runtime to include accelerated collections
-    let conf = new CompilerConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
-    KernelRunner.Init(new Compiler(conf), None)
+    let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
+    KernelRunner.Init(new Compiler(conf), None, None)
 
     // Check opencl devices
     if KernelRunner.ListDevices().Length = 0 then

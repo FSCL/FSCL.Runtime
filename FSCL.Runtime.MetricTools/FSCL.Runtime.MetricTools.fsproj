@@ -56,9 +56,15 @@
       <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
       <Name>Cloo.VS2010</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
+      <Name>FSCL.Compiler.Core</Name>
+      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
-      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
       <Name>FSCL.Compiler.Core.Util</Name>
+      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -68,9 +68,19 @@
       <Name>FSCL.Compiler.Core.Language</Name>
       <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\StepProcessorConfigurationManager\PipelineConfigurationManager.fsproj">
+      <Name>PipelineConfigurationManager</Name>
+      <Project>{f1124eae-d35e-4c29-96fe-d88e7adecc84}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
       <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
+      <Name>FSCL.Runtime.Core.Language</Name>
+      <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>

@@ -128,8 +128,11 @@ module KernelRunner =
     let mutable internal kernelRunner = new Runner(new Compiler(), new KernelExecutionManager(), None)
 
     // Function to set custom kernel manager
-    let Init(compiler, executionManager, metric) =
-        kernelRunner <- new Runner(compiler, executionManager, metric)
+    let Init(compiler, executionManager: KernelExecutionManager option, metric) =
+        if(executionManager.IsNone) then
+            kernelRunner <- new Runner(compiler, new KernelExecutionManager(), metric)
+        else
+            kernelRunner <- new Runner(compiler, executionManager.Value, metric)
 
     // List available devices
     let ListDevices() = 
