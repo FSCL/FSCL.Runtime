@@ -58,38 +58,31 @@
     </ProjectReference>
     <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
-      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
-      <Private>True</Private>
+      <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
-      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
-      <Private>True</Private>
+      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
-      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
-      <Private>True</Private>
+      <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
       <Name>FSCL.Compiler.Core.Language</Name>
-      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
-      <Private>True</Private>
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Types\FSCL.Compiler.Core.Types.fsproj">
       <Name>FSCL.Compiler.Core.Types</Name>
-      <Project>{ec288651-4f88-44d7-9206-7a0260552ecc}</Project>
-      <Private>True</Private>
+      <Project>EC288651-4F88-44D7-9206-7A0260552ECC</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089ba93-e786-42e3-b717-58105c53bb7a}</Project>
-      <Private>True</Private>
+      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\VectorTypes\FSCL.Compiler.Core.VectorTypes.fsproj">
       <Name>FSCL.Compiler.Core.VectorTypes</Name>
-      <Project>{4e60e123-e793-4fed-a316-b0d6039764e8}</Project>
-      <Private>True</Private>
+      <Project>4E60E123-E793-4FED-A316-B0D6039764E8</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Util\FSCL.Runtime.Util.fsproj">
       <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
@@ -97,8 +90,7 @@
     </ProjectReference>
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
-      <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
-      <Private>True</Private>
+      <Project>CD77F2CA-F702-4A05-A6E6-7725FC656084</Project>
     </ProjectReference>
   </ItemGroup>
 </Project>

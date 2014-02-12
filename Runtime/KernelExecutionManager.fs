@@ -6,6 +6,7 @@ open System.Reflection
 open FSCL.Compiler
 open FSCL.Compiler.Configuration
 open FSCL.Runtime.KernelExecution
+open Microsoft.FSharp.Reflection
 ///
 ///<summary>
 ///The FSCL Runtime Execution Manager
@@ -16,7 +17,8 @@ type KernelExecutionManager =
     static member private defConfCompRoot = "Components"
 
     static member private defComponentsAssemply = 
-        [| typeof<KernelExecutionStep>|]
+        [| typeof<KernelExecutionStep>;
+           typeof<ReduceKerernelExecutionProcessor> |]
 
     val mutable private steps : ICompilerStep list
     val mutable private configuration: PipelineConfiguration
@@ -37,8 +39,9 @@ type KernelExecutionManager =
     ///
     new() as this = { steps = []; 
                       configurationManager = new PipelineConfigurationManager(KernelExecutionManager.defComponentsAssemply, KernelExecutionManager.defConfRoot, KernelExecutionManager.defConfCompRoot); 
-                      configuration = this.configurationManager.DefaultConfiguration() }   
+                      configuration = null }   
                     then
+                        this.configuration <- this.configurationManager.DefaultConfiguration()
                         this.steps <- this.configurationManager.Build(this.configuration)
     
     ///
@@ -52,8 +55,9 @@ type KernelExecutionManager =
     ///
     new(file: string) as this = { steps = []; 
                                   configurationManager = new PipelineConfigurationManager(KernelExecutionManager.defComponentsAssemply, KernelExecutionManager.defConfRoot, KernelExecutionManager.defConfCompRoot); 
-                                  configuration = this.configurationManager.LoadConfiguration(file) }   
+                                  configuration = null }   
                                 then
+                                    this.configuration <- this.configurationManager.LoadConfiguration(file)
                                     this.steps <- this.configurationManager.Build(this.configuration)
     ///
     ///<summary>
@@ -86,7 +90,14 @@ type KernelExecutionManager =
         let mutable state = input
         for step in this.steps do
             state <- step.Execute(state)
-        state
+        let result = state :?> KernelExecutionOutput
+        if result.ReturnBuffers.Count = 0 then
+            () :> obj
+        else if result.ReturnBuffers.Count = 1 then
+            result.ReturnBuffers.[0]
+        else
+            let retType = FSharpType.MakeTupleType(result.ReturnBuffers |> Seq.map(fun el -> el.GetType()) |> Seq.toArray)
+            FSharpValue.MakeTuple(Seq.toArray (result.ReturnBuffers), retType)
           
     static member DefaultConfigurationRoot() =
         KernelExecutionManager.defConfCompRoot

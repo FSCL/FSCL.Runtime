@@ -58,6 +58,7 @@ let main argv =
     let b = Array.create size 3.0f
     let mutable c = Array.zeroCreate<float32> (size)
     let correctMapResult = Array.create size 5.0f
+    let correctReduceResult = Array.reduce (fun a b -> a + b) a
     // Float4 vectors
     let a4 = Array.create size (float4(2.0f, 2.0f, 2.0f, 2.0f))
     let b4 = Array.create size (float4(3.0f, 3.0f, 3.0f, 3.0f))
@@ -71,8 +72,8 @@ let main argv =
     let correctMatMulAdd = Array2D.create 64 64 (2.0f * 3.0f * 64.0f + 116.0f)
 
     // Init the runtime to include accelerated collections
-    let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
-    KernelRunner.Init(new Compiler(conf), None, None)
+    //let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
+    //KernelRunner.Init(new Compiler(conf), None, None)
 
     // Check opencl devices
     if KernelRunner.ListDevices().Length = 0 then
@@ -176,6 +177,26 @@ let main argv =
             c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(size, 64)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+        // Accelerated collection reduce
+        Console.WriteLine("")
+        Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
+        timer.Start()
+        let mutable reduce_sum = <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(size, 64)
+        timer.Stop()
+        // Check result
+        let isResultCorrect = (reduce_sum = correctReduceResult)
+        if not isResultCorrect then
+            Console.WriteLine("  First accelerated vector reduce returned a wrong result!")
+        else
+            Console.WriteLine("  First accelerated vector reduce execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            timer.Restart()
+            reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(size, 64)
+            timer.Stop()
+            Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
 
         // Expression of multiple kernels
         Console.WriteLine("")
