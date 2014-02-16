@@ -12,7 +12,7 @@ open System.Collections.Generic
 open System.Diagnostics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open Microsoft.FSharp.Linq.RuntimeHelpers
         
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -51,8 +51,8 @@ let MatrixMult(a: float32[,], b: float32[,]) =
 [<EntryPoint>]
 let main argv =
     let timer = new Stopwatch()
-    let size = 2048
-    let aaa = <@@ argv.GetLongLength(0) @@>.EvalUntyped()
+    let size = 1 <<< 20
+    let lsize = size |> int64
     // Create buffers
     let a = Array.create size 2.0f
     let b = Array.create size 3.0f
@@ -72,8 +72,8 @@ let main argv =
     let correctMatMulAdd = Array2D.create 64 64 (2.0f * 3.0f * 64.0f + 116.0f)
 
     // Init the runtime to include accelerated collections
-    //let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
-    //KernelRunner.Init(new Compiler(conf), None, None)
+    let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
+    KernelRunner.Init(new Compiler(conf), None, None)
 
     // Check opencl devices
     if KernelRunner.ListDevices().Length = 0 then
@@ -92,7 +92,7 @@ let main argv =
         Console.WriteLine("# Testing simple vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ VectorAdd(a, b, c) @>.RunOpenCL(size, 64) |> ignore
+        <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -106,7 +106,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ VectorAdd(a, b, c) @>.RunOpenCL(2048, 64) |> ignore
+            <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
                        
@@ -115,7 +115,7 @@ let main argv =
         Console.WriteLine("# Testing vector add with embedded work size specification, using OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ worksize(VectorAdd(a, b, c), [| size |], [| 64 |]) @>.Run() |> ignore
+        <@ worksize(VectorAdd(a, b, c), [| lsize |], [| 64L |]) @>.Run() |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -129,7 +129,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ VectorAdd(a, b, c) @>.RunOpenCL(2048, 64) |> ignore
+            <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
@@ -138,7 +138,7 @@ let main argv =
         Console.WriteLine("# Testing float4 vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(size, 64) |> ignore
+        <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(lsize, 64L) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -152,7 +152,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(size, 64) |> ignore
+            <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second float4 add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
@@ -160,7 +160,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
         timer.Start()
-        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(size, 64)
+        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(lsize, 64L)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -174,7 +174,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(size, 64)
+            c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
@@ -182,7 +182,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(size, 64)
+        let mutable reduce_sum = <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(lsize, 64L)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -193,7 +193,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(size, 64)
+            reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
@@ -206,9 +206,9 @@ let main argv =
             MatrixAdd(
                 worksize(
                     MatrixMult(am, bm), 
-                    [| 64; 64 |], [| 8; 8 |]), 
+                    [| 64L; 64L |], [| 8L; 8L |]), 
                 cm, dm),
-            [| 64 |], [| 8 |]) @>.Run()
+            [| 64L |], [| 8L |]) @>.Run()
         timer.Stop()        
         // Check result
         let mutable isResultCorrect = true
@@ -226,9 +226,9 @@ let main argv =
                 MatrixAdd(
                     worksize(
                         MatrixMult(am, bm), 
-                        [| 64; 64 |], [| 8; 8 |]), 
+                        [| 64L; 64L |], [| 8L; 8L |]), 
                     cm, dm),
-                [| 64 |], [| 8 |]) @>.Run()
+                [| 64L |], [| 8L |]) @>.Run()
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 

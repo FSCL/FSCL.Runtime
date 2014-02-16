@@ -32,7 +32,7 @@ type internal KernelCreationManager(compiler: Compiler,
     member val private KernelAdaptor = new MultithreadKernelAdaptor() with get
          
     // Utility function to store kernels found all around the assembly. Called by the constructor
-    member private this.StoreKernel(node: KernelInfo, 
+    member private this.StoreKernel(node: KernelInfo,
                                     multithread: bool, 
                                     platformIndex, deviceIndex) =
         let mutable device = null

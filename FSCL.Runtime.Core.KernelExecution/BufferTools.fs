@@ -5,7 +5,7 @@ open System
 open FSCL.Compiler
 open System.Runtime.InteropServices
         
-type internal BufferTools() =  
+type BufferTools() =  
     static member WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(c:ComputeContext, q:ComputeCommandQueue, arg:obj, dims, shouldInit) =
         //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         match dims with

@@ -9,8 +9,8 @@ open System.Reflection
 type KernelExecutionInput(isRoot: bool,  
                           node: FlowGraphNode,  
                           runtimeInfo: Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>,
-                          gSize: int array, 
-                          lSize: int array) =
+                          gSize: int64 array, 
+                          lSize: int64 array) =
 
     member this.IsRoot 
         with get() =
@@ -38,6 +38,8 @@ type KernelExecutionOutput =
     val outputBuffers:List<ComputeMemory>
 
     new() = { returnBuffers = new List<obj>(); outputBuffers = new List<ComputeMemory>() }
+    
+    new(o:obj) = { returnBuffers = new List<obj>([| o |] :> IEnumerable<obj>); outputBuffers = new List<ComputeMemory>() }
 
     new(buff) = { returnBuffers = buff; outputBuffers = new List<ComputeMemory>() }
 

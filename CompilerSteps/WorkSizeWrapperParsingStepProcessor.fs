@@ -9,9 +9,11 @@ open FSCL.Compiler
 open FSCL.Runtime
 open FSCL.Runtime.HostLanguage
 open FSCL.Compiler.ModuleParsing
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open Microsoft.FSharp.Linq.RuntimeHelpers
 
-[<StepProcessor("FSCL_WORKSIZE_WRAPPER_PARSING_STEP_PROCESSOR", "FSCL_MODULE_PARSING_STEP")>] 
+[<StepProcessor("FSCL_WORKSIZE_WRAPPER_PARSING_STEP_PROCESSOR", 
+                "FSCL_MODULE_PARSING_STEP",
+                Before = [| "FSCL_METHOD_INFO_PARSING_PROCESSOR"; "FSCL_CALL_EXPRESSION_PARSING_PROCESSOR" |])>] 
 type WorkSizeWrapperPreparsingStepProcessor() = 
     inherit ModuleParsingProcessor()
 
@@ -25,8 +27,8 @@ type WorkSizeWrapperPreparsingStepProcessor() =
                     // Store global and local size as custom info
                     // only if tryProcess returned a kernel module with one only kernel instance
                     let k = kModule.Value.FlowGraph
-                    k.CustomInfo.Add("GLOBAL_SIZE", args.[1].EvalUntyped())
-                    k.CustomInfo.Add("LOCAL_SIZE", args.[2].EvalUntyped())                        
+                    k.CustomInfo.Add("GLOBAL_SIZE", LeafExpressionConverter.EvaluateQuotation(args.[1]))
+                    k.CustomInfo.Add("LOCAL_SIZE", LeafExpressionConverter.EvaluateQuotation(args.[2]))                        
                     kModule
                 else
                     None

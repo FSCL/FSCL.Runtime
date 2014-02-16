@@ -4,7 +4,7 @@ open Cloo
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open Microsoft.FSharp.Linq.RuntimeHelpers
 open FSCL.Compiler
 open FSCL.Compiler.KernelLanguage
 open System
@@ -25,8 +25,8 @@ module KernelRunner =
                             
         member this.RunMultithread(kernelData: RuntimeKernelData,
                                    compiledData: RuntimeCompiledKernelData,
-                                   globalSize: int array, 
-                                   localSize: int array, 
+                                   globalSize: int64 array, 
+                                   localSize: int64 array, 
                                    multithread: bool) =
             raise (KernelSetupException("Multithreading support under development"))
             (*                                               
@@ -110,8 +110,8 @@ module KernelRunner =
         
         // Run a kernel through a quoted kernel call        
         member this.Run(expr: Expr, 
-                        globalSize: int array, 
-                        localSize: int array, 
+                        globalSize: int64 array, 
+                        localSize: int64 array, 
                         mode: KernelRunningMode, 
                         fallback: bool) =
             // If global or local size empty theyshould be embedded in kernel expression
@@ -148,26 +148,26 @@ module KernelRunner =
     type Expr<'T> with
         member this.Run() =
             kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
-        member this.Run(globalSize: int, localSize: int) =
+        member this.Run(globalSize: int64, localSize: int64) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true) :?> 'T
-        member this.Run(globalSize: int array, localSize: int array) =
+        member this.Run(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, true) :?> 'T
             
         member this.RunOpenCL() =
             kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
-        member this.RunOpenCL(globalSize: int, localSize: int) =
+        member this.RunOpenCL(globalSize: int64, localSize: int64) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, false) :?> 'T
-        member this.RunOpenCL(globalSize: int array, localSize: int array) =
+        member this.RunOpenCL(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, false) :?> 'T
             
-        member this.RunMultithread(globalSize: int, localSize: int) =
+        member this.RunMultithread(globalSize: int64, localSize: int64) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Multithread, true) :?> 'T
-        member this.RunMultithread(globalSize: int array, localSize: int array) =
+        member this.RunMultithread(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Multithread, true) :?> 'T
             
-        member this.RunSequential(globalSize: int, localSize: int) =
+        member this.RunSequential(globalSize: int64, localSize: int64) =
             kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true) :?> 'T
-        member this.RunSequential(globalSize: int array, localSize: int array) =
+        member this.RunSequential(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true) :?> 'T
             
 

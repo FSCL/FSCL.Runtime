@@ -6,7 +6,7 @@ open FSCL.Runtime
 open System.Collections.Generic
 open System.Reflection
 open Cloo
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open Microsoft.FSharp.Linq.RuntimeHelpers
 
 [<assembly:DefaultComponentAssembly>]
 do()
@@ -28,7 +28,7 @@ type DefaultKerernelExecutionProcessor() =
         let globalSize =
             if gSize.Length = 0 then
                 if node.CustomInfo.ContainsKey("GLOBAL_SIZE") then
-                    node.CustomInfo.["GLOBAL_SIZE"] :?> int array
+                    node.CustomInfo.["GLOBAL_SIZE"] :?> int64 array
                 else
                     raise (new KernelSetupException("No runtime global size value has been specified and no global size information can be found inside the kernel expression"))
             else
@@ -36,7 +36,7 @@ type DefaultKerernelExecutionProcessor() =
         let localSize =
             if lSize.Length = 0 then
                 if node.CustomInfo.ContainsKey("LOCAL_SIZE") then
-                    node.CustomInfo.["LOCAL_SIZE"] :?> int array
+                    node.CustomInfo.["LOCAL_SIZE"] :?> int64 array
                 else
                     raise (new KernelSetupException("No runtime local size value has been specified and no local size information can be found inside the kernel expression"))
             else
@@ -115,7 +115,7 @@ type DefaultKerernelExecutionProcessor() =
                         returnedBuffers.Add(buffer.Value)
                 | ActualArgument(expr) ->
                     // Input from an actual argument
-                    let o = expr.EvalUntyped()
+                    let o = LeafExpressionConverter.EvaluateQuotation(expr)
                     // Create buffer if needed (no local address space)
                     if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
                         compiledData.Kernel.SetLocalArgument(argIndex, ArrayUtil.GetArrayAllocationSize(o) |> int64) 
@@ -196,7 +196,7 @@ type DefaultKerernelExecutionProcessor() =
                     // 5) ImplicitValue: NOT POSSIBLE       
                     match nodeInput.[par.Name] with
                     | ActualArgument(e) ->
-                        let o = e.EvalUntyped()
+                        let o = LeafExpressionConverter.EvaluateQuotation(e)
                         compiledData.Kernel.SetValueArgumentAsObject(argIndex, o)
                     | CompilerPrecomputedValue(computeFunction) ->
                         let o = computeFunction(arguments, globalSize, localSize)
