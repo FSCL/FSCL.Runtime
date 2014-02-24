@@ -41,6 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BufferTools.fs" />
+    <Compile Include="BufferPoolManager.fs" />
     <Compile Include="KernelExecutionInputOutput.fs" />
     <Compile Include="KernelExecutionStep.fs" />
     <Compile Include="DefaultKernelExecution.fs" />
@@ -71,6 +72,11 @@
     <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
       <Name>FSCL.Compiler.Core.Language</Name>
       <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\StepProcessorConfigurationManager\PipelineConfigurationManager.fsproj">
+      <Name>PipelineConfigurationManager</Name>
+      <Project>{f1124eae-d35e-4c29-96fe-d88e7adecc84}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Types\FSCL.Compiler.Core.Types.fsproj">
       <Name>FSCL.Compiler.Core.Types</Name>

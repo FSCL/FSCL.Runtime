@@ -7,7 +7,14 @@ open FSCL.Runtime
 [<Step("FSCL_RUNTIME_EXECUTION_STEP")>]
 type KernelExecutionStep(tm: TypeManager,
                          processors: ICompilerStepProcessor list) = 
-    inherit CompilerStep<KernelExecutionInput, KernelExecutionOutput>(tm, processors)
+    inherit CompilerStep<KernelExecutionInput * BufferPoolManager, KernelExecutionOutput>(tm, processors)
+
+    let mutable bufferPoolManager = null
+    member this.BufferPoolManager
+        with get() =
+            bufferPoolManager
+        and private set(v) =
+            bufferPoolManager <- v
 
     member this.TryProcess(input:KernelExecutionInput) =
         let mutable index = 0
@@ -27,6 +34,7 @@ type KernelExecutionStep(tm: TypeManager,
             raise (KernelExecutionException("The runtime is not able to determine the way to execute kernel " + input.Node.KernelID.Name))
         output.Value
 
-    override this.Run(input) =
+    override this.Run((input, pool)) =
+        this.BufferPoolManager <- pool
         let cg = this.Process(input)
         cg

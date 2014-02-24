@@ -20,10 +20,15 @@ do()
 type ReduceKerernelExecutionProcessor() =      
     inherit CompilerStepProcessor<KernelExecutionInput, KernelExecutionOutput option>()
     
+    member this.EvaluateAndApply(e:Expr<'T -> 'U -> 'W>, a:obj, b:obj) =
+        let f = LeafExpressionConverter.EvaluateQuotation(e) :?> 'T -> 'U -> 'W
+        f (a :?> 'T) (b :?> 'U)
+
     override this.Run(input, s) =
         let step = s :?> KernelExecutionStep
+        let pool = step.BufferPoolManager
         //new KernelExecutionOutput()
-
+        
         let node = input.Node
         let isAccelerateReduce = match input.RuntimeInfo.[node.KernelID] with
                                  | di, ri, ci ->
@@ -49,7 +54,7 @@ type ReduceKerernelExecutionProcessor() =
                     lSize
                     
             // Coming from preceding kernels buffers
-            let mutable prevBuffer = null
+            let mutable prevBuffer = None
             // Input (coming from preceding kernels) buffers
             let mutable inputBuffer = null
             // Output (returned or simply written) buffers
@@ -62,9 +67,9 @@ type ReduceKerernelExecutionProcessor() =
             if nodeInput.ContainsKey(inputPar.Name) then
                 match nodeInput.[inputPar.Name] with
                 | KernelOutput(otherKernel, otherParIndex) ->
-                    let kernelOutput = step.Run(new KernelExecutionInput(false, otherKernel, input.RuntimeInfo, [||], [||]))
+                    let kernelOutput = step.Process(new KernelExecutionInput(false, otherKernel, input.RuntimeInfo, [||], [||]))
                     // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
-                    prevBuffer <- kernelOutput.ReturnBuffers.[0] :?> ComputeMemory  
+                    prevBuffer <- kernelOutput.ReturnBuffer
                 | _ ->
                     ()
 
@@ -80,7 +85,7 @@ type ReduceKerernelExecutionProcessor() =
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
                 let elementType = par.Type.GetElementType()
-                inputBuffer <- BufferTools.WriteBuffer(elementType, deviceData.Context, deviceData.Queue, o, par.SizeParameters.Count, true).Value                            
+                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.KernelParameterAccessModeToFlags(par.Access), false)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
                 // Store dim sizes
@@ -92,7 +97,7 @@ type ReduceKerernelExecutionProcessor() =
             | KernelOutput(node, a) ->
                 // WE SHOULD AVOID COPY!!!
                 // Copy the output buffer of the input kernel
-                inputBuffer <- BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, prevBuffer).Value                          
+                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)                       
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)             
                 // Store dim sizes
@@ -117,7 +122,7 @@ type ReduceKerernelExecutionProcessor() =
             let par = kernelData.Info.Parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.Type.GetElementType()
-            outputBuffer <- BufferTools.CreateBuffer(elementType, [| inputBuffer.Count.[0] / (localSize.[0]) / 2L |], deviceData.Context, deviceData.Queue, ComputeMemoryFlags.None).Value                            
+            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / (localSize.[0]) / 2L |], BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
             // Store dim sizes
@@ -129,7 +134,7 @@ type ReduceKerernelExecutionProcessor() =
             let smallestGlobalSize = (localSize.[0] |> int64) * deviceData.Device.MaxComputeUnits
             let mutable currentGlobalSize = inputBuffer.Count.[0] / 2L
             let mutable currentLocalSize = localSize.[0]
-(*
+
             let offset = Array.zeroCreate<int64>(inputBuffer.Count.[0] |> int)
             while (currentGlobalSize > smallestGlobalSize) do
                 deviceData.Queue.Execute(compiledData.Kernel, offset, [| currentGlobalSize |], [| currentLocalSize |], null)                
@@ -148,12 +153,12 @@ type ReduceKerernelExecutionProcessor() =
                 // Exchange buffer
                 compiledData.Kernel.SetMemoryArgument(0, outputBuffer)
                 compiledData.Kernel.SetValueArgument(3, (outputSize |> int) * (Marshal.SizeOf(kernelData.Info.Parameters.[0].Type.GetElementType())))
-                           *) 
-            // Read buffer and return
+            
+            // Read buffer
             let outputPar = kernelData.Info.Parameters.[2]
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
             let arrobj = Array.CreateInstance(outputPar.Type.GetElementType(), [| currentGlobalSize / currentLocalSize |])
-            BufferTools.ReadBuffer(outputPar.Type.GetElementType(), deviceData.Context, deviceData.Queue, arrobj, outputPar.SizeParameters.Count, outputBuffer)
+            BufferTools.ReadBuffer(outputPar.Type.GetElementType(), deviceData.Queue, arrobj, outputBuffer)
             
             // Do final iteration on CPU
             let reduceFunction = kernelData.Info.CustomInfo.["ReduceFunction"]
@@ -165,11 +170,34 @@ type ReduceKerernelExecutionProcessor() =
                     result <- (reduceFunction :?> MethodInfo).Invoke(null, [| result; arrobj.GetValue(i) |])
             | _ ->
                 let compiledLambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
-                let lm = compiledLambda.GetType().GetMethod("Invoke")
-                let r1 = lm.Invoke(compiledLambda, [| result |])
-                ()
-            // Return
-            let output = new KernelExecutionOutput(result)
-            Some(output)
+                let lambdaMethod = compiledLambda.GetType().GetMethod("Invoke")
+                // Check if tupled or curried args
+                if(lambdaMethod.GetParameters().Length = 1) then
+                    // Curried
+                    for i = 1 to arrobj.Length - 1 do
+                        let tempResult = lambdaMethod.Invoke(compiledLambda, [| result |])
+                        result <- tempResult.GetType().GetMethod("Invoke").Invoke(tempResult, [| arrobj.GetValue(i) |])
+                else 
+                    // Tupled
+                    for i = 1 to arrobj.Length - 1 do
+                        result <- lambdaMethod.Invoke(compiledLambda, [| result; arrobj.GetValue(i) |])
+            
+            // Dispose input buffer
+            pool.DisposeBuffer(inputBuffer)
+
+            // If not root must write the result to buffer for the next kernel
+            if not isRoot then
+                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], BufferTools.KernelParameterAccessModeToFlags(outputPar.Access), false)
+                BufferTools.WriteBuffer(outputPar.GetType().GetElementType(), deviceData.Queue, ob, [| result |])
+                
+                // Dispose output buffer
+                pool.DisposeBuffer(outputBuffer)
+                // Return
+                Some(KernelExecutionOutput(ob))
+            else
+                // Dispose output buffer
+                pool.DisposeBuffer(outputBuffer)
+                // Return
+                Some(KernelExecutionOutput(result))
         else
             None

@@ -603,6 +603,22 @@ namespace Cloo
                 events.Add(new ComputeEvent(newEventHandle[0], this));
         }
 
+        public void Write(Type elementType, ComputeMemory destination, bool blocking, long destinationOffset, long region, IntPtr source, ICollection<ComputeEventBase> events)
+        {
+            int sizeofT = Marshal.SizeOf(elementType);
+
+            int eventWaitListSize;
+            CLEventHandle[] eventHandles = ComputeTools.ExtractHandles(events, out eventWaitListSize);
+            bool eventsWritable = (events != null && !events.IsReadOnly);
+            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+
+            ComputeErrorCode error = CL10.EnqueueWriteBuffer(Handle, destination.Handle, blocking, new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), source, eventWaitListSize, eventHandles, newEventHandle);
+            ComputeException.ThrowOnError(error);
+
+            if (eventsWritable)
+                events.Add(new ComputeEvent(newEventHandle[0], this));
+        }
+
         /// <summary>
         /// Enqueues a command to write a 2D or 3D region of elements to a buffer.
         /// </summary>

@@ -113,7 +113,7 @@ type CacheInspectionStep(tm: TypeManager,
                         for item in nodes do
                             FlowGraphManager.SetNodeInput(item, 
                                                           pInfo.Name, 
-                                                          ReturnedBufferAllocationSize(
+                                                          BufferAllocationSize(
                                                             fun(args, localSize, globalSize) ->
                                                                 this.EvaluateReturnedBufferAllocationSize(v.Type.GetElementType(), sizes, args, localSize, globalSize))) 
                     // Set implicit node input for each array length arg

@@ -23,6 +23,7 @@ type KernelExecutionManager =
     val mutable private steps : ICompilerStep list
     val mutable private configuration: PipelineConfiguration
     val mutable private configurationManager: PipelineConfigurationManager
+    val private pool: BufferPoolManager
 
     ///
     ///<summary>
@@ -38,6 +39,7 @@ type KernelExecutionManager =
     ///</remarks>
     ///
     new() as this = { steps = []; 
+                      pool = new BufferPoolManager();
                       configurationManager = new PipelineConfigurationManager(KernelExecutionManager.defComponentsAssemply, KernelExecutionManager.defConfRoot, KernelExecutionManager.defConfCompRoot); 
                       configuration = null }   
                     then
@@ -54,6 +56,7 @@ type KernelExecutionManager =
     ///</returns>
     ///
     new(file: string) as this = { steps = []; 
+                                  pool = new BufferPoolManager();
                                   configurationManager = new PipelineConfigurationManager(KernelExecutionManager.defComponentsAssemply, KernelExecutionManager.defConfRoot, KernelExecutionManager.defConfCompRoot); 
                                   configuration = null }   
                                 then
@@ -69,6 +72,7 @@ type KernelExecutionManager =
     ///</returns>
     ///
     new(conf: PipelineConfiguration) as this = { steps = []; 
+                                                 pool = new BufferPoolManager();
                                                  configurationManager = new PipelineConfigurationManager(KernelExecutionManager.defComponentsAssemply, KernelExecutionManager.defConfRoot, KernelExecutionManager.defConfCompRoot); 
                                                  configuration = conf }   
                                                then
@@ -86,18 +90,30 @@ type KernelExecutionManager =
     ///The method to be invoke to compile a managed kernel
     ///</summary>
     ///  
-    member this.Execute(input) =
-        let mutable state = input
-        for step in this.steps do
-            state <- step.Execute(state)
-        let result = state :?> KernelExecutionOutput
-        if result.ReturnBuffers.Count = 0 then
-            () :> obj
-        else if result.ReturnBuffers.Count = 1 then
-            result.ReturnBuffers.[0]
+    member this.Execute(input:KernelExecutionInput) =
+        if this.steps.Length > 0 then
+            let mutable state = this.steps.[0].Execute((input, this.pool) :> obj)
+            for i = 1 to this.steps.Length - 1 do
+                state <- this.steps.[i].Execute((state, this.pool))
+            let result = state :?> KernelExecutionOutput
+            
+            // Read output buffers
+            this.pool.TransferBackModifiedBuffers()
+
+            // If has return buffer read it
+            if result.ReturnBuffer.IsSome then
+                let v = this.pool.ReadRootReturnBuffer()
+                // Dispose all buffers
+                this.pool.Dispose()
+                v :> obj
+            else if result.ReturnValue.IsSome then
+                // Dispose all buffers
+                this.pool.Dispose()
+                result.ReturnValue.Value
+            else
+                null
         else
-            let retType = FSharpType.MakeTupleType(result.ReturnBuffers |> Seq.map(fun el -> el.GetType()) |> Seq.toArray)
-            FSharpValue.MakeTuple(Seq.toArray (result.ReturnBuffers), retType)
+            null
           
     static member DefaultConfigurationRoot() =
         KernelExecutionManager.defConfCompRoot

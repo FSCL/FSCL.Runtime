@@ -48,6 +48,10 @@ let MatrixMult(a: float32[,], b: float32[,]) =
 
     result
 
+[<ReflectedDefinition>]
+let sum a b =
+    a + b
+
 [<EntryPoint>]
 let main argv =
     let timer = new Stopwatch()
@@ -182,7 +186,26 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(lsize, 64L)
+        let mutable reduce_sum = <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
+        timer.Stop()
+        // Check result
+        let isResultCorrect = (reduce_sum = correctReduceResult)
+        if not isResultCorrect then
+            Console.WriteLine("  First accelerated vector reduce returned a wrong result!")
+        else
+            Console.WriteLine("  First accelerated vector reduce execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            timer.Restart()
+            reduce_sum <- <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
+            timer.Stop()
+            Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+            
+        // Accelerated collection reduce (lambda fun)
+        Console.WriteLine("")
+        Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) with lambda fun on the first device")
+        timer.Start()
+        let mutable reduce_sum = <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)

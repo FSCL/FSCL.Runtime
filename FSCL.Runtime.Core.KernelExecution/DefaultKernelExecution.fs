@@ -17,6 +17,7 @@ type DefaultKerernelExecutionProcessor() =
     
     override this.Run(input, s) =
         let step = s :?> KernelExecutionStep
+        let pool = step.BufferPoolManager
 
         let isRoot = input.IsRoot
         let node = input.Node
@@ -41,18 +42,13 @@ type DefaultKerernelExecutionProcessor() =
                     raise (new KernelSetupException("No runtime local size value has been specified and no local size information can be found inside the kernel expression"))
             else
                 lSize
-
-
+                
         // Input (coming from preceding kernels) buffers
-        let inputBuffers = new Dictionary<String, ComputeMemory>()
-        // Output (returned or simply written) buffers
-        let outputBuffers = new Dictionary<String, ComputeMemory * obj>()
-        // Arguments
+        let inputFromOtherKernelsBuffers = new Dictionary<String, ComputeMemory>()
+        let buffers = new Dictionary<String, ComputeMemory>()
+        let mutable returnBuffer = null
         let arguments = new Dictionary<string, obj>()
-        // Returned buffers
-        let returnedBuffers = new List<obj>()
-        //let bufferSizes = new Dictionary<string, Dictionary<string, int>>()
-
+        
         // Get node input binding
         let nodeInput = FlowGraphManager.GetNodeInput(node)
         // Check which parameters are bound to the output of a kernel
@@ -60,12 +56,11 @@ type DefaultKerernelExecutionProcessor() =
             if nodeInput.ContainsKey(par.Name) then
                 match nodeInput.[par.Name] with
                 | KernelOutput(otherKernel, otherParIndex) ->
-                    let kernelOutput = step.Run(new KernelExecutionInput(false, otherKernel, input.RuntimeInfo, [||], [||]))
-                    // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
-                    inputBuffers.Add(par.Name, kernelOutput.ReturnBuffers.[0] :?> ComputeMemory)    
+                    let kernelOutput = step.Process(new KernelExecutionInput(false, otherKernel, input.RuntimeInfo, [||], [||]))
+                    inputFromOtherKernelsBuffers.Add(par.Name, kernelOutput.ReturnBuffer.Value)    
                 | _ ->
                     ()
-
+                    
         // Now that we have executed all the preceding kernels, complete the evaluation of the arguments
         // We do this in a second time to avoid allocating many buffers ina recursive function, risking stack overflow
         let mutable argIndex = 0            
@@ -79,7 +74,7 @@ type DefaultKerernelExecutionProcessor() =
                 // 4) ReturnedBufferAllocationSize: the argument is the size of a buffer to be returned
                 // 5) ImplicitValue: the runner should be able to determine which kind of argument is this        
                 match nodeInput.[par.Name] with
-                | ReturnedBufferAllocationSize(sizeFunction) ->
+                | BufferAllocationSize(sizeFunction) ->
                     // Buffer allocated in the body of the kernel are traslated into additional arguments
                     // To setup these arguments in OpenCL, the buffers must be pre-allocated
                     let size = sizeFunction(arguments, globalSize, localSize)
@@ -105,14 +100,15 @@ type DefaultKerernelExecutionProcessor() =
                         
                     // Allocate the buffer
                     // Since returned, the buffer must not be initialized and it is obiously written
-                    let buffer = BufferTools.CreateBuffer(elementType, elementCount, deviceData.Context, deviceData.Queue, ComputeMemoryFlags.WriteOnly)                            
+                    let buffer = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, elementCount, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)                            
                     // Set kernel arg
-                    compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
+                    compiledData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store buffer/object data
-                    outputBuffers.Add(par.Name, (buffer.Value, null))
-                    arguments.Add(par.Name, buffer.Value)
-                    if(par.IsReturnParameter) then
-                        returnedBuffers.Add(buffer.Value)
+                    arguments.Add(par.Name, buffer)
+                    buffers.Add(par.Name, buffer)
+                    // Check if this is returned
+                    if par.IsReturnParameter then
+                        returnBuffer <- buffer
                 | ActualArgument(expr) ->
                     // Input from an actual argument
                     let o = LeafExpressionConverter.EvaluateQuotation(expr)
@@ -129,63 +125,47 @@ type DefaultKerernelExecutionProcessor() =
                     else
                         // Check if read or read_write mode
                         let access = par.Access
-                        let mustInitBuffer =
-                            ((par.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
-                                (par.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
-                            ((access = KernelParameterAccessMode.ReadOnly) || 
-                                (access = KernelParameterAccessMode.ReadWrite))
-                        // Create buffer and eventually init it
-                        let elementType = par.Type.GetElementType()
-                        let buffer = BufferTools.WriteBuffer(elementType, deviceData.Context, deviceData.Queue, o, par.SizeParameters.Count, mustInitBuffer)                            
+                        let buffer = pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.KernelParameterAccessModeToFlags(access), false) 
+                        
                         // Set kernel arg
-                        compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
+                        compiledData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                        let getLengthMethod = o.GetType().GetMethod("GetLongLength")
+                        let lengths = ArrayUtil.GetArrayLengths(o)
                         for i = 0 to sizeParameters.Count - 1 do
                             //bufferSizes.[par.Name]
-                            arguments.Add(sizeParameters.[i].Name, getLengthMethod.Invoke(o, [| i |]))
+                            arguments.Add(sizeParameters.[i].Name, lengths.[i])
                         // Store argument and buffer
                         arguments.Add(par.Name, o)
-                        if((par.AddressSpace = KernelParameterAddressSpace.GlobalSpace) &&
-                            ((access = KernelParameterAccessMode.WriteOnly) || 
-                             (access = KernelParameterAccessMode.ReadWrite))) then
-                            outputBuffers.Add(par.Name, (buffer.Value, o))
-                        if(par.IsReturnParameter) then
-                            returnedBuffers.Add(buffer.Value)
+                        buffers.Add(par.Name, buffer)
+                        // Check if this is returned
+                        if par.IsReturnParameter then
+                            returnBuffer <- buffer
                 | KernelOutput(node, a) ->
                     // WE SHOULD AVOID COPY!!!
                     // Copy the output buffer of the input kernel
-                    let buffer = BufferTools.CopyBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, inputBuffers.[par.Name])            
+                    let buffer = pool.UseUntrackedBuffer(inputFromOtherKernelsBuffers.[par.Name], deviceData.Context, deviceData.Queue, par, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)            
                     // Store dim sizes
                     let sizeParameters = par.SizeParameters
                     //bufferSizes.Add(par.Name, new Dictionary<string, int>())
                     for i = 0 to sizeParameters.Count - 1 do
-                        arguments.Add(sizeParameters.[i].Name, buffer.Value.Count.[i])
+                        arguments.Add(sizeParameters.[i].Name, buffer.Count.[i])
                                 
-                    compiledData.Kernel.SetMemoryArgument(argIndex, buffer.Value)                      
+                    compiledData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store buffer/object data
-                    arguments.Add(par.Name, buffer.Value)
-                    if(par.Access = KernelParameterAccessMode.WriteOnly || 
-                       par.Access = KernelParameterAccessMode.ReadWrite) then
-                        outputBuffers.Add(par.Name, (buffer.Value, null))
-                    if(par.IsReturnParameter) then
-                        returnedBuffers.Add(buffer.Value)
+                    arguments.Add(par.Name, buffer)
+                    buffers.Add(par.Name, buffer)
+                    // Check if this is returned
+                    if par.IsReturnParameter then
+                        returnBuffer <- buffer
                 | _ ->
                     raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
             // Scalar parameter
             else
                 // Check if this is an argument automatically inserted to represent the length af an array parameter
                 if par.IsSizeParameter then
-                    let v = arguments.[par.Name]
-                    // Array length should be int64 (the type returned from LongLength method and from Marshal.SizeOf-based operations)
-                    // Users might provide int32, therefore check
-                    //try                          
-                        // Value of this argument stored when the buffer was evaluated (buffer must appear before!)
-                      //  compiledData.Kernel.SetValueArgument<int>(argIndex, v :?> int)
-                    //with
-                    //| :? InvalidCastException ->                            
+                    let v = arguments.[par.Name]                      
                     compiledData.Kernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
                 else
                     // If the parameter is not an array nor a size parameter, it can be:
@@ -216,7 +196,10 @@ type DefaultKerernelExecutionProcessor() =
         // We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
         deviceData.Queue.Execute(compiledData.Kernel, offset, Array.map(fun el -> int64(el)) globalSize, Array.map(fun el -> int64(el)) localSize, null)
 
-        // Foreach argument of the kernel
+        // Dispose buffers
+        for b in buffers do
+            pool.DisposeBuffer(b.Value)
+        (*
         let returnedObjects = new List<obj>()
         for par in kernelData.Info.Parameters do      
             // Check if this must be read
@@ -245,7 +228,10 @@ type DefaultKerernelExecutionProcessor() =
                     // Read buffer if not marked wit NoReadBack
                     if not (par.ShouldNoReadBack) then
                         BufferTools.ReadBuffer(par.Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, par.SizeParameters.Count, buffer)
-                    
+        
+        for buff in inputFromOtherKernelBuffers do
+            if not (outputBuffers.ContainsKey(buff.Key)) then
+                buff.Value.Dispose()
            
         // Also return written buffers
         let outBuffers = new List<ComputeMemory>()
@@ -253,15 +239,10 @@ type DefaultKerernelExecutionProcessor() =
             match k.Value with
             | cb, co ->
                 outBuffers.Add(cb) 
-                   
+        *)           
         // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
-        if isRoot then
-            // Return values to be given back to host side
-            if returnedObjects.Count = 0 then
-                Some(new KernelExecutionOutput(outBuffers))
-            else
-                Some(new KernelExecutionOutput(returnedObjects, outBuffers))
+        if returnBuffer <> null then
+            Some(new KernelExecutionOutput(returnBuffer))
         else
-            // Return buffers to be used by other kernels
-            Some(new KernelExecutionOutput(returnedBuffers, outBuffers))
+            Some(new KernelExecutionOutput())
                   

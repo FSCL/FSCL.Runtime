@@ -3,7 +3,7 @@
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Reflection
-open Microsoft.FSharp.Linq.QuotationEvaluation
+open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Collections.Generic
 open Stack
 
@@ -114,7 +114,7 @@ type Counter(mi: MethodInfo) =
             | DerivedPatterns.PropertyGetterWithReflectedDefinition(e) ->
                 let freeVars = List.ofSeq(e.GetFreeVars())
                 if freeVars.IsEmpty then
-                    let value = e.EvalUntyped()
+                    let value = LeafExpressionConverter.EvaluateQuotation(e)
                     Expr.Value (value, e.Type)
                 else
                     raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
@@ -236,7 +236,7 @@ type Counter(mi: MethodInfo) =
     // Removes (0+0+0+0+0+) useless counts in the expression
     member private this.CleanInstructionCount (expr: Expr) =
         if (Seq.isEmpty (expr.GetFreeVars())) then
-            let value = expr.EvalUntyped() :?> double
+            let value = LeafExpressionConverter.EvaluateQuotation(expr) :?> double
             <@ value @> :> Expr
         else
             match expr with

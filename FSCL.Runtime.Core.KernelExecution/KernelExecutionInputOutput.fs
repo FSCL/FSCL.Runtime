@@ -33,25 +33,23 @@ type KernelExecutionInput(isRoot: bool,
 
 type KernelExecutionOutput =
         
-    val returnBuffers:List<obj>
+    val returnValue:obj option
 
-    val outputBuffers:List<ComputeMemory>
-
-    new() = { returnBuffers = new List<obj>(); outputBuffers = new List<ComputeMemory>() }
+    val returnBuffer:ComputeMemory option
     
-    new(o:obj) = { returnBuffers = new List<obj>([| o |] :> IEnumerable<obj>); outputBuffers = new List<ComputeMemory>() }
+    new() = { returnBuffer = None; returnValue = None }
+    
+    new(rb) = { returnBuffer = Some(rb); returnValue = None }
+    
+    new(ro) = { returnBuffer = None; returnValue = Some(ro) }
 
-    new(buff) = { returnBuffers = buff; outputBuffers = new List<ComputeMemory>() }
-
-    new(buff) = { returnBuffers = new List<obj>(); outputBuffers = buff }
-
-    new(rb, ob) = { returnBuffers = rb; outputBuffers = ob }
-
-    member this.ReturnBuffers 
+    member this.ReturnBuffer 
         with get() =
-            this.returnBuffers
-
-    member this.OutputBuffers 
+            this.returnBuffer
+            
+    member this.ReturnValue
         with get() =
-            this.outputBuffers
+            this.returnValue
+
+
     

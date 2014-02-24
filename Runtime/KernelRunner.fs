@@ -20,7 +20,7 @@ module KernelRunner =
         member val KernelCreationManager = new KernelCreationManager(compiler, metric) with get
         member val KernelExecutionManager:KernelExecutionManager = executionManager with get
                         
-        member this.RunOpenCL(input) =
+        member this.RunOpenCL(input:KernelExecutionInput) =
             this.KernelExecutionManager.Execute(input)
                             
         member this.RunMultithread(kernelData: RuntimeKernelData,
