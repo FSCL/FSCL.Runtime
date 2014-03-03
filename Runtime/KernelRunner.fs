@@ -13,6 +13,8 @@ open System.Threading
 open System.Collections.ObjectModel
 open System.Runtime.InteropServices
 open FSCL.Runtime.KernelExecution
+open System.Collections.Generic
+open System.Collections.ObjectModel
 
 module KernelRunner =
     // The Kernel runner
@@ -20,8 +22,8 @@ module KernelRunner =
         member val KernelCreationManager = new KernelCreationManager(compiler, metric) with get
         member val KernelExecutionManager:KernelExecutionManager = executionManager with get
                         
-        member this.RunOpenCL(input:KernelExecutionInput) =
-            this.KernelExecutionManager.Execute(input)
+        member this.RunOpenCL(input:KernelExecutionInput, opts: ReadOnlyDictionary<string, obj>) =
+            this.KernelExecutionManager.Execute(input, opts)
                             
         member this.RunMultithread(kernelData: RuntimeKernelData,
                                    compiledData: RuntimeCompiledKernelData,
@@ -113,12 +115,13 @@ module KernelRunner =
                         globalSize: int64 array, 
                         localSize: int64 array, 
                         mode: KernelRunningMode, 
-                        fallback: bool) =
+                        fallback: bool,
+                        opts: ReadOnlyDictionary<string, obj>) =
             // If global or local size empty theyshould be embedded in kernel expression
-            let runtimeInfo, callGraphRoot = this.KernelCreationManager.Process(expr, mode, fallback)    
+            let runtimeInfo, callGraphRoot = this.KernelCreationManager.Process(expr, mode, fallback, opts)    
             match mode with
             | KernelRunningMode.OpenCL ->                
-                this.RunOpenCL(new KernelExecutionInput(true, callGraphRoot, runtimeInfo, globalSize, localSize))
+                this.RunOpenCL(new KernelExecutionInput(true, callGraphRoot, runtimeInfo, globalSize, localSize), opts)
             | KernelRunningMode.Multithread ->
                 this.RunMultithread(null, null, globalSize, localSize, true)
             | _ ->              
@@ -147,27 +150,67 @@ module KernelRunner =
     // Extension methods to run a quoted kernel
     type Expr<'T> with
         member this.Run() =
-            kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
+            kernelRunner.Run(this, 
+                            [||], [||], 
+                            KernelRunningMode.OpenCL, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
         member this.Run(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, true) :?> 'T
+            kernelRunner.Run(this, 
+                            [| globalSize |], [| localSize |], 
+                            KernelRunningMode.OpenCL, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, true) :?> 'T
+            kernelRunner.Run(this, 
+                            globalSize, localSize, 
+                            KernelRunningMode.OpenCL, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
             
-        member this.RunOpenCL() =
-            kernelRunner.Run(this, [||], [||], KernelRunningMode.OpenCL, true) :?> 'T
-        member this.RunOpenCL(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.OpenCL, false) :?> 'T
-        member this.RunOpenCL(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.OpenCL, false) :?> 'T
+        member this.Run(opts) =
+            kernelRunner.Run(this, 
+                            [||], [||], 
+                            KernelRunningMode.OpenCL, true, 
+                            opts) :?> 'T
+        member this.Run(globalSize: int64, localSize: int64, opts) =
+            kernelRunner.Run(this, 
+                            [| globalSize |], [| localSize |], 
+                            KernelRunningMode.OpenCL, true, 
+                            opts) :?> 'T
+        member this.Run(globalSize: int64 array, localSize: int64 array, opts) =
+            kernelRunner.Run(this, 
+                            globalSize, localSize, 
+                            KernelRunningMode.OpenCL, true, 
+                            opts) :?> 'T
             
-        member this.RunMultithread(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Multithread, true) :?> 'T
-        member this.RunMultithread(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Multithread, true) :?> 'T
-            
+        member this.RunSequential() =
+            kernelRunner.Run(this, 
+                            [||], [||], 
+                            KernelRunningMode.Sequential, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, [| globalSize |], [| localSize |], KernelRunningMode.Sequential, true) :?> 'T
+            kernelRunner.Run(this, 
+                            [| globalSize |], [| localSize |], 
+                            KernelRunningMode.Sequential, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, globalSize, localSize, KernelRunningMode.Sequential, true) :?> 'T
+            kernelRunner.Run(this, 
+                            globalSize, localSize, 
+                            KernelRunningMode.Sequential, true, 
+                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            
+        member this.RunSequential(opts) =
+            kernelRunner.Run(this, 
+                            [||], [||], 
+                            KernelRunningMode.Sequential, true, 
+                            opts) :?> 'T
+        member this.RunSequential(globalSize: int64, localSize: int64, opts) =
+            kernelRunner.Run(this, 
+                            [| globalSize |], [| localSize |], 
+                            KernelRunningMode.Sequential, true, 
+                            opts) :?> 'T
+        member this.RunSequential(globalSize: int64 array, localSize: int64 array, opts) =
+            kernelRunner.Run(this, 
+                            globalSize, localSize, 
+                            KernelRunningMode.Sequential, true, 
+                            opts) :?> 'T
             
 

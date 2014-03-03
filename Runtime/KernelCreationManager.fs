@@ -12,6 +12,7 @@ open System
 open System.Reflection
 open System.Collections.ObjectModel
 open FSCL.Runtime.CacheInspection
+open System.Collections.ObjectModel
 
 type internal KernelParameterTable = Dictionary<String, KernelParameterInfo>
     
@@ -119,7 +120,8 @@ type internal KernelCreationManager(compiler: Compiler,
         
     member this.Process(input: Object, 
                         mode: KernelRunningMode, 
-                        fallback: bool) =  
+                        fallback: bool,
+                        opts: ReadOnlyDictionary<string, obj>) =  
         let multithread = (mode <> KernelRunningMode.OpenCL)    
 
         // Copile the input passing the global cache to skip kernels already compiled

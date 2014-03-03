@@ -1,5 +1,5 @@
 ﻿namespace FSCL.Runtime.KernelExecution
-
+(*8
 open Cloo
 open System.Collections.Generic
 open System
@@ -18,7 +18,7 @@ type BufferPoolItem(buffer: ComputeMemory, queue:ComputeCommandQueue, access: Ke
     member val HasBeenModified = false with get, set
 
 [<AllowNullLiteral>]
-type BufferPoolManager() =
+type BufferManager() =
     let mutable noObjID = 0
 
     let trackedBufferPool = Dictionary<obj, BufferPoolItem>()
@@ -234,4 +234,3 @@ type BufferPoolManager() =
                 
 
         
-

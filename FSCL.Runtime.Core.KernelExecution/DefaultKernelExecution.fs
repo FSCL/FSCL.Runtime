@@ -15,7 +15,7 @@ do()
 type DefaultKerernelExecutionProcessor() =      
     inherit CompilerStepProcessor<KernelExecutionInput, KernelExecutionOutput option>()
     
-    override this.Run(input, s) =
+    override this.Run(input, s, opts) =
         let step = s :?> KernelExecutionStep
         let pool = step.BufferPoolManager
 

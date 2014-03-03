@@ -23,7 +23,7 @@ type SeparatedCodegenStep(tm: TypeManager,
         print <- print + "}\n";
         print
 
-    override this.Run((km, globalCode)) =
+    override this.Run((km, globalCode), opt) =
         for k in km.GetKernels() do
             if not(k.Info.Skip) then
                 let directives = String.concat "\n\n" (km.GetFlattenRequiredDirectives(k.Info.ID))

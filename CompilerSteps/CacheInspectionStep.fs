@@ -70,7 +70,7 @@ type CacheInspectionStep(tm: TypeManager,
             intSizes.Add((evaluated :?> int32) |> int64)
         ExplicitAllocationSize(intSizes |> Seq.toArray)    
                
-    override this.Run(kmodule) =
+    override this.Run(kmodule, opts) =
         if kmodule.CustomInfo.ContainsKey("RUNTIME_CACHE") then
             // Get cache
             let cache = kmodule.CustomInfo.["RUNTIME_CACHE"] :?> RuntimeCache

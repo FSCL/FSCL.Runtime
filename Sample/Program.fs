@@ -96,7 +96,7 @@ let main argv =
         Console.WriteLine("# Testing simple vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
+        <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -110,7 +110,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
+            <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
                        
@@ -133,7 +133,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ VectorAdd(a, b, c) @>.RunOpenCL(lsize, 64L) |> ignore
+            <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
@@ -142,7 +142,7 @@ let main argv =
         Console.WriteLine("# Testing float4 vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(lsize, 64L) |> ignore
+        <@ Vector4Add(a4, b4, c4) @>.Run(lsize, 64L) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -156,7 +156,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ Vector4Add(a4, b4, c4) @>.RunOpenCL(lsize, 64L) |> ignore
+            <@ Vector4Add(a4, b4, c4) @>.Run(lsize, 64L) |> ignore
             timer.Stop()
             Console.WriteLine("  Second float4 add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
@@ -164,7 +164,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
         timer.Start()
-        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(lsize, 64L)
+        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -178,7 +178,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.RunOpenCL(lsize, 64L)
+            c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
@@ -186,7 +186,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
+        let mutable reduce_sum = <@ Array.reduce sum a @>.Run(lsize, 64L)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -197,7 +197,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            reduce_sum <- <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
+            reduce_sum <- <@ Array.reduce sum a @>.Run(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
             
@@ -205,7 +205,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) with lambda fun on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce sum a @>.RunOpenCL(lsize, 64L)
+        let mutable reduce_sum = <@ Array.reduce (fun e1 e2 -> e1 + e2) a @>.Run(lsize, 64L)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -216,7 +216,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.RunOpenCL(lsize, 64L)
+            reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.Run(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
 

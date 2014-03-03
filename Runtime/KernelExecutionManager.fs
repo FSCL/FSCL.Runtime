@@ -90,11 +90,11 @@ type KernelExecutionManager =
     ///The method to be invoke to compile a managed kernel
     ///</summary>
     ///  
-    member this.Execute(input:KernelExecutionInput) =
+    member this.Execute(input:KernelExecutionInput, opts) =
         if this.steps.Length > 0 then
-            let mutable state = this.steps.[0].Execute((input, this.pool) :> obj)
+            let mutable state = this.steps.[0].Execute((input, this.pool) :> obj, opts)
             for i = 1 to this.steps.Length - 1 do
-                state <- this.steps.[i].Execute((state, this.pool))
+                state <- this.steps.[i].Execute((state, this.pool), opts)
             let result = state :?> KernelExecutionOutput
             
             // Read output buffers
@@ -111,6 +111,7 @@ type KernelExecutionManager =
                 this.pool.Dispose()
                 result.ReturnValue.Value
             else
+                this.pool.Dispose()
                 null
         else
             null

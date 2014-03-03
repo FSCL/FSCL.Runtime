@@ -24,7 +24,7 @@ type ReduceKerernelExecutionProcessor() =
         let f = LeafExpressionConverter.EvaluateQuotation(e) :?> 'T -> 'U -> 'W
         f (a :?> 'T) (b :?> 'U)
 
-    override this.Run(input, s) =
+    override this.Run(input, s, opts) =
         let step = s :?> KernelExecutionStep
         let pool = step.BufferPoolManager
         //new KernelExecutionOutput()
@@ -134,18 +134,21 @@ type ReduceKerernelExecutionProcessor() =
             let smallestGlobalSize = (localSize.[0] |> int64) * deviceData.Device.MaxComputeUnits
             let mutable currentGlobalSize = inputBuffer.Count.[0] / 2L
             let mutable currentLocalSize = localSize.[0]
+            let mutable lastOutputSize = inputBuffer.Count.[0]
 
             let offset = Array.zeroCreate<int64>(inputBuffer.Count.[0] |> int)
             while (currentGlobalSize > smallestGlobalSize) do
                 deviceData.Queue.Execute(compiledData.Kernel, offset, [| currentGlobalSize |], [| currentLocalSize |], null)                
                
                 // TESTING ITERATION - TO COMMENT
-                //let obj = Array.CreateInstance(kernelData.Info.Parameters.[2].Type.GetElementType(), [| inputBuffer.Count.[0] / localSize.[0] / 2L |])
-                //BufferTools.ReadBuffer(kernelData.Info.Parameters.[2].Type.GetElementType(), deviceData.Context, deviceData.Queue, obj, 1, outputBuffer)
+                let obj = Array.CreateInstance(kernelData.Info.Parameters.[2].Type.GetElementType(), [| currentGlobalSize / currentLocalSize |])
+                BufferTools.ReadBuffer(kernelData.Info.Parameters.[2].Type.GetElementType(), deviceData.Queue, obj, outputBuffer)
+
+                lastOutputSize <- currentGlobalSize / currentLocalSize
 
                 // Recompute work size
                 // Il local size become greater than or equal to global size, we set it to be half the global size
-                let outputSize = currentGlobalSize / currentLocalSize;
+                let outputSize = currentGlobalSize / currentLocalSize
                 if currentLocalSize >= (outputSize / 2L) then
                     currentLocalSize <- outputSize / 4L
                 currentGlobalSize <- outputSize / 2L
@@ -157,7 +160,7 @@ type ReduceKerernelExecutionProcessor() =
             // Read buffer
             let outputPar = kernelData.Info.Parameters.[2]
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
-            let arrobj = Array.CreateInstance(outputPar.Type.GetElementType(), [| currentGlobalSize / currentLocalSize |])
+            let arrobj = Array.CreateInstance(outputPar.Type.GetElementType(), [| lastOutputSize |])
             BufferTools.ReadBuffer(outputPar.Type.GetElementType(), deviceData.Queue, arrobj, outputBuffer)
             
             // Do final iteration on CPU

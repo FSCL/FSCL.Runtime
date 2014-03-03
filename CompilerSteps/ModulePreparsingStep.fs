@@ -13,7 +13,7 @@ type ModulePreparsingStep(tm: TypeManager,
                           processors: ICompilerStepProcessor list) = 
     inherit CompilerStep<obj * KernelModule, obj * KernelModule>(tm, processors)
 
-    override this.Run((expr, kmodule)) =
+    override this.Run((expr, kmodule), opts) =
         if FSharpType.IsTuple(expr.GetType()) then
             let fields = FSharpValue.GetTupleFields(expr)
             if fields.[1] :? RuntimeCache then

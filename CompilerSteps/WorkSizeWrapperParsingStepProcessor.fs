@@ -17,7 +17,7 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 type WorkSizeWrapperPreparsingStepProcessor() = 
     inherit ModuleParsingProcessor()
 
-    override this.Run(obj, rawStep) =
+    override this.Run(obj, rawStep, opts) =
         let step = rawStep :?> ModuleParsingStep
         if obj :? Expr then
             match obj :?> Expr with
