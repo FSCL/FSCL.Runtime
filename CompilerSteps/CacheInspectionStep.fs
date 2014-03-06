@@ -8,6 +8,7 @@ open Microsoft.FSharp.Reflection
 open FSCL.Compiler
 open FSCL.Runtime
 open Microsoft.FSharp.Linq.RuntimeHelpers
+open Cloo
 
 [<Step("FSCL_CACHE_INSPECTION_STEP", 
        Dependencies = [| "FSCL_MODULE_PARSING_STEP" |], 
