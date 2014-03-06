@@ -93,34 +93,29 @@ type CacheInspectionStep(tm: TypeManager,
                     // We are not going to execute further compiler steps
                     // in particular the function preprocessing steps
                     // Function preprocessing determines some inputs for the flow graph node,
-                    // for example when the kernel has a return value
+                    // for example when the kernel has a dynamic alloc array
                     // We therefore need to inspect parameters and act like function preprocessing
                     // creating the missing flow graph inputs
-                    let returnedVars = 
-                        if k.Info.CustomInfo.ContainsKey("KERNEL_RETURN_TYPE") then
-                            k.Info.CustomInfo.["KERNEL_RETURN_TYPE"] :?> (Var * Expr list) list
-                        else
-                            []
+                    let dynArray = Seq.tryFind(fun (p:KernelParameterInfo) -> p.IsDynamicArrayParameter) k.Info.Parameters
                     // Get flow graph nodes matching the current kernel    
                     let nodes = FlowGraphManager.GetKernelNodes(k.Info.ID, kmodule.FlowGraph)
-                    // Add return arrays
-                    for (v, sizes) in returnedVars do
-                        let pInfo = new KernelParameterInfo(v.Name, v.Type)
-                        pInfo.IsReturnParameter <- true
-                        k.Info.Parameters.Add(pInfo)
-            
-                        // Set new argument    
+                    if dynArray.IsSome then                        
+                        // Set flow graph argument
                         for item in nodes do
                             FlowGraphManager.SetNodeInput(item, 
-                                                          pInfo.Name, 
-                                                          BufferAllocationSize(
+                                                            dynArray.Value.Name, 
+                                                            BufferAllocationSize(
                                                             fun(args, localSize, globalSize) ->
-                                                                this.EvaluateReturnedBufferAllocationSize(v.Type.GetElementType(), sizes, args, localSize, globalSize))) 
+                                                                this.EvaluateReturnedBufferAllocationSize(
+                                                                    dynArray.Value.Type.GetElementType(), 
+                                                                    dynArray.Value.DynamicAllocationArguments, 
+                                                                    args, localSize, globalSize))) 
+
                     // Set implicit node input for each array length arg
                     for p in k.Info.Parameters do
                         if p.IsSizeParameter then
                             for item in nodes do
                                 FlowGraphManager.SetNodeInput(item,
-                                                              p.Name,
-                                                              ImplicitValue)
+                                                                p.Name,
+                                                                ImplicitValue)
         kmodule

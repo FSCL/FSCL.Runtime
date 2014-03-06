@@ -20,6 +20,8 @@
     <PlatformTarget>
     </PlatformTarget>
     <ConsolePause>false</ConsolePause>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -40,6 +42,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="QuotationEvaluationUtil.fs" />
     <Compile Include="ReduceKernelExecution.fs" />
   </ItemGroup>
   <PropertyGroup>

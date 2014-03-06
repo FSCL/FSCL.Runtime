@@ -3,6 +3,7 @@ namespace FSCL.Runtime.KernelExecution
 open System
 open FSCL.Compiler
 open FSCL.Runtime
+open Microsoft.FSharp.Linq.RuntimeHelpers
 
 [<Step("FSCL_RUNTIME_EXECUTION_STEP")>]
 type KernelExecutionStep(tm: TypeManager,
@@ -33,7 +34,7 @@ type KernelExecutionStep(tm: TypeManager,
             output <- processors.[index].Execute(input, this, opts) :?> KernelExecutionOutput option
             index <- index + 1
         if output.IsNone then
-            raise (KernelExecutionException("The runtime is not able to determine the way to execute kernel " + input.Node.KernelID.Name))
+            raise (KernelExecutionException("The runtime is not able to determine the way to execute kernel " + input.Node.KernelID.ToString()))
         output.Value
 
     override this.Run((input, pool), opt) =

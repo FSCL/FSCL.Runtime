@@ -24,6 +24,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Sample.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

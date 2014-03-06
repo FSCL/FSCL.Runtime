@@ -255,32 +255,7 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
-            
-            
-    (*
-    let a = Array.create (size) (float4(2.0f, 2.0f, 2.0f, 2.0f))
-    let b = Array.create (size) (float4(3.0f, 3.0f, 3.0f, 3.0f))
-    let c = Array.zeroCreate<float4> (size)
-    <@@ Vector4Add(a, b, notused(c)) @@>.Run(size, 8)
-    
-    // Do reduce
-    let mutable numberOfReduceWorkers = size / 2
-    while numberOfReduceWorkers >= 4 do
-        <@@ Vector4Reduce(notused(c), numberOfReduceWorkers * 2) @@>.Run(numberOfReduceWorkers, 4)
-        numberOfReduceWorkers <-  numberOfReduceWorkers / 2
-    <@@ Vector4Reduce(notused(c), numberOfReduceWorkers * 2) @@>.Run(numberOfReduceWorkers, 2)
-
-    let result = c.[0].x + c.[0].y + c.[0].z + c.[0].w + c.[1].x + c.[1].y + c.[1].z + c.[1].w
-
-    // Check computation is ok
-    let correctResult = 
-        Array.reduce(fun (a1:float4) (a2:float4) -> a1 + a2) (Array.map2(fun (a1:float4) (b1:float4) -> a1 + b1) a b)
-    let correctValue = correctResult.x + correctResult.y + correctResult.z + correctResult.w
-
-    Console.WriteLine("OpenCL result: " + result.ToString() + " - Correct result: " + correctValue.ToString())
-    0
-    *)
-    Console.WriteLine("Press any key to exit...")
+    Console.WriteLine("Press Enter to exit...")
     Console.Read() |> ignore
     0
 

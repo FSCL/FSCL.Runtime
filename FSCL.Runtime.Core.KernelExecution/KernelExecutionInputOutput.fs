@@ -8,7 +8,7 @@ open System.Reflection
 
 type KernelExecutionInput(isRoot: bool,  
                           node: FlowGraphNode,  
-                          runtimeInfo: Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>,
+                          runtimeInfo: Dictionary<FunctionInfoID, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>,
                           gSize: int64 array, 
                           lSize: int64 array) =
 

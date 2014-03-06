@@ -71,7 +71,7 @@ type BufferPoolManager() =
         if not (untrackedBufferPool.ContainsKey(context)) then
             untrackedBufferPool.Add(context, new Dictionary<ComputeMemory, BufferPoolItem>())
 
-        let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.Type.GetElementType(), count, context, queue, flags).Value, queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+        let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.Type.GetElementType(), count, context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
         untrackedBufferPool.[context].Add(bufferItem.Buffer, bufferItem)
 
         // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
@@ -137,7 +137,7 @@ type BufferPoolManager() =
                 prevBuffer.CurrentQueue <- queue
                 prevBuffer.Buffer
             else
-                let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags).Value, queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+                let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
                 // We need to copy buffer only if no write-only                
                 if (parameter.Access &&& KernelParameterAccessMode.ReadAccess |> int > 0) then
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
@@ -154,7 +154,7 @@ type BufferPoolManager() =
                 bufferItem.Buffer
         else
             // Create a buffer tracking the parameter
-            let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags).Value, queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+            let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
             // Check if need to initialize
             let mustInitBuffer =
                 ((parameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||

@@ -127,6 +127,10 @@ module KernelRunner =
             | _ ->              
                 this.RunMultithread(null, null, globalSize, localSize, false)
        
+        interface IDisposable with
+            member this.Dispose() =
+                (this.KernelCreationManager :> IDisposable).Dispose()
+
     // Global kernel runner
     let mutable internal kernelRunner = new Runner(new Compiler(), new KernelExecutionManager(), None)
 

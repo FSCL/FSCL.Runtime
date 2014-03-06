@@ -16,32 +16,50 @@ type BufferTools() =
         | _ ->
             ComputeMemoryFlags.ReadWrite
 
-    static member private WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(q:ComputeCommandQueue, buff:ComputeBuffer<'T>, arg:obj) =
+    static member private WriteBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(q:ComputeCommandQueue, buff:ComputeBuffer<'T>, arg:obj, ?count:int[]) =
         //let dims = FSCL.Util.GetArrayDimensions(arg.Type)
         match buff.Count.Length with
         | 1 ->
             let actualArg = arg :?> 'T[]
-            q.WriteToBuffer<'T>(actualArg, buff, false, null)
+            if count.IsNone then
+                q.WriteToBuffer<'T>(actualArg, buff, false, null)
+            else
+                q.WriteToBuffer<'T>(actualArg, buff, false, 0L, 0L, count.Value.[0] * Marshal.SizeOf(typeof<'T>) |> int64, null)
         | 2 ->
             let actualArg = arg :?> 'T[,]
             let offset = Cloo.SysIntX2(0, 0)                
-            let region = Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
+            let region = 
+                if count.IsSome then
+                    Cloo.SysIntX2(count.Value.[0], count.Value.[1])
+                else
+                    Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
             q.WriteToBuffer<'T>(actualArg, buff, false, offset, offset, region, null)
         | _ ->
             let actualArg = arg :?> 'T[,,]
             let offset = Cloo.SysIntX3(0, 0, 0)
-            let region = Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2)) 
+            let region = 
+                if count.IsSome then
+                    Cloo.SysIntX3(count.Value.[0], count.Value.[1], count.Value.[2])
+                else
+                    Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2))
             q.WriteToBuffer<'T>(actualArg, buff, false, offset, offset, region, null)
             
-    static member private ReadBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(q:ComputeCommandQueue, arg:obj, buffer: ComputeBuffer<'T>) =
+    static member private ReadBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(q:ComputeCommandQueue, arg:obj, buffer: ComputeBuffer<'T>, ?count:int[]) =
         match buffer.Count.Length with
         | 1 ->
             let actualArg = arg :?> 'T[]
-            q.ReadFromBuffer<'T>(buffer, ref actualArg, true, null)            
+            if count.IsNone then
+                q.ReadFromBuffer<'T>(buffer, ref actualArg, true, 0L, 0L, actualArg.LongLength, null)           
+            else
+                q.ReadFromBuffer<'T>(buffer, ref actualArg, true, 0L, 0L, count.Value.[0] |> int64, null)
         | 2 ->
             let actualArg = arg :?> 'T[,]
             let offset = Cloo.SysIntX2(0,0)
-            let region = Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
+            let region = 
+                if count.IsSome then
+                    Cloo.SysIntX2(count.Value.[0], count.Value.[1])
+                else
+                    Cloo.SysIntX2(actualArg.GetLength(0), actualArg.GetLength(1))
             //q.ReadFromBuffer<'T>(buffer, ref actualArg, true, null); 
             q.ReadFromBuffer<'T>(buffer, 
                 ref actualArg, 
@@ -51,7 +69,11 @@ type BufferTools() =
         | _ ->
             let actualArg = arg :?> 'T[,,]
             let offset = Cloo.SysIntX3(0,0,0)
-            let region = Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2))
+            let region = 
+                if count.IsSome then
+                    Cloo.SysIntX3(count.Value.[0], count.Value.[1], count.Value.[2])
+                else
+                    Cloo.SysIntX3(actualArg.GetLength(0), actualArg.GetLength(1), actualArg.GetLength(2))
             q.ReadFromBuffer<'T>(buffer, ref actualArg, true, offset, offset, region, null)
             
     static member private CopyBuffer<'T when 'T: struct and 'T : (new : unit -> 'T) and 'T :> System.ValueType>(q:ComputeCommandQueue, input:ComputeBuffer<'T>, output:ComputeBuffer<'T>) =
@@ -63,45 +85,15 @@ type BufferTools() =
                                c:ComputeContext, 
                                q:ComputeCommandQueue, 
                                flags:ComputeMemoryFlags) =
-        let mutable buffer = None
-        if (t = typeof<uint32>) then
-            buffer <- Some(new ComputeBuffer<uint32>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<uint64>) then
-            buffer <- Some(new ComputeBuffer<uint64>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<int64>) then
-            buffer <- Some(new ComputeBuffer<int64>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<int>) then
-            buffer <- Some(new ComputeBuffer<int>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<double>) then
-            buffer <- Some(new ComputeBuffer<double>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<float32>) then
-            buffer <- Some(new ComputeBuffer<float32>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<bool>) then
-            buffer <- Some(new ComputeBuffer<int>(c, flags, count) :> ComputeMemory)
+        let bufferType = typeof<ComputeBuffer<int>>.GetGenericTypeDefinition().MakeGenericType([| t |])
+        let buffer = bufferType.GetConstructor([| typeof<ComputeContext>; typeof<ComputeMemoryFlags>; typeof<int64[]> |]).Invoke([| c; flags; count |])
+        buffer :?> ComputeMemory
 
-        elif (t = typeof<float2>) then
-            buffer <- Some(new ComputeBuffer<float2>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<float3>) then
-            buffer <- Some(new ComputeBuffer<float3>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<float4>) then
-            buffer <- Some(new ComputeBuffer<float4>(c, flags, count) :> ComputeMemory)
+    static member WriteBuffer(t, queue, buff:ComputeMemory, o, ?count:int[]) =
+        let m = typeof<BufferTools>.GetMethod("WriteBuffer", Reflection.BindingFlags.NonPublic ||| Reflection.BindingFlags.Static)
+        m.GetGenericMethodDefinition().MakeGenericMethod([| t |]).Invoke(null, [| queue; buff; o; count |]) |> ignore
             
-        elif (t = typeof<int2>) then
-            buffer <- Some(new ComputeBuffer<int2>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<int3>) then
-            buffer <- Some(new ComputeBuffer<int3>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<int4>) then
-            buffer <- Some(new ComputeBuffer<int4>(c, flags, count) :> ComputeMemory)
-            
-        elif (t = typeof<double2>) then
-            buffer <- Some(new ComputeBuffer<double2>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<double3>) then
-            buffer <- Some(new ComputeBuffer<double3>(c, flags, count) :> ComputeMemory)
-        elif (t = typeof<double4>) then
-            buffer <- Some(new ComputeBuffer<double4>(c, flags, count) :> ComputeMemory)
-        buffer
-
-    static member WriteBuffer(t, queue, buff:ComputeMemory, o) =
+        (*
         if (t = typeof<uint32>) then
             BufferTools.WriteBuffer<uint32>(queue, buff :?> ComputeBuffer<uint32>, o)
         elif (t = typeof<uint64>) then
@@ -136,11 +128,15 @@ type BufferTools() =
         elif (t = typeof<double3>) then
             BufferTools.WriteBuffer<double3>(queue, buff :?> ComputeBuffer<double3>, o)
         elif (t = typeof<double4>) then
-            BufferTools.WriteBuffer<double4>(queue, buff :?> ComputeBuffer<double4>, o)        
+            BufferTools.WriteBuffer<double4>(queue, buff :?> ComputeBuffer<double4>, o)      
+        *)  
 
-    static member ReadBuffer(t, queue, o, buffer: ComputeMemory) =    
+    static member ReadBuffer(t, queue, o, buffer: ComputeMemory, ?count:int[]) =    
+        let m = typeof<BufferTools>.GetMethod("ReadBuffer", Reflection.BindingFlags.NonPublic ||| Reflection.BindingFlags.Static)
+        m.GetGenericMethodDefinition().MakeGenericMethod([| t |]).Invoke(null, [| queue; o; buffer; count |]) |> ignore
+        (*
         if (t = typeof<uint32>) then
-            BufferTools.ReadBuffer<uint32>(queue, o, buffer :?> ComputeBuffer<uint32>) 
+            BufferTools.ReadBuffer<uint32>(queue, o, buffer :?> ComputeBuffer<uint32>, count) 
         elif (t = typeof<uint64>) then
             BufferTools.ReadBuffer<uint64>(queue, o, buffer :?> ComputeBuffer<uint64>) 
         elif (t = typeof<int64>) then
@@ -174,9 +170,13 @@ type BufferTools() =
             BufferTools.ReadBuffer<double3>(queue, o, buffer :?> ComputeBuffer<double3>) 
         elif (t = typeof<double4>) then
             BufferTools.ReadBuffer<double4>(queue, o, buffer :?> ComputeBuffer<double4>) 
-            
+            *)
     static member CopyBuffer(queue, input:ComputeMemory, output:ComputeMemory) =
-        let t = input.GetType().GetGenericArguments().[0]        
+        let t = input.GetType().GetGenericArguments().[0]    
+        
+        let m = typeof<BufferTools>.GetMethod("CopyBuffer", Reflection.BindingFlags.NonPublic ||| Reflection.BindingFlags.Static)
+        m.GetGenericMethodDefinition().MakeGenericMethod([| t |]).Invoke(null, [| queue; input; output |]) |> ignore
+        (*    
         let mutable buffer = None
         if (t = typeof<uint32>) then
             BufferTools.CopyBuffer<uint32>(queue, input :?> ComputeBuffer<uint32>, output :?> ComputeBuffer<uint32>)
@@ -213,4 +213,4 @@ type BufferTools() =
             BufferTools.CopyBuffer<double3>(queue, input :?> ComputeBuffer<double3>, output :?> ComputeBuffer<double3>)
         elif (t = typeof<double4>) then
             BufferTools.CopyBuffer<double4>(queue, input :?> ComputeBuffer<double4>, output :?> ComputeBuffer<double4>)
-        
+        *)

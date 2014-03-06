@@ -66,11 +66,11 @@ type internal KernelCreationManager(compiler: Compiler,
         else
             if not (this.GlobalCache.Kernels.ContainsKey(node.ID)) then
                 // Create multithread version
-                let mtKernel = this.KernelAdaptor.CreateMultithreadKernel(node.ID)
+                let mtKernel = this.KernelAdaptor.CreateMultithreadKernel(node.Signature)
                 this.GlobalCache.Kernels.Add(node.ID, new RuntimeKernelData(null, Some(mtKernel), None))
             else if this.GlobalCache.Kernels.[node.ID].MultithreadVersion.IsNone then
                 // Create multithread version
-                let mtKernel = this.KernelAdaptor.CreateMultithreadKernel(node.ID)
+                let mtKernel = this.KernelAdaptor.CreateMultithreadKernel(node.Signature)
                 this.GlobalCache.Kernels.[node.ID].MultithreadVersion <- Some(mtKernel)
         kernel <- this.GlobalCache.Kernels.[node.ID]
                 
@@ -85,7 +85,7 @@ type internal KernelCreationManager(compiler: Compiler,
                     let log = computeProgram.GetBuildLog(device.Device)
                     raise (new KernelCompilationException("Device code generation failed: " + log))
                 // Create kernel
-                let computeKernel = computeProgram.CreateKernel(kernel.Info.ID.Name)
+                let computeKernel = computeProgram.CreateKernel(kernel.Info.Signature.Name)
                 // Add kernel implementation to the list of implementations for the given kernel
                 let compiledKernel = new RuntimeCompiledKernelData(computeProgram, computeKernel)
                 kernel.Instances.Add((platformIndex, deviceIndex), compiledKernel)
@@ -104,7 +104,7 @@ type internal KernelCreationManager(compiler: Compiler,
             if kernel.Device <> null then
                 // Check if platform and device indexes are valid  
                 if ComputePlatform.Platforms.Count <= kernel.Device.Platform || (ComputePlatform.Platforms.[kernel.Device.Platform]).Devices.Count <= kernel.Device.Device then
-                    raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + kernel.ID.Name + " are invalid"))
+                    raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + kernel.Signature.Name + " are invalid"))
                 this.StoreKernel(kernel, false, kernel.Device.Platform, kernel.Device.Device)
             // No statically determined device: build kernel for all the possible devices
             else
@@ -115,7 +115,7 @@ type internal KernelCreationManager(compiler: Compiler,
             if mode = KernelRunningMode.OpenCL && (not fallback) then
                 raise (KernelSchedulingException("No OpenCL device is available in the system. Please check the functionality of your devices and that OpenCL is properly installed in the system"))
             if mode = KernelRunningMode.OpenCL && fallback then
-                Console.WriteLine("Warning: kernel " + kernel.ID.Name + " is fallbacking to multithread execution")
+                Console.WriteLine("Warning: kernel " + kernel.Signature.Name + " is fallbacking to multithread execution")
             this.StoreKernel(kernel, true, 0, 0)
         
     member this.Process(input: Object, 
@@ -127,7 +127,11 @@ type internal KernelCreationManager(compiler: Compiler,
         // Copile the input passing the global cache to skip kernels already compiled
         let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache))  :?> (KernelModule * string)        
         // Collect runtime information (device resources, kernel OpenCL program, ecc) for each method info
-        let runtimeInfo = new Dictionary<MethodInfo, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>();
+        let runtimeInfo = new Dictionary<FunctionInfoID, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>();
         for k in kernelModule.GetKernels() do
             runtimeInfo.Add(k.Info.ID, this.AnalyzeAndStoreKernel(k.Info, mode, fallback))
         (runtimeInfo, kernelModule.FlowGraph)
+
+    interface IDisposable with
+        member this.Dispose() =
+            (this.GlobalCache :> IDisposable).Dispose()
