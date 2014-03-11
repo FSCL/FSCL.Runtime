@@ -7,11 +7,11 @@ open System.Runtime.InteropServices
 open FSCL.Compiler.Configuration
         
 type BufferTools() =  
-    static member KernelParameterAccessModeToFlags(mode: KernelParameterAccessMode) =
+    static member AccessModeToFlags(mode: AccessMode) =
         match mode with
-        | KernelParameterAccessMode.ReadAccess ->
+        | AccessMode.ReadAccess ->
             ComputeMemoryFlags.ReadOnly
-        | KernelParameterAccessMode.WriteAccess ->
+        | AccessMode.WriteAccess ->
             ComputeMemoryFlags.WriteOnly
         | _ ->
             ComputeMemoryFlags.ReadWrite

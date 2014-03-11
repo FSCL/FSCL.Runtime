@@ -85,7 +85,7 @@ type ReduceKerernelExecutionProcessor() =
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
                 let elementType = par.Type.GetElementType()
-                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.KernelParameterAccessModeToFlags(par.Access), false)                      
+                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.AccessModeToFlags(par.Access), false)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
                 // Store dim sizes
@@ -96,7 +96,7 @@ type ReduceKerernelExecutionProcessor() =
             | KernelOutput(node, a) ->
                 // WE SHOULD AVOID COPY!!!
                 // Copy the output buffer of the input kernel
-                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)                       
+                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, BufferTools.AccessModeToFlags(par.Access), isRoot)                       
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)             
                 // Store dim sizes
@@ -109,7 +109,7 @@ type ReduceKerernelExecutionProcessor() =
             argIndex <- argIndex + 1
             // Second parameter: local buffer
             let par = kernelData.Info.Parameters.[argIndex]
-            if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
+            if par.AddressSpace = AddressSpace.LocalSpace then
                 compiledData.Kernel.SetLocalArgument(argIndex, (Marshal.SizeOf(par.Type.GetElementType()) |> int64) * localSize.[0]) 
                 // Store dim sizes
                 let sizeParameters = par.SizeParameters
@@ -197,7 +197,7 @@ type ReduceKerernelExecutionProcessor() =
 
             // If not root must write the result to buffer for the next kernel
             if not isRoot then
-                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], BufferTools.KernelParameterAccessModeToFlags(outputPar.Access), false)
+                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], BufferTools.AccessModeToFlags(outputPar.Access), false)
                 BufferTools.WriteBuffer(outputPar.GetType().GetElementType(), deviceData.Queue, ob, [| result |])
                 
                 // Dispose output buffer

@@ -100,7 +100,7 @@ type DefaultKerernelExecutionProcessor() =
                         
                     // Allocate the buffer
                     // Since returned, the buffer must not be initialized and it is obiously written
-                    let buffer = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, elementCount, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)                            
+                    let buffer = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, elementCount, BufferTools.AccessModeToFlags(par.Access), isRoot)                            
                     // Set kernel arg
                     compiledData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store buffer/object data
@@ -113,7 +113,7 @@ type DefaultKerernelExecutionProcessor() =
                     // Input from an actual argument
                     let o = LeafExpressionConverter.EvaluateQuotation(expr)
                     // Create buffer if needed (no local address space)
-                    if par.AddressSpace = KernelParameterAddressSpace.LocalSpace then
+                    if par.AddressSpace = AddressSpace.LocalSpace then
                         compiledData.Kernel.SetLocalArgument(argIndex, ArrayUtil.GetArrayAllocationSize(o) |> int64) 
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
@@ -125,7 +125,7 @@ type DefaultKerernelExecutionProcessor() =
                     else
                         // Check if read or read_write mode
                         let access = par.Access
-                        let buffer = pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.KernelParameterAccessModeToFlags(access), false) 
+                        let buffer = pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.AccessModeToFlags(access), false) 
                         
                         // Set kernel arg
                         compiledData.Kernel.SetMemoryArgument(argIndex, buffer)                      
@@ -145,7 +145,7 @@ type DefaultKerernelExecutionProcessor() =
                 | KernelOutput(node, a) ->
                     // WE SHOULD AVOID COPY!!!
                     // Copy the output buffer of the input kernel
-                    let buffer = pool.UseUntrackedBuffer(inputFromOtherKernelsBuffers.[par.Name], deviceData.Context, deviceData.Queue, par, BufferTools.KernelParameterAccessModeToFlags(par.Access), isRoot)            
+                    let buffer = pool.UseUntrackedBuffer(inputFromOtherKernelsBuffers.[par.Name], deviceData.Context, deviceData.Queue, par, BufferTools.AccessModeToFlags(par.Access), isRoot)            
                     // Store dim sizes
                     let sizeParameters = par.SizeParameters
                     //bufferSizes.Add(par.Name, new Dictionary<string, int>())

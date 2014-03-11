@@ -8,7 +8,7 @@ open FSCL.Compiler
 open FSCL.Runtime
 
 [<AllowNullLiteral>]
-type BufferPoolItem(buffer: ComputeMemory, queue:ComputeCommandQueue, access: KernelParameterAccessMode, transfer: KernelParameterTransferMode, isReturn: bool) =
+type BufferPoolItem(buffer: ComputeMemory, queue:ComputeCommandQueue, access: AccessMode, transfer: TransferMode, isReturn: bool) =
     member val Access = access with get
     member val Transfer = transfer with get
     member val IsReturned = isReturn with get 
@@ -139,12 +139,12 @@ type BufferPoolManager() =
             else
                 let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
                 // We need to copy buffer only if no write-only                
-                if (parameter.Access &&& KernelParameterAccessMode.ReadAccess |> int > 0) then
+                if (parameter.Access &&& AccessMode.ReadAccess |> int > 0) then
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
 
                 // Remember if this has been modified
                 bufferItem.HasBeenModified <- prevBuffer.HasBeenModified
-                if (parameter.Access &&& KernelParameterAccessMode.WriteAccess |> int > 0) then
+                if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
                     bufferItem.HasBeenModified  <- true
 
                 // Dispose previous buffer and store new one
@@ -157,15 +157,15 @@ type BufferPoolManager() =
             let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
             // Check if need to initialize
             let mustInitBuffer =
-                ((parameter.AddressSpace = KernelParameterAddressSpace.GlobalSpace) ||
-                    (parameter.AddressSpace = KernelParameterAddressSpace.ConstantSpace)) &&
-                ((parameter.Access &&& KernelParameterAccessMode.ReadAccess |> int > 0))
+                ((parameter.AddressSpace = AddressSpace.GlobalSpace) ||
+                    (parameter.AddressSpace = AddressSpace.ConstantSpace)) &&
+                ((parameter.Access &&& AccessMode.ReadAccess |> int > 0))
             
             if mustInitBuffer then
                 BufferTools.WriteBuffer(o.GetType().GetElementType(), queue, bufferItem.Buffer, o)    
                 
             // Remember if this has been modified
-            if (parameter.Access &&& KernelParameterAccessMode.WriteAccess |> int > 0) then
+            if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
                 bufferItem.HasBeenModified  <- true          
                               
             // Store buffer          
@@ -177,7 +177,7 @@ type BufferPoolManager() =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if poolItem.HasBeenModified && (poolItem.Transfer &&& KernelParameterTransferMode.NoTransferBack |> int = 0) then
+            if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
                 BufferTools.ReadBuffer(item.Key.GetType().GetElementType(), poolItem.CurrentQueue, item.Key, poolItem.Buffer)
         
     member this.ReadRootReturnBuffer() =
@@ -196,7 +196,7 @@ type BufferPoolManager() =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if poolItem.HasBeenModified && (poolItem.Transfer &&& KernelParameterTransferMode.NoTransferBack |> int = 0) then
+            if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
                 BufferTools.ReadBuffer(item.Key.GetType().GetElementType(), poolItem.CurrentQueue, item.Key, poolItem.Buffer)
                         
         returnValue
