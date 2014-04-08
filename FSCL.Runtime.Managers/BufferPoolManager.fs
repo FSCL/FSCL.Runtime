@@ -1,10 +1,11 @@
-﻿namespace FSCL.Runtime.KernelExecution
+﻿namespace FSCL.Runtime.Managers
 
 open Cloo
 open System.Collections.Generic
 open System
 open System.Runtime.InteropServices
 open FSCL.Compiler
+open FSCL.Compiler.Language
 open FSCL.Runtime
 
 [<AllowNullLiteral>]
@@ -67,15 +68,16 @@ type BufferPoolManager() =
         
     // Non-tracking buffer
     // This is the buffer created for buffers allocated and returned inside kernels and for buffer obtained from the execution of other previos kernels
-    member this.CreateUntrackedBuffer(context, queue, parameter:KernelParameterInfo, count:int64[], flags, isRoot) =
+    member this.CreateUntrackedBuffer(context, queue, parameter:IFunctionParameter, count:int64[], flags, isRoot) =
         if not (untrackedBufferPool.ContainsKey(context)) then
             untrackedBufferPool.Add(context, new Dictionary<ComputeMemory, BufferPoolItem>())
 
-        let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.Type.GetElementType(), count, context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+        let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+        let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
         untrackedBufferPool.[context].Add(bufferItem.Buffer, bufferItem)
 
         // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
-        if parameter.IsReturnParameter && isRoot then
+        if parameter.IsReturned && isRoot then
             rootReturnBuffer <- Some(bufferItem)
 
         bufferItem.Buffer
@@ -101,10 +103,11 @@ type BufferPoolManager() =
                 buffer.Dispose()
                 untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
                 
-    member this.UseUntrackedBuffer(buffer:ComputeMemory, context, queue, parameter:KernelParameterInfo, flags:ComputeMemoryFlags, isRoot) =
+    member this.UseUntrackedBuffer(buffer:ComputeMemory, context, queue, parameter: IFunctionParameter, flags:ComputeMemoryFlags, isRoot) =
         if untrackedBufferPool.ContainsKey(buffer.Context) then
             let item = untrackedBufferPool.[buffer.Context].[buffer]
             // Check if this can be used with no copy
+            let mutable avoidCopy = context = buffer.Context
             if context = buffer.Context &&
                 (parameter.Access &&& item.Access = parameter.Access) &&
                 (flags &&& item.Buffer.Flags = flags) then
@@ -123,7 +126,7 @@ type BufferPoolManager() =
 
     // Tracking buffer
     // This is the buffer created when an actual argument is provided
-    member this.CreateTrackedBuffer(context, queue, parameter:KernelParameterInfo, o, flags, strictFlags) =
+    member this.CreateTrackedBuffer(context, queue, parameter:IFunctionParameter, o, flags, strictFlags, isRoot) =
         // Check if there is a buffer bound to the same object
         if trackedBufferPool.ContainsKey(o) then
             // We are requested to create a buffer matching an object (parameter value) already known
@@ -133,11 +136,17 @@ type BufferPoolManager() =
             if prevBuffer.Buffer.Context = context &&
                 (prevBuffer.Access ||| parameter.Access = prevBuffer.Access) && 
                 (prevBuffer.Buffer.Flags ||| flags = prevBuffer.Buffer.Flags) then
+                
+                // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
+                if parameter.IsReturned && isRoot then
+                    rootReturnBuffer <- Some(prevBuffer)
+
                 // Use this buffer
                 prevBuffer.CurrentQueue <- queue
                 prevBuffer.Buffer
             else
-                let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+                let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+                let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
                 // We need to copy buffer only if no write-only                
                 if (parameter.Access &&& AccessMode.ReadAccess |> int > 0) then
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
@@ -146,6 +155,10 @@ type BufferPoolManager() =
                 bufferItem.HasBeenModified <- prevBuffer.HasBeenModified
                 if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
                     bufferItem.HasBeenModified  <- true
+                    
+                // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
+                if parameter.IsReturned && isRoot then
+                    rootReturnBuffer <- Some(bufferItem)
 
                 // Dispose previous buffer and store new one
                 reverseTrackedBufferPool.Remove(prevBuffer.Buffer) |> ignore
@@ -154,11 +167,14 @@ type BufferPoolManager() =
                 bufferItem.Buffer
         else
             // Create a buffer tracking the parameter
-            let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, parameter.Transfer, parameter.IsReturnParameter)
+            let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+            let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
             // Check if need to initialize
+            let space = parameter.Meta.Get<AddressSpaceAttribute>()
             let mustInitBuffer =
-                ((parameter.AddressSpace = AddressSpace.GlobalSpace) ||
-                    (parameter.AddressSpace = AddressSpace.ConstantSpace)) &&
+                ((space.AddressSpace = AddressSpace.Auto) ||
+                 (space.AddressSpace = AddressSpace.Global) ||
+                 (space.AddressSpace = AddressSpace.Constant)) &&
                 ((parameter.Access &&& AccessMode.ReadAccess |> int > 0))
             
             if mustInitBuffer then
@@ -168,6 +184,10 @@ type BufferPoolManager() =
             if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
                 bufferItem.HasBeenModified  <- true          
                               
+            // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
+            if parameter.IsReturned && isRoot then
+                rootReturnBuffer <- Some(bufferItem)
+
             // Store buffer          
             trackedBufferPool.Add(o, bufferItem)
             reverseTrackedBufferPool.Add(bufferItem.Buffer, o)

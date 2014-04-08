@@ -53,7 +53,7 @@ namespace Cloo
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly ComputeMemoryFlags flags;
 
-		private List<long> count;
+		private long[] count;
 
         #endregion
 
@@ -89,9 +89,22 @@ namespace Cloo
 		// HACK
 		public long[] Count {
 			get {
-				return count.ToArray ();
+				return count;
 			}
 		}
+
+        public int Rank
+        {
+            get
+            {
+                return count.Length;
+            }
+        }
+
+        public long GetLongLength(int r)
+        {
+            return count[r];
+        }
 
 		// END HACK
         #endregion
@@ -107,9 +120,8 @@ namespace Cloo
         {
             this.context = context;
             this.flags = flags;
-			this.count = new List<long> ();
-			foreach (long l in c)
-				this.count.Add(l);
+
+            this.count = c;
         }
 
         #endregion

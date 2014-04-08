@@ -19,7 +19,7 @@ type ModulePreparsingStep(tm: TypeManager,
             if fields.[1] :? RuntimeCache then
                 // Store into custom data
                 kmodule.CustomInfo.Add("RUNTIME_CACHE", fields.[1])
-                (fields.[0], kmodule)
+                ContinueCompilation(fields.[0], kmodule)
             else
                 raise (KernelCompilationException("The expected preparsing input type is obj * RuntimeGlobalData but this is not the type of the input received"))
         else

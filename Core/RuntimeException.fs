@@ -15,6 +15,9 @@ type KernelDeviceSelectionException(msg: string) =
 type KernelSchedulingException(msg: string) =
     inherit System.Exception(msg)
     
+type KernelFlowGraphException(msg: string) =
+    inherit System.Exception(msg)
+
 type KernelSetupException(msg: string) =
     inherit System.Exception(msg)
 

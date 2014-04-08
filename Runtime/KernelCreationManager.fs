@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime
+﻿namespace FSCL.Runtime.Managers
 
 open Cloo
 open Microsoft.FSharp.Quotations
@@ -7,7 +7,9 @@ open System.Reflection
 open System.Collections.Generic
 open FSCL.Compiler
 open FSCL.Compiler.Configuration
+open FSCL.Runtime
 open FSCL.Runtime.Metric
+open FSCL.Runtime.Language
 open System
 open System.Reflection
 open System.Collections.ObjectModel
@@ -24,10 +26,10 @@ type internal KernelCreationManager(compiler: Compiler,
     member val SchedulingMetric = metric with get             
     // The FSCL compiler   
     // Add the additional steps for the compiler to skip kernel recompilation and produce separated source codes for kernels
-    member val Compiler = new Compiler(
-                            new PipelineConfiguration(
-                                compiler.Configuration.LoadDefaultSteps, 
-                                compiler.Configuration.Sources @ [new SourceConfiguration(AssemblySource(typeof<CacheInspectionStep>.Assembly)) ]))
+    member val Compiler = new Compiler()
+                            //new PipelineConfiguration(
+                              //  compiler.Configuration.LoadDefaultSteps, 
+                                //compiler.Configuration.Sources @ [new SourceConfiguration(AssemblySource(typeof<CacheInspectionStep>.Assembly)) ]))
           with get
     // The multithread adaptor (compiler) to run kernels using multithreading
     member val private KernelAdaptor = new MultithreadKernelAdaptor() with get
@@ -101,11 +103,12 @@ type internal KernelCreationManager(compiler: Compiler,
         let kernelModule = ref None
         if KernelManagerTools.IsOpenCLAvailable() && mode = KernelRunningMode.OpenCL then
             // Check if a particular device is specified by the user via KernelAttribute
-            if kernel.Device <> null then
+            let device = kernel.GetMetadata<DeviceAttribute>()
+            if device.IsSome then
                 // Check if platform and device indexes are valid  
-                if ComputePlatform.Platforms.Count <= kernel.Device.Platform || (ComputePlatform.Platforms.[kernel.Device.Platform]).Devices.Count <= kernel.Device.Device then
+                if ComputePlatform.Platforms.Count <= device.Value.Platform || (ComputePlatform.Platforms.[device.Value.Platform]).Devices.Count <= device.Value.Device then
                     raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + kernel.Signature.Name + " are invalid"))
-                this.StoreKernel(kernel, false, kernel.Device.Platform, kernel.Device.Device)
+                this.StoreKernel(kernel, false, device.Value.Platform, device.Value.Device)
             // No statically determined device: build kernel for all the possible devices
             else
                 // The heart: find best device using a metric (by now fixed assignment)
@@ -125,12 +128,13 @@ type internal KernelCreationManager(compiler: Compiler,
         let multithread = (mode <> KernelRunningMode.OpenCL)    
 
         // Copile the input passing the global cache to skip kernels already compiled
-        let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache))  :?> (KernelModule * string)        
+        //let kernelModule, code = this.Compiler.Compile((input, this.GlobalCache))  :?> (KernelModule * string)        
         // Collect runtime information (device resources, kernel OpenCL program, ecc) for each method info
         let runtimeInfo = new Dictionary<FunctionInfoID, RuntimeDeviceData * RuntimeKernelData * RuntimeCompiledKernelData>();
-        for k in kernelModule.GetKernels() do
-            runtimeInfo.Add(k.Info.ID, this.AnalyzeAndStoreKernel(k.Info, mode, fallback))
-        (runtimeInfo, kernelModule.FlowGraph)
+        //for k in kernelModule.GetKernels() do
+          //  runtimeInfo.Add(k.Info.ID, this.AnalyzeAndStoreKernel(k.Info, mode, fallback))
+        //(runtimeInfo, kernelModule.FlowGraph)
+        0
 
     interface IDisposable with
         member this.Dispose() =

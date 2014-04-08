@@ -5,7 +5,8 @@ open System.IO
 open System.Reflection
 open FSCL.Compiler
 open FSCL.Compiler.Configuration
-open FSCL.Runtime.KernelExecution
+open FSCL.Runtime.Managers
+open FSCL.Runtime.RuntimeSteps
 open Microsoft.FSharp.Reflection
 ///
 ///<summary>
@@ -18,7 +19,7 @@ type KernelExecutionManager =
 
     static member private defComponentsAssemply = 
         [| typeof<KernelExecutionStep>;
-           typeof<ReduceKerernelExecutionProcessor> |]
+           typeof<ReduceKernelExecutionProcessor> |]
 
     val mutable private steps : ICompilerStep list
     val mutable private configuration: PipelineConfiguration

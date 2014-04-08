@@ -1,24 +1,31 @@
 ﻿open FSCL.Compiler
-open FSCL.Compiler.KernelLanguage
-open FSCL.Runtime.HostLanguage
+open FSCL.Compiler.Language
+open FSCL.Runtime.Language
 open FSCL.Runtime
 open FSCL.Compiler.Plugins.AcceleratedCollections
 open FSCL.Compiler.Configuration
 open System.Reflection
 open System.Reflection.Emit
-open FSCL.Runtime.KernelRunner
 open System
 open System.Collections.Generic
 open System.Diagnostics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
+open FSCL.Runtime.Runtime
         
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = get_global_id(0)
     c.[gid] <- a.[gid] + b.[gid]
+    
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAddReturn(a: float32[], b: float32[]) =
+    let c = Array.zeroCreate<float32> (a.GetLength(0))
+    let gid = get_global_id(0)
+    c.[gid] <- a.[gid] + b.[gid]
+    c
     
 // Vector4 addition
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -69,32 +76,37 @@ let main argv =
     let c4 = Array.zeroCreate<float4> (size)
     let correctMapResult4 = Array.create size (float4(5.0f, 5.0f, 5.0f, 5.0f))
     // Matrices
-    let am = Array2D.create 64 64 2.0f
-    let bm = Array2D.create 64 64 3.0f
-    let cm = Array2D.create 64 64 116.0f
-    let dm = Array2D.zeroCreate<float32> 64 64
-    let correctMatMulAdd = Array2D.create 64 64 (2.0f * 3.0f * 64.0f + 116.0f)
+    let matSize = 32
+    let matSizel = matSize |> int64
+    let am = Array2D.create matSize matSize 2.0f
+    let bm = Array2D.create matSize matSize 3.0f
+    let cm = Array2D.create matSize matSize 116.0f
+    let dm = Array2D.zeroCreate<float32> matSize matSize
+    let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * 64.0f + 116.0f)
 
     // Init the runtime to include accelerated collections
-    let conf = new PipelineConfiguration(true, [ SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) ])
-    KernelRunner.Init(new Compiler(conf), None, None)
+    let conf = new PipelineConfiguration(true, [| SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) |])
+    let compiler = new Compiler(conf)
+    Runtime.Init(compiler, None)
 
     // Check opencl devices
-    if KernelRunner.ListDevices().Length = 0 then
+    let plats = Runtime.ListDevices()
+    if plats.Count = 0 then
         Console.WriteLine("No OpenCL-enabled device found on this platform")
     else
         // Show OpenCL devices
         Console.WriteLine("Your OpenCL-enabled devices are listed below")
-        let platforms = KernelRunner.ListDevices()
-        for platformIndex = 0 to platforms.Length - 1 do
+        
+        for platformIndex = 0 to plats.Count - 1 do
             Console.WriteLine("- Platform " + platformIndex.ToString())
-            for (device, deviceName) in platforms.[platformIndex] do
-                Console.WriteLine("  - Device " + device.ToString() + ": " + deviceName)
+            for deviceName in plats.[platformIndex] do
+                Console.WriteLine("  - Device " + ": " + deviceName)
        
         // Simple vector add
         Console.WriteLine("")
         Console.WriteLine("# Testing simple vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
+        c <- Array.zeroCreate<float32> (size)
         timer.Start()
         <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
         timer.Stop()
@@ -109,6 +121,7 @@ let main argv =
             Console.WriteLine("  First vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
             // Re-execute vector add exploiting runtime caching for kernels    
+            c <- Array.zeroCreate<float32> (size)
             timer.Restart()
             <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
             timer.Stop()
@@ -118,8 +131,9 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing vector add with embedded work size specification, using OpenCL on the first device")
         // Execute vector add in OpenCL mode
+        c <- Array.zeroCreate<float32> (size)
         timer.Start()
-        <@ worksize(VectorAdd(a, b, c), [| lsize |], [| 64L |]) @>.Run() |> ignore
+        <@ WORKSIZE([| lsize |], [| 64L |], VectorAdd(a, b, c)) @>.Run() |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -132,8 +146,9 @@ let main argv =
             Console.WriteLine("  First vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
             // Re-execute vector add exploiting runtime caching for kernels    
+            c <- Array.zeroCreate<float32> (size)
             timer.Restart()
-            <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
+            <@ WORKSIZE([| lsize |], [| 64L |], VectorAdd(a, b, c)) @>.Run() |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
@@ -163,6 +178,7 @@ let main argv =
         // Accelerated collection
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
+        c <- Array.zeroCreate<float32> (size)
         timer.Start()
         c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L)
         timer.Stop()
@@ -176,7 +192,8 @@ let main argv =
         else
             Console.WriteLine("  First accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
-            // Re-execute vector add exploiting runtime caching for kernels    
+            // Re-execute vector add exploiting runtime caching for kernels   
+            c <- Array.zeroCreate<float32> (size) 
             timer.Restart()
             c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L)
             timer.Stop()
@@ -219,20 +236,20 @@ let main argv =
             reduce_sum <- <@ Array.reduce (fun el1 el2 -> el1 + el2) a @>.Run(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
-
+            
 
         // Expression of multiple kernels
         Console.WriteLine("")
         Console.WriteLine("# Testing expressions made of multiple kernels (matrix multiplication followed by a sum) on the first device")
         timer.Start()
-        <@ worksize(
-            MatrixAdd(
-                worksize(
-                    MatrixMult(am, bm), 
-                    [| 64L; 64L |], [| 8L; 8L |]), 
-                cm, dm),
-            [| 64L |], [| 8L |]) @>.Run()
-        timer.Stop()        
+        let r = <@ WORKSIZE([| matSizel |], [| 8L |],
+                    MatrixAdd(
+                        WORKSIZE(
+                            [| matSizel; matSizel |], [| 8L; 8L |], 
+                            MatrixMult(am, bm)),
+                        cm, dm)
+                    ) @>.Run()
+        timer.Stop()
         // Check result
         let mutable isResultCorrect = true
         for i = 0 to correctMapResult.Length - 1 do
@@ -245,13 +262,13 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            <@ worksize(
+            <@ WORKSIZE([| matSizel |], [| 8L |],
                 MatrixAdd(
-                    worksize(
-                        MatrixMult(am, bm), 
-                        [| 64L; 64L |], [| 8L; 8L |]), 
-                    cm, dm),
-                [| 64L |], [| 8L |]) @>.Run()
+                    WORKSIZE(
+                        [| matSizel; matSizel |], [| 8L; 8L |], 
+                        MatrixMult(am, bm)),
+                    cm, dm)
+                ) @>.Run() |> ignore
             timer.Stop()
             Console.WriteLine("  Second accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 

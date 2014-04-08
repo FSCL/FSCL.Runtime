@@ -3,6 +3,7 @@
 open System
 open System.Reflection
 open System.Collections.Generic
+open System.Collections.ObjectModel
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open FSCL.Compiler
@@ -16,7 +17,7 @@ open Cloo
 type CacheInspectionStep(tm: TypeManager,
                           processors: ICompilerStepProcessor list) = 
     inherit CompilerStep<KernelModule, KernelModule>(tm, processors)
-    
+    (*
     member private this.LiftArgumentsAndKernelCalls(e: Expr,
                                                     args: Dictionary<string, obj>,
                                                     localSize: int64 array,
@@ -70,53 +71,58 @@ type CacheInspectionStep(tm: TypeManager,
             let evaluated = LeafExpressionConverter.EvaluateQuotation(lifted)
             intSizes.Add((evaluated :?> int32) |> int64)
         ExplicitAllocationSize(intSizes |> Seq.toArray)    
-               
+               *)
     override this.Run(kmodule, opts) =
-        if kmodule.CustomInfo.ContainsKey("RUNTIME_CACHE") then
+        if opts.ContainsKey(RuntimeOptions.UseCache) then
             // Get cache
-            let cache = kmodule.CustomInfo.["RUNTIME_CACHE"] :?> RuntimeCache
-            // Skip kernels already compiled
-            for k in kmodule.GetKernels() do
-                // If a mathing kernel has been cached and it contains the opencl source code
-                if cache.Kernels.ContainsKey(k.Info.ID) && cache.Kernels.[k.Info.ID].OpenCLCode.IsSome then
-                    let cachedKernel = cache.Kernels.[k.Info.ID]
-                    k.Info.Skip <- true
-                    k.Info.Body <- cachedKernel.Info.Body
-                    k.Info.Code <- cachedKernel.Info.Code
-                    k.Info.Name <- cachedKernel.Info.Name
-                    k.Info.ReturnType <- cachedKernel.Info.ReturnType
-                    for item in cachedKernel.Info.CustomInfo do
-                        if not (k.Info.CustomInfo.ContainsKey(item.Key)) then
-                            k.Info.CustomInfo.Add(item.Key, item.Value)  
-                    for item in cachedKernel.Info.Parameters do
-                        k.Info.Parameters.Add(item)
+            let cache = opts.[RuntimeOptions.UseCache] :?> RuntimeCache
+            // Skip is kernel already compiled
+            let k = kmodule.Kernel
+           
+            // If a mathing kernel has been cached and it contains the opencl source code
+            if cache.IsKernelWithCompatibleMetadataCached(k.Info.ID, k.Info.Metadata) && 
+                // A code has been generated (the cached version is not produced by multithread execution)
+                cache.Kernels.[k.Info.ID].OpenCLCode.IsSome then
 
-                    // We are not going to execute further compiler steps
-                    // in particular the function preprocessing steps
-                    // Function preprocessing determines some inputs for the flow graph node,
-                    // for example when the kernel has a dynamic alloc array
-                    // We therefore need to inspect parameters and act like function preprocessing
-                    // creating the missing flow graph inputs
-                    let dynArray = Seq.tryFind(fun (p:KernelParameterInfo) -> p.IsDynamicArrayParameter) k.Info.Parameters
-                    // Get flow graph nodes matching the current kernel    
-                    let nodes = FlowGraphManager.GetKernelNodes(k.Info.ID, kmodule.FlowGraph)
-                    if dynArray.IsSome then                        
-                        // Set flow graph argument
+                let cachedKernel = cache.Kernels.[k.Info.ID]
+                k.Info.Body <- cachedKernel.Info.Body
+                k.Info.Code <- cachedKernel.Info.Code
+                k.Info.ReturnType <- cachedKernel.Info.ReturnType
+                for item in cachedKernel.Info.CustomInfo do
+                    if not (k.Info.CustomInfo.ContainsKey(item.Key)) then
+                        k.Info.CustomInfo.Add(item.Key, item.Value)  
+                for item in cachedKernel.Info.Parameters do
+                    k.Info.Parameters.Add(item)
+
+                // We are not going to execute further compiler steps
+                // in particular the function preprocessing steps
+                // Function preprocessing determines some inputs for the flow graph node,
+                // for example when the kernel has a dynamic alloc array
+                // We therefore need to inspect parameters and act like function preprocessing
+                // creating the missing flow graph inputs
+                (*
+                let dynArray = Seq.tryFind(fun (p:KernelParameterInfo) -> p.IsDynamicArrayParameter) k.Info.Parameters
+                // Get flow graph nodes matching the current kernel    
+
+                let nodes = FlowGraphManager.GetKernelNodes(k.Info.ID, kmodule.FlowGraph)
+                if dynArray.IsSome then                        
+                    // Set flow graph argument
+                    for item in nodes do
+                        FlowGraphManager.SetNodeInput(item, 
+                                                        dynArray.Value.Name, 
+                                                        BufferAllocationSize(
+                                                        fun(args, localSize, globalSize) ->
+                                                            this.EvaluateReturnedBufferAllocationSize(
+                                                                dynArray.Value.Type.GetElementType(), 
+                                                                dynArray.Value.DynamicAllocationArguments, 
+                                                                args, localSize, globalSize))) 
+
+                // Set implicit node input for each array length arg
+                for p in k.Info.Parameters do
+                    if p.IsSizeParameter then
                         for item in nodes do
-                            FlowGraphManager.SetNodeInput(item, 
-                                                            dynArray.Value.Name, 
-                                                            BufferAllocationSize(
-                                                            fun(args, localSize, globalSize) ->
-                                                                this.EvaluateReturnedBufferAllocationSize(
-                                                                    dynArray.Value.Type.GetElementType(), 
-                                                                    dynArray.Value.DynamicAllocationArguments, 
-                                                                    args, localSize, globalSize))) 
-
-                    // Set implicit node input for each array length arg
-                    for p in k.Info.Parameters do
-                        if p.IsSizeParameter then
-                            for item in nodes do
-                                FlowGraphManager.SetNodeInput(item,
-                                                                p.Name,
-                                                                ImplicitValue)
-        kmodule
+                            FlowGraphManager.SetNodeInput(item,
+                                                            p.Name,
+                                                            ImplicitValue)
+                                                            *)
+        ContinueCompilation(kmodule)

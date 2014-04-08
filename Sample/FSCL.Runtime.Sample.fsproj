@@ -50,6 +50,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
+      <Name>Cloo.VS2010</Name>
+      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
       <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>

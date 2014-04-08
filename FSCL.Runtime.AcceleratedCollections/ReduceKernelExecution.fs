@@ -1,58 +1,42 @@
-namespace FSCL.Runtime.KernelExecution
+namespace FSCL.Runtime.RuntimeSteps
 
 open System
 open FSCL.Compiler
+open FSCL.Compiler.Language
 open FSCL.Runtime
+open FSCL.Runtime.Managers
+open FSCL.Runtime.Language
+open FSCL.Compiler.Plugins.AcceleratedCollections
 open System.Collections.Generic
 open System.Reflection
 open Cloo
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Runtime.InteropServices
 open Microsoft.FSharp.Quotations
-open Microsoft.FSharp.Linq.QuotationEvaluation
-
-[<assembly:DefaultComponentAssembly>]
-do()
 
 [<StepProcessor("FSCL_RUNTIME_EXECUTION_ACCELERATED_REDUCE_PROCESSOR", 
                 "FSCL_RUNTIME_EXECUTION_STEP",
                 Before = [| "FSCL_RUNTIME_EXECUTION_DEFAULT_PROCESSOR" |])>]
 
-type ReduceKerernelExecutionProcessor() =      
-    inherit CompilerStepProcessor<KernelExecutionInput, KernelExecutionOutput option>()
+type ReduceKernelExecutionProcessor() =      
+    inherit CompilerStepProcessor<FlowGraphNode * bool, ExecutionOutput option>()
 
     override this.Run(input, s, opts) =
         this.TwoStageReduce(input, s, opts)
             
-    member private this.TwoStageReduce(input, s, opts) =
+    member private this.TwoStageReduce((node, isRoot), s, opts) =
         let step = s :?> KernelExecutionStep
         let pool = step.BufferPoolManager
         //new KernelExecutionOutput()
         
-        let node = input.Node
-        let isAccelerateReduce = match input.RuntimeInfo.[node.KernelID] with
-                                 | di, ri, ci ->
-                                    ri.Info.CustomInfo.ContainsKey("IS_ACCELERATED_COLLECTION_KERNEL") && 
-                                    ri.Info.CustomInfo.ContainsKey("ReduceFunction")
+        let isAccelerateReduce = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
+                                 node.KernelData.Kernel.CustomInfo.ContainsKey("ReduceFunction")
+
         // Check if this is an accelerated collection array reduce
         if (isAccelerateReduce) then
-            let isRoot = input.IsRoot
-            let node = input.Node
-            let deviceData, kernelData, compiledData = input.RuntimeInfo.[input.Node.KernelID]
-            let gSize = input.GlobalSize
-            let lSize = input.LocalSize
-
-            // We don't need global size (it is based on the input array)
-            // If localSize is 0-length they should be retrieved in the kernel expression, i.e. in the graph node custom info
-            let localSize =
-                if lSize.Length = 0 then
-                    if node.CustomInfo.ContainsKey("LOCAL_SIZE") then
-                        node.CustomInfo.["LOCAL_SIZE"] :?> int64 array
-                    else
-                        raise (new KernelSetupException("No runtime local size value has been specified and no local size information can be found inside the kernel expression"))
-                else
-                    lSize
-                    
+            let deviceData, kernelData, compiledData = node.DeviceData, node.KernelData, node.CompiledKernelData
+            let localSize = node.KernelData.Kernel.Meta.KernelMeta.Get<WorkSizeAttribute>().LocalSize
+                                
             // Coming from preceding kernels buffers
             let mutable prevBuffer = None
             // Input (coming from preceding kernels) buffers
@@ -61,13 +45,14 @@ type ReduceKerernelExecutionProcessor() =
             let mutable outputBuffer = null
 
             // Get node input binding
-            let nodeInput = FlowGraphManager.GetNodeInput(node)
+            let nodeInput = FlowGraphUtil.GetNodeInput(node)
+            let parameters = kernelData.Kernel.Parameters
             // Check if the first parameter (input array) is bound to the output of a kernel
-            let inputPar = kernelData.Info.Parameters.[0]
+            let inputPar = parameters.[0]
             if nodeInput.ContainsKey(inputPar.Name) then
                 match nodeInput.[inputPar.Name] with
                 | KernelOutput(otherKernel, otherParIndex) ->
-                    let kernelOutput = step.Process(new KernelExecutionInput(false, otherKernel, input.RuntimeInfo, [||], [||]))
+                    let kernelOutput = step.Process(otherKernel, false)
                     // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
                     prevBuffer <- kernelOutput.ReturnBuffer
                 | _ ->
@@ -78,14 +63,14 @@ type ReduceKerernelExecutionProcessor() =
             let mutable argIndex = 0  
 
             // First parameter: input array, may be coming from actual argument or kernel output
-            let par = kernelData.Info.Parameters.[argIndex]
+            let par = parameters.[argIndex]
             match nodeInput.[par.Name] with
             | ActualArgument(expr) ->
                 // Input from an actual argument
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
-                let elementType = par.Type.GetElementType()
-                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.AccessModeToFlags(par.Access), false)                      
+                let elementType = par.DataType.GetElementType()
+                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.AccessModeToFlags(par.Access), false, isRoot)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
                 // Store dim sizes
@@ -108,19 +93,17 @@ type ReduceKerernelExecutionProcessor() =
 
             argIndex <- argIndex + 1
             // Second parameter: local buffer
-            let par = kernelData.Info.Parameters.[argIndex]
-            if par.AddressSpace = AddressSpace.LocalSpace then
-                compiledData.Kernel.SetLocalArgument(argIndex, (Marshal.SizeOf(par.Type.GetElementType()) |> int64) * localSize.[0]) 
-                // Store dim sizes
-                let sizeParameters = par.SizeParameters
-                // Set size parameter                
-                compiledData.Kernel.SetValueArgument(argIndex + 3, localSize.[0] |> int)
+            compiledData.Kernel.SetLocalArgument(argIndex, (Marshal.SizeOf(par.DataType.GetElementType()) |> int64) * localSize.[0]) 
+            // Store dim sizes
+            let sizeParameters = par.SizeParameters
+            // Set size parameter                
+            compiledData.Kernel.SetValueArgument(argIndex + 3, localSize.[0] |> int)
                 
             argIndex <- argIndex + 1
             // Third parameter: output buffer
-            let par = kernelData.Info.Parameters.[argIndex]
+            let par = parameters.[argIndex]
             // Create buffer and eventually init it
-            let elementType = par.Type.GetElementType()
+            let elementType = par.DataType.GetElementType()
             outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], ComputeMemoryFlags.ReadWrite, isRoot)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
@@ -163,17 +146,17 @@ type ReduceKerernelExecutionProcessor() =
                     compiledData.Kernel.SetValueArgument(4, currentLocalSize |> int)
 
             // Read buffer
-            let outputPar = kernelData.Info.Parameters.[2]
+            let outputPar = kernelData.Kernel.Parameters.[2]
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
-            let arrobj = Array.CreateInstance(outputPar.Type.GetElementType(), lastOutputSize)
+            let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
 
-            BufferTools.ReadBuffer(outputPar.Type.GetElementType(), deviceData.Queue, arrobj, outputBuffer)
+            BufferTools.ReadBuffer(outputPar.DataType.GetElementType(), deviceData.Queue, arrobj, outputBuffer)
 
             // Dispose kernel            
             //compiledData.Kernel.Dispose()
 
             // Do final iteration on CPU
-            let reduceFunction = kernelData.Info.CustomInfo.["ReduceFunction"]
+            let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
             let mutable result = arrobj.GetValue(0)
             match reduceFunction with
             | :? MethodInfo ->
@@ -203,11 +186,11 @@ type ReduceKerernelExecutionProcessor() =
                 // Dispose output buffer
                 pool.DisposeBuffer(outputBuffer)
                 // Return
-                Some(KernelExecutionOutput(ob))
+                Some(ExecutionOutput(ob))
             else
                 // Dispose output buffer
                 pool.DisposeBuffer(outputBuffer)
                 // Return
-                Some(KernelExecutionOutput(result))
+                Some(ExecutionOutput(result))
         else
             None

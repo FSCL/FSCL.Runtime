@@ -5,13 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>1AD3E1DC-D7F0-4B0C-B58F-E7E443E81471</ProjectGuid>
+    <ProjectGuid>54d6a2c2-b494-4d68-8715-4a277d1f503d</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>FSCL.Runtime.CompilerSteps</RootNamespace>
-    <AssemblyName>FSCL.Runtime.CompilerSteps</AssemblyName>
+    <RootNamespace>FSCL.Runtime.FlowGraphBuilding</RootNamespace>
+    <AssemblyName>FSCL.Runtime.FlowGraphBuilding</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>FSCL.Runtime.CompilerSteps</Name>
-    <ProductVersion>12.0.0</ProductVersion>
+    <Name>FSCL.Runtime.FlowGraphBuilding</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +20,7 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\FSCL.Runtime.FlowGraphBuilding.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,57 +29,35 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>bin\Release\FSCL.Runtime.FlowGraphBuilding.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="KernelModuleParser.fs" />
-    <Compile Include="RuntimeToCompilerMetaMapping.fs" />
+    <Compile Include="FlowGraphBuildingStep.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
-      <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>
+      <Project>{a7679b4f-c698-490d-a1e8-c60866d6939e}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
-      <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
+      <Project>{5d7c3db1-3300-455e-bf2a-3fb52bdc0595}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
-      <Project>7635ADE1-AC00-4587-8117-3FAA15BE9318</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
-      <Name>FSCL.Compiler.Core.Language</Name>
-      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
+      <Project>{7635ade1-ac00-4587-8117-3faa15be9318}</Project>
       <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\ModuleParsing\FSCL.Compiler.Core.ModuleParsing.fsproj">
-      <Name>FSCL.Compiler.Core.ModuleParsing</Name>
-      <Project>A42DA267-4D0E-4F14-A7E0-F2F9AB587005</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
-      <Name>FSCL.Compiler.Core.Util</Name>
-      <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\FSCL.Runtime.Util\FSCL.Runtime.Util.fsproj">
-      <Name>FSCL.Runtime.Util</Name>
-      <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
-      <Name>FSCL.Runtime.Core.Language</Name>
-      <Project>CD77F2CA-F702-4A05-A6E6-7725FC656084</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

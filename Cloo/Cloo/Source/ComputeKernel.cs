@@ -207,6 +207,7 @@ namespace Cloo
         /// <remarks> Arguments to the kernel are referred by indices that go from 0 for the leftmost argument to n-1, where n is the total number of arguments declared by the kernel. </remarks>
         public void SetLocalArgument(int index, long dataSize)
         {
+            // Console.WriteLine("Setting local argument at " + index);
             SetArgument(index, new IntPtr(dataSize), IntPtr.Zero);
         }
 
@@ -218,6 +219,7 @@ namespace Cloo
         /// <remarks> This method will automatically track <paramref name="memObj"/> to prevent it from being collected by the GC.<br/> Arguments to the kernel are referred by indices that go from 0 for the leftmost argument to n-1, where n is the total number of arguments declared by the kernel. </remarks>
         public void SetMemoryArgument(int index, ComputeMemory memObj)
         {
+            //Console.WriteLine("Setting memory argument at " + index);
             SetValueArgument<CLMemoryHandle>(index, memObj.Handle);
         }
 
@@ -241,6 +243,7 @@ namespace Cloo
         /// <remarks> Arguments to the kernel are referred by indices that go from 0 for the leftmost argument to n-1, where n is the total number of arguments declared by the kernel. </remarks>
         public void SetValueArgument<T>(int index, T data) where T : struct
         {
+            //Console.WriteLine("Setting value argument of type " + typeof(T).ToString() + " at " + index);
             GCHandle gcHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
             try
             {

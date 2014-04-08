@@ -27,7 +27,7 @@ type ArrayUtil() =
 
     static member GetArrayLength (o) =
         if o.GetType().IsArray then
-            o.GetType().GetProperty("Length").GetValue(o) :?> int
+            o.GetType().GetProperty("Length").GetValue(o) :?> int32
         else
             -1
             
@@ -41,4 +41,11 @@ type ArrayUtil() =
                     }) |> Seq.toArray
         else
             [||]
-
+            
+    static member GetArrayOrBufferLengths (o) =
+        // Any better way to do this?
+        let rank = o.GetType().GetProperty("Rank").GetValue(o) :?> int
+        (seq {
+            for i = 0 to rank - 1 do
+                yield o.GetType().GetMethod("GetLongLength").Invoke(o, [| i |]) :?> int64
+                }) |> Seq.toArray

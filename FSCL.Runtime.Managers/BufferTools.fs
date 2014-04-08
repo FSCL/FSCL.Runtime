@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.KernelExecution
+﻿namespace FSCL.Runtime.Managers
 
 open Cloo
 open System
@@ -10,9 +10,9 @@ type BufferTools() =
     static member AccessModeToFlags(mode: AccessMode) =
         match mode with
         | AccessMode.ReadAccess ->
-            ComputeMemoryFlags.ReadOnly
+            ComputeMemoryFlags.ReadWrite
         | AccessMode.WriteAccess ->
-            ComputeMemoryFlags.WriteOnly
+            ComputeMemoryFlags.ReadWrite
         | _ ->
             ComputeMemoryFlags.ReadWrite
 

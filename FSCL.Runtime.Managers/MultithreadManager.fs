@@ -1,10 +1,10 @@
-﻿namespace FSCL.Runtime
+﻿namespace FSCL.Runtime.Managers
 
 open System
 open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
-open FSCL.Compiler.Tools
+open FSCL.Compiler.Util
 open FSCL.Compiler.Language
 open Mono.Reflection
 

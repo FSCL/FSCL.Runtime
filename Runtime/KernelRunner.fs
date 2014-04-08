@@ -6,30 +6,78 @@ open Microsoft.FSharp.Reflection
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open FSCL.Compiler
-open FSCL.Compiler.KernelLanguage
+open FSCL.Compiler.Language
+open FSCL.Compiler.Configuration
+open FSCL.Runtime.Managers
+open FSCL.Runtime.RuntimeSteps
+open FSCL.Runtime.Metric
+open FSCL.Runtime.Language
 open System
 open System.Collections.Generic
 open System.Threading
+open System.IO
 open System.Collections.ObjectModel
 open System.Runtime.InteropServices
-open FSCL.Runtime.KernelExecution
 open System.Collections.Generic
 open System.Collections.ObjectModel
 
-module KernelRunner =
+module Runtime =
     // The Kernel runner
-    type internal Runner(compiler, executionManager, metric) =    
-        member val KernelCreationManager = new KernelCreationManager(compiler, metric) with get
-        member val KernelExecutionManager:KernelExecutionManager = executionManager with get
-                        
-        member this.RunOpenCL(input:KernelExecutionInput, opts: ReadOnlyDictionary<string, obj>) =
-            this.KernelExecutionManager.Execute(input, opts)
+    type internal Runner =            
+        inherit Pipeline
+
+        static member private defConfRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FSCL.Runtime")
+        static member private defConfCompRoot = "Components"
+
+        static member private defComponentsAssemply = 
+            [|  typeof<FlowGraphBuildingStep>;
+                typeof<ReduceKernelExecutionProcessor> |]
+             
+        val private pool: BufferPoolManager
+        val private creationManager: KernelCreationManager
+       
+        new(comp, metr) = 
+            { 
+                inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
+                pool = new BufferPoolManager()
+                creationManager = new KernelCreationManager(comp, metr)
+            }
+    
+        new(comp, metr, file: string) = 
+            { 
+                inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
+                pool = new BufferPoolManager()
+                creationManager = new KernelCreationManager(comp, metr)
+            }
+
+        new(comp, metr, conf: PipelineConfiguration) =
+            { 
+                inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
+                pool = new BufferPoolManager()
+                creationManager = new KernelCreationManager(comp, metr)
+            }
+                                                    
+        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =            
+            let result = this.Run((input, this.creationManager, this.pool), opts) :?> ExecutionOutput
+
+            // Read output buffers
+            this.pool.TransferBackModifiedBuffers()
+
+            // If has return buffer read it
+            if result.ReturnBuffer.IsSome then
+                let v = this.pool.ReadRootReturnBuffer()
+                // Dispose all buffers
+                this.pool.Dispose()
+                v :> obj
+            else if result.ReturnValue.IsSome then
+                // Dispose all buffers
+                this.pool.Dispose()
+                result.ReturnValue.Value
+            else
+                this.pool.Dispose()
+                null
                             
-        member this.RunMultithread(kernelData: RuntimeKernelData,
-                                   compiledData: RuntimeCompiledKernelData,
-                                   globalSize: int64 array, 
-                                   localSize: int64 array, 
-                                   multithread: bool) =
+        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
             raise (KernelSetupException("Multithreading support under development"))
             (*                                               
             // Normalize dimensions of workspace
@@ -111,110 +159,114 @@ module KernelRunner =
             *)
         
         // Run a kernel through a quoted kernel call        
-        member this.Run(expr: Expr, 
-                        globalSize: int64 array, 
-                        localSize: int64 array, 
-                        mode: KernelRunningMode, 
-                        fallback: bool,
-                        opts: ReadOnlyDictionary<string, obj>) =
-            // If global or local size empty theyshould be embedded in kernel expression
-            let runtimeInfo, callGraphRoot = this.KernelCreationManager.Process(expr, mode, fallback, opts)    
+        member this.RunExpression(expr: Expr<'T>, 
+                                  globalSize: int64 array, 
+                                  localSize: int64 array, 
+                                  mode: RunningMode, 
+                                  fallback: bool,
+                                  opts: Dictionary<string, obj>) =
+            // Add options for work size and running mode
+            if not(opts.ContainsKey(RuntimeOptions.WorkSize) && globalSize.Length > 0 && localSize.Length > 0) then
+                opts.Add(RuntimeOptions.WorkSize, (globalSize, localSize))
+            if not(opts.ContainsKey(RuntimeOptions.RunningMode)) then
+                opts.Add(RuntimeOptions.RunningMode, mode)
+            if not(opts.ContainsKey(RuntimeOptions.MultithreadFallback)) then
+                opts.Add(RuntimeOptions.MultithreadFallback, fallback)                      
+                      
+            // If global or local size empty theyshould be embedded in kernel expression 
             match mode with
-            | KernelRunningMode.OpenCL ->                
-                this.RunOpenCL(new KernelExecutionInput(true, callGraphRoot, runtimeInfo, globalSize, localSize), opts)
-            | KernelRunningMode.Multithread ->
-                this.RunMultithread(null, null, globalSize, localSize, true)
+            | RunningMode.OpenCL ->                
+                this.RunExpressionOpenCL(expr, opts)
+            | RunningMode.Multithread ->
+                this.RunExpressionMultithread(expr, opts)
             | _ ->              
-                this.RunMultithread(null, null, globalSize, localSize, false)
+                this.RunExpressionMultithread(expr, opts)
        
         interface IDisposable with
             member this.Dispose() =
-                (this.KernelCreationManager :> IDisposable).Dispose()
+                (this.creationManager :> IDisposable).Dispose()
 
     // Global kernel runner
-    let mutable internal kernelRunner = new Runner(new Compiler(), new KernelExecutionManager(), None)
+    let mutable internal kernelRunner = new Runner(new Compiler(), None)
 
     // Function to set custom kernel manager
-    let Init(compiler, executionManager: KernelExecutionManager option, metric) =
-        if(executionManager.IsNone) then
-            kernelRunner <- new Runner(compiler, new KernelExecutionManager(), metric)
-        else
-            kernelRunner <- new Runner(compiler, executionManager.Value, metric)
+    let Init(compiler, metric) =
+        kernelRunner <- new Runner(compiler, metric)
 
     // List available devices
     let ListDevices() = 
-        List.ofSeq(seq {
-                        for platform in Cloo.ComputePlatform.Platforms do
-                            yield List.ofSeq(seq {
-                                                    for device in platform.Devices do
-                                                        yield (device.VendorId, device.Name)
-                                             })
-                   })
+        let plats = new List<ReadOnlyCollection<string>>()
+        for platform in Cloo.ComputePlatform.Platforms do
+            let devs = new List<string>()
+            for d in platform.Devices do
+                devs.Add(d.Name)
+            plats.Add(devs.AsReadOnly())
+        plats.AsReadOnly()
                                
     // Extension methods to run a quoted kernel
     type Expr<'T> with
         member this.Run() =
-            kernelRunner.Run(this, 
-                            [||], [||], 
-                            KernelRunningMode.OpenCL, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.OpenCL, true, 
+                                        Dictionary<string, obj>()) :?> 'T
         member this.Run(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, 
-                            [| globalSize |], [| localSize |], 
-                            KernelRunningMode.OpenCL, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.OpenCL, true, 
+                                        Dictionary<string, obj>()) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, 
-                            globalSize, localSize, 
-                            KernelRunningMode.OpenCL, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.OpenCL, true, 
+                                        Dictionary<string, obj>()) :?> 'T
             
         member this.Run(opts) =
-            kernelRunner.Run(this, 
-                            [||], [||], 
-                            KernelRunningMode.OpenCL, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.OpenCL, true, 
+                                        opts) :?> 'T
         member this.Run(globalSize: int64, localSize: int64, opts) =
-            kernelRunner.Run(this, 
-                            [| globalSize |], [| localSize |], 
-                            KernelRunningMode.OpenCL, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.OpenCL, true, 
+                                        opts) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array, opts) =
-            kernelRunner.Run(this, 
-                            globalSize, localSize, 
-                            KernelRunningMode.OpenCL, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.OpenCL, true, 
+                                        opts) :?> 'T
             
         member this.RunSequential() =
-            kernelRunner.Run(this, 
-                            [||], [||], 
-                            KernelRunningMode.Sequential, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.Sequential, true, 
+                                        Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64) =
-            kernelRunner.Run(this, 
-                            [| globalSize |], [| localSize |], 
-                            KernelRunningMode.Sequential, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.Sequential, true, 
+                                        Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array) =
-            kernelRunner.Run(this, 
-                            globalSize, localSize, 
-                            KernelRunningMode.Sequential, true, 
-                            ReadOnlyDictionary<string, obj>(Dictionary<string, obj>())) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.Sequential, true, 
+                                        Dictionary<string, obj>()) :?> 'T
             
         member this.RunSequential(opts) =
-            kernelRunner.Run(this, 
-                            [||], [||], 
-                            KernelRunningMode.Sequential, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.Sequential, true, 
+                                        opts) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64, opts) =
-            kernelRunner.Run(this, 
-                            [| globalSize |], [| localSize |], 
-                            KernelRunningMode.Sequential, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.Sequential, true, 
+                                        opts) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array, opts) =
-            kernelRunner.Run(this, 
-                            globalSize, localSize, 
-                            KernelRunningMode.Sequential, true, 
-                            opts) :?> 'T
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.Sequential, true, 
+                                        opts) :?> 'T
             
 

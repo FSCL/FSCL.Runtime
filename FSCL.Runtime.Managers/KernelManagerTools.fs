@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime
+﻿namespace FSCL.Runtime.Managers
 
 open FSCL.Compiler
 open System.Reflection
@@ -16,7 +16,7 @@ type internal KernelManagerTools() =
             ComputePlatform.Platforms |> 
                 Seq.map(fun (p: ComputePlatform) -> p.Devices.Count) |>
                 Seq.reduce(fun a b -> a + b) > 0
-
+                (*
     static member GetKernelAdditionalParameters(t:System.Type) =
         // If not array return 0
         if t.IsArray then
@@ -27,5 +27,5 @@ type internal KernelManagerTools() =
             !dimensions
         else
             0
-        
+        *)
 

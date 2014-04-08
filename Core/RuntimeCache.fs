@@ -5,9 +5,10 @@ open Cloo
 open FSCL.Compiler
 open System.Collections.Generic
 open System.Reflection
+open Microsoft.FSharp.Quotations
 
 [<AllowNullLiteral>]
-type RuntimeDeviceData(device: ComputeDevice, context: ComputeContext, queue: ComputeCommandQueue) =
+type RuntimeDevice(device: ComputeDevice, context: ComputeContext, queue: ComputeCommandQueue) =
     member val Device = device with get
     member val Context = context with get
     member val Queue = queue with get
@@ -18,7 +19,7 @@ type RuntimeDeviceData(device: ComputeDevice, context: ComputeContext, queue: Co
             this.Context.Dispose()
    
 [<AllowNullLiteral>] 
-type RuntimeCompiledKernelData(program, kernel) =
+type RuntimeCompiledKernel(program, kernel) =
     member val Program:ComputeProgram = program with get  
     member val Kernel:ComputeKernel = kernel with get  
 
@@ -28,25 +29,60 @@ type RuntimeCompiledKernelData(program, kernel) =
             this.Program.Dispose()
 
 [<AllowNullLiteral>]
-type RuntimeKernelData(info, mtv, code) =
-    member val Info:KernelInfo = info with get 
-    member val MultithreadVersion:MethodInfo option = mtv with get, set
-    member val OpenCLCode:String option = code with get, set
+type RuntimeKernel(info, code) =
+    member val Kernel:IKernelInfo = info with get 
+    member val OpenCLCode:String = code with get, set
     // List of devices and kernel instances potentially executing the kernel
-    member val Instances:Dictionary<int * int, RuntimeCompiledKernelData> = new Dictionary<int * int, RuntimeCompiledKernelData>() with get 
+    member val Instances:Dictionary<int * int, RuntimeCompiledKernel> = new Dictionary<int * int, RuntimeCompiledKernel>() with get 
     
     interface IDisposable with
         member this.Dispose() =
             for item in this.Instances do
                 (item.Value :> IDisposable).Dispose()
     
-type RuntimeCache() =
-    member val Kernels:Dictionary<obj, RuntimeKernelData> = Dictionary<obj, RuntimeKernelData>() with get
-    member val Devices:Dictionary<int * int, RuntimeDeviceData> = new Dictionary<int * int, RuntimeDeviceData>() with get
+type RuntimeCache(openCLMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool,
+                  multithreadMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool) =
+    member val OpenCLKernels = Dictionary<FunctionInfoID, List<ReadOnlyMetaCollection * RuntimeKernel>>() 
+        with get
+    member val MultithreadKernels = Dictionary<FunctionInfoID, List<ReadOnlyMetaCollection * MethodInfo>>() 
+        with get
+    member val Devices = new Dictionary<int * int, RuntimeDevice>() 
+        with get
     
+    member this.TryFindCompatibleOpenCLCachedKernel(id: FunctionInfoID, 
+                                                    meta: ReadOnlyMetaCollection) =
+        if this.OpenCLKernels.ContainsKey(id) then
+            let potentialKernels = this.OpenCLKernels.[id]
+            // Check if compatible kernel meta in cached kernels
+            let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: RuntimeKernel) ->
+                                        openCLMetadataVerifier(cachedMeta, meta)) potentialKernels
+            match item with
+            | Some(m, k) ->
+                Some(k)
+            | _ ->
+                None
+        else
+            None           
+    member this.TryFindCompatibleMultithreadCachedKernel(id: FunctionInfoID, 
+                                                         meta: ReadOnlyMetaCollection) =
+        if this.MultithreadKernels.ContainsKey(id) then
+            let potentialKernels = this.MultithreadKernels.[id]
+            // Check if compatible kernel meta in cached kernels
+            let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: MethodInfo) ->
+                                        multithreadMetadataVerifier(cachedMeta, meta)) potentialKernels
+            match item with
+            | Some(m, k) ->
+                Some(k)
+            | _ ->
+                None
+        else
+            None                
+
     interface IDisposable with
         member this.Dispose() =
-            for item in this.Kernels do
-                (item.Value :> IDisposable).Dispose()
+            for item in this.OpenCLKernels do
+                for m, k in item.Value do
+                    (k :> IDisposable).Dispose()
             for item in this.Devices do
                 (item.Value :> IDisposable).Dispose()
+                
