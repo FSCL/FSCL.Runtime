@@ -6,6 +6,9 @@ F# kernel scheduler and runtime support
 
 ### Latest news
 
+April 17, 2014: FSCL 1.2 is out! Checkout/pull the master branch to get all the latest features.
+If you want to discover what's new in FSCL, jump to the FSCL blog: http://www.gabrielecocco.it/fscl/
+
 *****
 
 January 24, 2014: FSCL.Runtime and Compiler compile and execute on Mono 3.2.3 + OSX 10.8.5 and Visual Studio 2012 + Window 7 and Windows 8.
