@@ -12,7 +12,6 @@ open System.Diagnostics
 open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
-open FSCL.Runtime.Runtime
         
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -87,10 +86,10 @@ let main argv =
     // Init the runtime to include accelerated collections
     let conf = new PipelineConfiguration(true, [| SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) |])
     let compiler = new Compiler(conf)
-    Runtime.Init(compiler, None)
+    Init(compiler, None)
 
     // Check opencl devices
-    let plats = Runtime.ListDevices()
+    let plats = ListDevices()
     if plats.Count = 0 then
         Console.WriteLine("No OpenCL-enabled device found on this platform")
     else

@@ -22,7 +22,7 @@ type Tools() =
         for i in 0 .. finalIterations - 1 do
             f()
         timer.Stop()
-        (timer.ElapsedMilliseconds, finalIterations)
+        (((float)timer.ElapsedMilliseconds) / (float)finalIterations, finalIterations)
         
         (*
     static member GetEnergyConsumption ip time f =

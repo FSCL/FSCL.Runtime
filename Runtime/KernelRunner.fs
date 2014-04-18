@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime
+﻿namespace FSCL
 
 open Cloo
 open Microsoft.FSharp.Quotations
@@ -12,6 +12,7 @@ open FSCL.Runtime.Managers
 open FSCL.Runtime.RuntimeSteps
 open FSCL.Runtime.Metric
 open FSCL.Runtime.Language
+open FSCL.Runtime
 open System
 open System.Collections.Generic
 open System.Threading

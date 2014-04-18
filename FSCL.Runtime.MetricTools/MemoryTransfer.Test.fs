@@ -48,7 +48,7 @@ open System.Collections.Generic
         (time, iterations * currSize)
 
     let TestTransfers(device: ComputeDevice, srcAccess: ComputeMemoryFlags, dstAccess: ComputeMemoryFlags, duration, currSize, validate) =   
-        let results = new Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<ComputeMemoryFlags, Dictionary<ComputeMemoryFlags, (int64 * int)>>>>>>()
+        let results = new Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<ComputeMemoryFlags, Dictionary<ComputeMemoryFlags, (float * int)>>>>>>()
         
         for isSrcHostPtr in [true; false] do
             for isDstHostPtr in [true; false] do

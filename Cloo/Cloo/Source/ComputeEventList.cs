@@ -87,7 +87,7 @@ namespace Cloo
         /// Waits on the host thread for the specified events to complete.
         /// </summary>
         /// <param name="events"> The events to be waited for completition. </param>
-        public static void Wait(ICollection<ComputeEventBase> events)
+        public static void Wait(List<ComputeEventBase> events)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = ComputeTools.ExtractHandles(events, out eventWaitListSize);
