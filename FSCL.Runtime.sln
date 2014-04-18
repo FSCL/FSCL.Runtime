@@ -203,9 +203,6 @@ Global
 		{F1124EAE-D35E-4C29-96FE-D88E7ADECC84} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D} = {38219484-0548-474A-8049-747C727118DA}
 	EndGlobalSection
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
-	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = Cloo\Cloo\Cloo.VS2010.csproj
 	EndGlobalSection
