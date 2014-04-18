@@ -112,7 +112,7 @@ type KernelCreationManager(compiler: Compiler,
                            
                     // Compiler backend and store
                     let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, device.Platform, device.Device) 
-                    Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, cachedKernel, ckData))                    
+                    Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode), ckData))                    
                 // Else execute entire compiler pipeline
                 | None ->
                     parsedModule <- this.Compiler.Compile(parsedModule, opts) :?> IKernelModule

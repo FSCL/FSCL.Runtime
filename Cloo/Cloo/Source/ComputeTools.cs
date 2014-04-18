@@ -107,7 +107,7 @@ namespace Cloo
             return result;
         }
 
-        internal static CLDeviceHandle[] ExtractHandles(ICollection<ComputeDevice> computeObjects, out int handleCount)
+        internal static CLDeviceHandle[] ExtractHandles(IList<ComputeDevice> computeObjects, out int handleCount)
         {
             if (computeObjects == null || computeObjects.Count == 0)
             {
@@ -126,7 +126,7 @@ namespace Cloo
             return result;
         }
 
-        internal static CLEventHandle[] ExtractHandles(ICollection<ComputeEventBase> computeObjects, out int handleCount)
+        internal static CLEventHandle[] ExtractHandles(IList<ComputeEventBase> computeObjects, out int handleCount)
         {
             if (computeObjects == null || computeObjects.Count == 0)
             {
@@ -135,17 +135,15 @@ namespace Cloo
             }
 
             CLEventHandle[] result = new CLEventHandle[computeObjects.Count];
-            int i = 0;
-            foreach (ComputeEventBase computeObj in computeObjects)
+            for (int i = 0; i < computeObjects.Count; i++)
             {
-                result[i] = computeObj.Handle;
-                i++;
+                result[i] = computeObjects[i].Handle;
             }
             handleCount = computeObjects.Count;
             return result;
         }
 
-        internal static CLMemoryHandle[] ExtractHandles(ICollection<ComputeMemory> computeObjects, out int handleCount)
+        internal static CLMemoryHandle[] ExtractHandles(IList<ComputeMemory> computeObjects, out int handleCount)
         {
             if (computeObjects == null || computeObjects.Count == 0)
             {

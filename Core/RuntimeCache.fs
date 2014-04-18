@@ -62,7 +62,8 @@ type RuntimeCache(openCLMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaC
             | _ ->
                 None
         else
-            None           
+            None  
+                     
     member this.TryFindCompatibleMultithreadCachedKernel(id: FunctionInfoID, 
                                                          meta: ReadOnlyMetaCollection) =
         if this.MultithreadKernels.ContainsKey(id) then
