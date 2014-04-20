@@ -7,7 +7,7 @@ open FSCL.Runtime.Managers
 open FSCL.Runtime.Language
 open System.Collections.Generic
 open System.Reflection
-open Cloo
+open OpenCL
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open FSCL.Compiler.Plugins.AcceleratedCollections

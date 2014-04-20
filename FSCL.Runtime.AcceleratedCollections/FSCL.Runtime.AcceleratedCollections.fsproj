@@ -97,10 +97,6 @@
       <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
       <Name>FSCL.Runtime.Util</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
-      <Name>Cloo.VS2010</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
       <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
@@ -109,6 +105,11 @@
     <ProjectReference Include="..\Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

@@ -53,10 +53,6 @@
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets'))" />
   <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (!Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets'))" />
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
-      <Name>Cloo.VS2010</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
       <Project>A7679B4F-C698-490D-A1E8-C60866D6939E</Project>
@@ -106,6 +102,11 @@
     <ProjectReference Include="..\Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
       <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

@@ -1,6 +1,6 @@
 ﻿namespace FSCL
 
-open Cloo
+open OpenCL
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
@@ -197,7 +197,7 @@ module Runtime =
     // List available devices
     let ListDevices() = 
         let plats = new List<ReadOnlyCollection<string>>()
-        for platform in Cloo.ComputePlatform.Platforms do
+        for platform in OpenCLPlatform.Platforms do
             let devs = new List<string>()
             for d in platform.Devices do
                 devs.Add(d.Name)

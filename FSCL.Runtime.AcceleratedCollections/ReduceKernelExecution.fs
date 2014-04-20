@@ -9,7 +9,7 @@ open FSCL.Runtime.Language
 open FSCL.Compiler.Plugins.AcceleratedCollections
 open System.Collections.Generic
 open System.Reflection
-open Cloo
+open OpenCL
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Runtime.InteropServices
 open Microsoft.FSharp.Quotations
@@ -53,7 +53,6 @@ type ReduceKernelExecutionProcessor() =
                 match nodeInput.[inputPar.Name] with
                 | KernelOutput(otherKernel, otherParIndex) ->
                     let kernelOutput = step.Process(otherKernel, false)
-                    // MUST HANDLE MULTIPLE BUFFERS RETURNED: POSSIBLE?
                     prevBuffer <- kernelOutput.ReturnBuffer
                 | _ ->
                     ()
@@ -70,7 +69,7 @@ type ReduceKernelExecutionProcessor() =
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
                 let elementType = par.DataType.GetElementType()
-                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o, BufferTools.AccessModeToFlags(par.Access), false, isRoot)                      
+                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o :?> Array, BufferTools.AccessModeToFlags(par.Access), false, isRoot)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
                 // Store dim sizes
@@ -104,7 +103,7 @@ type ReduceKernelExecutionProcessor() =
             let par = parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.DataType.GetElementType()
-            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], ComputeMemoryFlags.ReadWrite, isRoot)                            
+            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], OpenCLMemoryFlags.ReadWrite, isRoot)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
             // Store dim sizes
@@ -150,7 +149,7 @@ type ReduceKernelExecutionProcessor() =
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
             let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
 
-            BufferTools.ReadBuffer(outputPar.DataType.GetElementType(), deviceData.Queue, arrobj, outputBuffer)
+            BufferTools.ReadBuffer(deviceData.Queue, arrobj, outputBuffer)
 
             // Dispose kernel            
             //compiledData.Kernel.Dispose()
@@ -181,7 +180,7 @@ type ReduceKernelExecutionProcessor() =
             // If not root must write the result to buffer for the next kernel
             if not isRoot then
                 let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], BufferTools.AccessModeToFlags(outputPar.Access), false)
-                BufferTools.WriteBuffer(outputPar.GetType().GetElementType(), deviceData.Queue, ob, [| result |])
+                BufferTools.WriteBuffer(deviceData.Queue, ob, [| result |])
                 
                 // Dispose output buffer
                 pool.DisposeBuffer(outputBuffer)

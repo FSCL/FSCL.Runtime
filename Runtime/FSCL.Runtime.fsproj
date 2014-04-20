@@ -45,10 +45,6 @@
     <Compile Include="KernelRunner.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\CompilerSteps\FSCL.Runtime.CompilerSteps.fsproj">
       <Name>FSCL.Runtime.CompilerSteps</Name>
       <Project>1AD3E1DC-D7F0-4B0C-B58F-E7E443E81471</Project>
@@ -102,6 +98,11 @@
     <ProjectReference Include="..\FSCL.Runtime.AcceleratedCollections\FSCL.Runtime.AcceleratedCollections.fsproj">
       <Project>{9798C149-593E-4A31-8B5D-807C20808A00}</Project>
       <Name>FSCL.Runtime.AcceleratedCollections</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

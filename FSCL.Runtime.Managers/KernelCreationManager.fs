@@ -1,6 +1,6 @@
 ﻿namespace FSCL.Runtime.Managers
 
-open Cloo
+open OpenCL
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Reflection
@@ -33,6 +33,16 @@ type KernelCreationManager(compiler: Compiler,
     // The multithread adaptor (compiler) to run kernels using multithreading
     member val private KernelAdaptor = new MultithreadKernelAdaptor() with get
          
+    // Utility function to know if OpenCL is available
+    member private this.IsOpenCLAvailable() =
+        if OpenCLPlatform.Platforms.Count = 0 then
+            false
+        else
+            // At least one device in a platform available
+            OpenCLPlatform.Platforms |> 
+                Seq.map(fun (p: OpenCLPlatform) -> p.Devices.Count) |>
+                Seq.reduce(fun a b -> a + b) > 0
+
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.OpenCLBackendAndStore(runtimeKernel: RuntimeKernel,
                                               platformIndex, deviceIndex) =
@@ -42,21 +52,21 @@ type KernelCreationManager(compiler: Compiler,
         //#1: Check if there is the corresponding device info have been set
         if not (this.GlobalCache.Devices.ContainsKey((platformIndex, deviceIndex))) then        
             // Get OpenCL info
-            let platform = ComputePlatform.Platforms.[platformIndex]
+            let platform = OpenCLPlatform.Platforms.[platformIndex]
             let dev = platform.Devices.[deviceIndex]   
-            let devs = new System.Collections.Generic.List<ComputeDevice>();
+            let devs = new System.Collections.Generic.List<OpenCLDevice>();
             devs.Add(dev)
             // Create context and queue
-            let contextProperties = new ComputeContextPropertyList(platform)
-            let computeContext = new ComputeContext(devs, contextProperties, null, System.IntPtr.Zero) 
-            let computeQueue = new ComputeCommandQueue(computeContext, dev, ComputeCommandQueueFlags.None) 
+            let contextProperties = new OpenCLContextPropertyList(platform)
+            let computeContext = new OpenCLContext(devs, contextProperties, null, System.IntPtr.Zero) 
+            let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueFlags.None) 
             // Add device to the global devices cache
             this.GlobalCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))
         device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]
                         
         //#2: Check if the device target code has been already generated           
         if not (runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex)) then
-            let computeProgram = new ComputeProgram(device.Context, runtimeKernel.OpenCLCode)
+            let computeProgram = new OpenCLProgram(device.Context, runtimeKernel.OpenCLCode)
             try
                 computeProgram.Build([| device.Device |], "", null, System.IntPtr.Zero)
             with
@@ -92,16 +102,16 @@ type KernelCreationManager(compiler: Compiler,
             let fallback = parsedModule.Kernel.Meta.KernelMeta.Get<MultithreadFallbackAttribute>().Fallback
 
             // Check if can run
-            if mode = RunningMode.OpenCL && not (KernelManagerTools.IsOpenCLAvailable()) && not (fallback) then
+            if mode = RunningMode.OpenCL && not (this.IsOpenCLAvailable()) && not (fallback) then
                 raise (KernelSchedulingException("No OpenCL device is available in the system. Please check the functionality of your devices and that OpenCL is properly installed in the system"))
    
-            let useOpenCL = KernelManagerTools.IsOpenCLAvailable() && mode = RunningMode.OpenCL
+            let useOpenCL = this.IsOpenCLAvailable() && mode = RunningMode.OpenCL
 
             // OpenCL running mode
             if useOpenCL then
                 // Check if platform and device indexes are valid  
                 let device = parsedModule.Kernel.Meta.KernelMeta.Get<DeviceAttribute>()
-                if ComputePlatform.Platforms.Count <= device.Platform || (ComputePlatform.Platforms.[device.Platform]).Devices.Count <= device.Device then
+                if OpenCLPlatform.Platforms.Count <= device.Platform || (OpenCLPlatform.Platforms.[device.Platform]).Devices.Count <= device.Device then
                     raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + parsedModule.Kernel.Signature.Name + " are invalid"))
   
                 // Check if there is a kernel cached to avoid running through the entire compiler pipeline

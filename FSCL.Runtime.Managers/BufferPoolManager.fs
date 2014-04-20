@@ -1,6 +1,6 @@
 ﻿namespace FSCL.Runtime.Managers
 
-open Cloo
+open OpenCL
 open System.Collections.Generic
 open System
 open System.Runtime.InteropServices
@@ -9,7 +9,7 @@ open FSCL.Compiler.Language
 open FSCL.Runtime
 
 [<AllowNullLiteral>]
-type BufferPoolItem(buffer: ComputeMemory, queue:ComputeCommandQueue, access: AccessMode, transfer: TransferMode, isReturn: bool) =
+type BufferPoolItem(buffer: OpenCLBuffer, queue:OpenCLCommandQueue, access: AccessMode, transfer: TransferMode, isReturn: bool) =
     member val Access = access with get
     member val Transfer = transfer with get
     member val IsReturned = isReturn with get 
@@ -23,10 +23,10 @@ type BufferPoolManager() =
     let mutable noObjID = 0
 
     let trackedBufferPool = Dictionary<obj, BufferPoolItem>()
-    let untrackedBufferPool = Dictionary<ComputeContext, Dictionary<ComputeMemory, BufferPoolItem>>()
+    let untrackedBufferPool = Dictionary<OpenCLContext, Dictionary<OpenCLBuffer, BufferPoolItem>>()
     let mutable rootReturnBuffer = None
 
-    let reverseTrackedBufferPool = Dictionary<ComputeMemory, obj>()
+    let reverseTrackedBufferPool = Dictionary<OpenCLBuffer, obj>()
     (*
     member private this.CreateReplaceBuffer(t, context, queue, count:int64[], flags) =
         if pool.ContainsKey(context) then
@@ -70,7 +70,7 @@ type BufferPoolManager() =
     // This is the buffer created for buffers allocated and returned inside kernels and for buffer obtained from the execution of other previos kernels
     member this.CreateUntrackedBuffer(context, queue, parameter:IFunctionParameter, count:int64[], flags, isRoot) =
         if not (untrackedBufferPool.ContainsKey(context)) then
-            untrackedBufferPool.Add(context, new Dictionary<ComputeMemory, BufferPoolItem>())
+            untrackedBufferPool.Add(context, new Dictionary<OpenCLBuffer, BufferPoolItem>())
 
         let transferMode = parameter.Meta.Get<TransferModeAttribute>()
         let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
@@ -82,7 +82,7 @@ type BufferPoolManager() =
 
         bufferItem.Buffer
 
-    member this.DisposeBuffer(buffer:ComputeMemory) =        
+    member this.DisposeBuffer(buffer) =        
         if reverseTrackedBufferPool.ContainsKey(buffer) then
             // Tracked buffer
             let item = trackedBufferPool.[reverseTrackedBufferPool.[buffer]]
@@ -103,7 +103,7 @@ type BufferPoolManager() =
                 buffer.Dispose()
                 untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
                 
-    member this.UseUntrackedBuffer(buffer:ComputeMemory, context, queue, parameter: IFunctionParameter, flags:ComputeMemoryFlags, isRoot) =
+    member this.UseUntrackedBuffer(buffer:OpenCLBuffer, context, queue, parameter: IFunctionParameter, flags:OpenCLMemoryFlags, isRoot) =
         if untrackedBufferPool.ContainsKey(buffer.Context) then
             let item = untrackedBufferPool.[buffer.Context].[buffer]
             // Check if this can be used with no copy
@@ -178,7 +178,7 @@ type BufferPoolManager() =
                 ((parameter.Access &&& AccessMode.ReadAccess |> int > 0))
             
             if mustInitBuffer then
-                BufferTools.WriteBuffer(o.GetType().GetElementType(), queue, bufferItem.Buffer, o)    
+                BufferTools.WriteBuffer(queue, bufferItem.Buffer, o)    
                 
             // Remember if this has been modified
             if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
@@ -198,16 +198,15 @@ type BufferPoolManager() =
         for item in trackedBufferPool do
             let poolItem = item.Value
             if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
-                BufferTools.ReadBuffer(item.Key.GetType().GetElementType(), poolItem.CurrentQueue, item.Key, poolItem.Buffer)
+                BufferTools.ReadBuffer(poolItem.CurrentQueue, item.Key :?> Array, poolItem.Buffer)
         
     member this.ReadRootReturnBuffer() =
         // Read back root return buffer
         let returnValue = 
             if rootReturnBuffer.IsSome then
                 let sizes = rootReturnBuffer.Value.Buffer.Count
-                let elementType = rootReturnBuffer.Value.Buffer.GetType().GetGenericArguments().[0]
-                let returnedArray = Array.CreateInstance(elementType, sizes)
-                BufferTools.ReadBuffer(elementType, rootReturnBuffer.Value.CurrentQueue, returnedArray, rootReturnBuffer.Value.Buffer)
+                let returnedArray = Array.CreateInstance(rootReturnBuffer.Value.Buffer.ElementType, sizes)
+                BufferTools.ReadBuffer(rootReturnBuffer.Value.CurrentQueue, returnedArray, rootReturnBuffer.Value.Buffer)
                 rootReturnBuffer <- None
                 returnedArray
             else
@@ -217,7 +216,7 @@ type BufferPoolManager() =
         for item in trackedBufferPool do
             let poolItem = item.Value
             if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
-                BufferTools.ReadBuffer(item.Key.GetType().GetElementType(), poolItem.CurrentQueue, item.Key, poolItem.Buffer)
+                BufferTools.ReadBuffer(poolItem.CurrentQueue, item.Key :?> Array, poolItem.Buffer)
                         
         returnValue
 

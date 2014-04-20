@@ -11,7 +11,7 @@ open Microsoft.FSharp.Quotations
 open FSCL.Runtime.Language
 open FSCL.Runtime
 open System
-open Cloo
+open OpenCL
 
 [<StepProcessor("FSCL_RUNTIME_TO_COMPILER_META_MAPPING_PROCESSOR", 
                 "FSCL_MODULE_PARSING_STEP")>]
@@ -25,9 +25,9 @@ type RuntimeToCompilerMetadataMapping() =
         let dev = (kmeta :> IKernelMetaCollection).Get<DeviceAttribute>()                    
         if not ((kmeta :> IKernelMetaCollection).Contains<DeviceTypeAttribute>()) then
             // Get dev type from Cloo
-            let devType = Cloo.ComputePlatform.Platforms.[dev.Platform].Devices.[dev.Device].Type
+            let devType = OpenCLPlatform.Platforms.[dev.Platform].Devices.[dev.Device].Type
             kmeta.Add(match devType with
-                        | ComputeDeviceTypes.Gpu ->
+                        | OpenCLDeviceTypes.Gpu ->
                             new DeviceTypeAttribute(DeviceType.Gpu)
                         | _ ->
                             new DeviceTypeAttribute(DeviceType.Cpu))

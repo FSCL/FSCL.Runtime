@@ -3,7 +3,7 @@ namespace FSCL.Runtime
 open System
 open FSCL.Compiler
 open System.Collections.Generic
-open Cloo
+open OpenCL
 open System.Reflection
 open Microsoft.FSharp.Quotations
 open FSCL.Runtime.Language
@@ -20,7 +20,7 @@ type KernelCreationResult(callArgs: Expr list,
 
 type ExecutionOutput =        
     val returnValue:obj option
-    val returnBuffer:ComputeMemory option
+    val returnBuffer:OpenCLBuffer option
     
     new() = { returnBuffer = None; returnValue = None }
     new(rb) = { returnBuffer = Some(rb); returnValue = None }    

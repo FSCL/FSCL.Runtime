@@ -8,8 +8,8 @@ open FSCL.Runtime.Language
 open FSCL.Runtime.Managers
 open System.Collections.Generic
 open System.Reflection
-open Cloo
 open Microsoft.FSharp.Linq.RuntimeHelpers
+open OpenCL
 
 [<assembly:DefaultComponentAssembly>]
 do()
@@ -30,8 +30,8 @@ type DefaultKerernelExecutionProcessor() =
             raise (new KernelSetupException("No runtime global size value has been specified and no global and local size information can be found inside the kernel expression"))            
                 
         // Input (coming from preceding kernels) buffers
-        let inputFromOtherKernelsBuffers = new Dictionary<String, ComputeMemory>()
-        let buffers = new Dictionary<String, ComputeMemory>()
+        let inputFromOtherKernelsBuffers = new Dictionary<String, OpenCLBuffer>()
+        let buffers = new Dictionary<String, OpenCLBuffer>()
         let mutable returnBuffer = null
         let arguments = new Dictionary<string, obj>()
         
@@ -94,14 +94,14 @@ type DefaultKerernelExecutionProcessor() =
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                        let getLengthMethod = o.GetType().GetMethod("GetLongLength")
+                        let lengths = ArrayUtil.GetArrayLengths(o)
                         for i = 0 to sizeParameters.Count - 1 do
                             //bufferSizes.[par.Name]
-                            arguments.Add(sizeParameters.[i].Name, getLengthMethod.Invoke(o, [| i |]))
+                            arguments.Add(sizeParameters.[i].Name, lengths.[i])
                     else
                         // Check if read or read_write mode
                         let access = par.Access
-                        let buffer = pool.CreateTrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, o, BufferTools.AccessModeToFlags(access), false, isRoot) 
+                        let buffer = pool.CreateTrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, o :?> Array, BufferTools.AccessModeToFlags(access), false, isRoot) 
                         
                         // Set kernel arg
                         node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      

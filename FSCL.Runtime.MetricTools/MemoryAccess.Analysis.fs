@@ -1,6 +1,6 @@
 ﻿namespace FSCL.Runtime.MetricTools
     
-open Cloo
+open OpenCL
 open System
 open Microsoft.FSharp.Reflection
 open System.Runtime.InteropServices

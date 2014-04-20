@@ -1,13 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Cloo", "Cloo", "{D0CC830B-3BD8-45A2-87CC-1959BE1772E2}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Compiler", "Compiler", "{5037334E-758D-4D7B-9AB3-C928D1D5AF39}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mono", "Mono", "{38219484-0548-474A-8049-747C727118DA}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cloo.VS2010", "Cloo\Cloo\Cloo.VS2010.csproj", "{656E96CE-2587-4CCC-A4DB-06D36267133A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.Reflection", "mono.reflection\Mono.Reflection.csproj", "{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}"
 EndProject
@@ -63,16 +59,16 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.Managers", "FS
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MultiDeviceTest", "MultiDeviceTest\MultiDeviceTest.fsproj", "{3D74E3A5-E75B-4EEA-8063-160F5FF76755}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OpenCL managed wrapper", "OpenCL managed wrapper", "{1FFAF8BC-A35F-4B97-9C6A-7CDEA44606C5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCLManagedWrapper", "OpenCLManagedWrapper\OpenCLManagedWrapper.csproj", "{3BD75582-1A72-4022-9FE7-483573DEA9BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{656E96CE-2587-4CCC-A4DB-06D36267133A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{656E96CE-2587-4CCC-A4DB-06D36267133A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{656E96CE-2587-4CCC-A4DB-06D36267133A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{656E96CE-2587-4CCC-A4DB-06D36267133A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -181,12 +177,15 @@ Global
 		{3D74E3A5-E75B-4EEA-8063-160F5FF76755}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3D74E3A5-E75B-4EEA-8063-160F5FF76755}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3D74E3A5-E75B-4EEA-8063-160F5FF76755}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BD75582-1A72-4022-9FE7-483573DEA9BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BD75582-1A72-4022-9FE7-483573DEA9BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BD75582-1A72-4022-9FE7-483573DEA9BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BD75582-1A72-4022-9FE7-483573DEA9BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{656E96CE-2587-4CCC-A4DB-06D36267133A} = {D0CC830B-3BD8-45A2-87CC-1959BE1772E2}
 		{2089BA93-E786-42E3-B717-58105C53BB7A} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
 		{7635ADE1-AC00-4587-8117-3FAA15BE9318} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
 		{02CC39BD-A326-49F6-B5E6-2987EADA1BA2} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
@@ -202,6 +201,7 @@ Global
 		{5D7C3DB1-3300-455E-BF2A-3FB52BDC0595} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
 		{F1124EAE-D35E-4C29-96FE-D88E7ADECC84} = {5037334E-758D-4D7B-9AB3-C928D1D5AF39}
 		{97B010AB-0756-46DC-B75A-7A6C4F6FF28D} = {38219484-0548-474A-8049-747C727118DA}
+		{3BD75582-1A72-4022-9FE7-483573DEA9BA} = {1FFAF8BC-A35F-4B97-9C6A-7CDEA44606C5}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = Cloo\Cloo\Cloo.VS2010.csproj

@@ -51,10 +51,6 @@
     <Compile Include="RuntimeInputOutput.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656E96CE-2587-4CCC-A4DB-06D36267133A}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
       <Project>5D7C3DB1-3300-455E-BF2A-3FB52BDC0595</Project>
@@ -66,6 +62,11 @@
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
       <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

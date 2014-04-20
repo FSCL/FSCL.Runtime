@@ -44,16 +44,10 @@
   <ItemGroup>
     <Compile Include="BufferTools.fs" />
     <Compile Include="BufferPoolManager.fs" />
-    <Compile Include="KernelManagerTools.fs" />
     <Compile Include="MultithreadManager.fs" />
     <Compile Include="KernelCreationManager.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cloo\Cloo\Cloo.VS2010.csproj">
-      <Name>Cloo.VS2010</Name>
-      <Project>{656e96ce-2587-4ccc-a4db-06d36267133a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\CompilerSteps\FSCL.Runtime.CompilerSteps.fsproj">
       <Name>FSCL.Runtime.CompilerSteps</Name>
       <Project>{1ad3e1dc-d7f0-4b0c-b58f-e7e443e81471}</Project>
@@ -107,6 +101,11 @@
     <ProjectReference Include="..\mono.reflection\Mono.Reflection.csproj">
       <Name>Mono.Reflection</Name>
       <Project>{97b010ab-0756-46dc-b75a-7a6c4f6ff28d}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

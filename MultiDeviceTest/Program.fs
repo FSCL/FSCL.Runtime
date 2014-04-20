@@ -3,7 +3,7 @@ open FSCL.Runtime.Language
 open FSCL.Runtime
 open FSCL.Runtime.MetricTools
 open System
-open Cloo
+
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =

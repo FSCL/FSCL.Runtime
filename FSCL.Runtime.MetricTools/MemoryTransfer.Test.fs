@@ -1,6 +1,6 @@
 ﻿namespace FSCL.Runtime.MetricTools
     
-open Cloo
+open OpenCL
 open System
 open Microsoft.FSharp.Reflection
 open System.Runtime.InteropServices
@@ -8,14 +8,14 @@ open System.Collections.Generic
 
  // Memory transfer public functions
  module MemoryTransferTest =
-    let TestTransfer(device: ComputeDevice, srcInfo: TransferEndpoint, dstInfo: TransferEndpoint, duration, currSize, validate) =    
+    let TestTransfer(device: OpenCLDevice, srcInfo: TransferEndpoint, dstInfo: TransferEndpoint, duration, currSize, validate) =    
         // Setup CL
         let computePlatform = device.Platform;
-        let contextProperties = new ComputeContextPropertyList(computePlatform)
-        let devices = new System.Collections.Generic.List<ComputeDevice>();
+        let contextProperties = new OpenCLContextPropertyList(computePlatform)
+        let devices = new System.Collections.Generic.List<OpenCLDevice>();
         devices.Add(device)
-        let computeContext = new ComputeContext(devices, contextProperties, null, System.IntPtr.Zero);
-        let computeQueue = new ComputeCommandQueue(computeContext, device, ComputeCommandQueueFlags.OutOfOrderExecution)
+        let computeContext = new OpenCLContext(devices, contextProperties, null, System.IntPtr.Zero);
+        let computeQueue = new OpenCLCommandQueue(computeContext, device, OpenCLCommandQueueFlags.OutOfOrderExecution)
             
         // Allocate and init src, allocate dst
         let srcPtr = ref None
@@ -41,21 +41,21 @@ open System.Collections.Generic
                 else
                     TransferTools.HostPtrToBuffer(computeContext, computeQueue, currSize, validate, dstInfo, (!srcPtr).Value, (!dstBuffer).Value)
             elif dstInfo.IsHostPtr then
-                TransferTools.BufferToHostPtr(computeContext, computeQueue, currSize, validate, srcInfo, (!srcBuffer).Value, (!dstPtr).Value)  
+                TransferTools.BufferToHostPtr(computeContext, computeQueue, currSize, validate, srcInfo, (!srcBuffer).Value, ref ((!dstPtr).Value.Value :> Array))  
             else  
                 TransferTools.BufferToBuffer(computeContext, computeQueue, currSize, validate, srcInfo, dstInfo, (!srcBuffer).Value, (!dstBuffer).Value))
         
         (time, iterations * currSize)
 
-    let TestTransfers(device: ComputeDevice, srcAccess: ComputeMemoryFlags, dstAccess: ComputeMemoryFlags, duration, currSize, validate) =   
-        let results = new Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<ComputeMemoryFlags, Dictionary<ComputeMemoryFlags, (float * int)>>>>>>()
+    let TestTransfers(device: OpenCLDevice, srcAccess: OpenCLMemoryFlags, dstAccess: OpenCLMemoryFlags, duration, currSize, validate) =   
+        let results = new Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<bool, Dictionary<OpenCLMemoryFlags, Dictionary<OpenCLMemoryFlags, (float * int)>>>>>>()
         
         for isSrcHostPtr in [true; false] do
             for isDstHostPtr in [true; false] do
                 for shouldSrcMap in [true; false] do
                     for shouldDstMap in [true; false] do
-                        for srcFlags in [ComputeMemoryFlags.None; ComputeMemoryFlags.AllocateHostPointer] do
-                            for dstFlags in [ComputeMemoryFlags.None; ComputeMemoryFlags.AllocateHostPointer] do
+                        for srcFlags in [OpenCLMemoryFlags.None; OpenCLMemoryFlags.AllocateHostPointer] do
+                            for dstFlags in [OpenCLMemoryFlags.None; OpenCLMemoryFlags.AllocateHostPointer] do
                                 let srcInfo = new TransferEndpoint()
                                 let dstInfo = new TransferEndpoint()
                                 srcInfo.Flags <- srcAccess ||| srcFlags
@@ -70,7 +70,7 @@ open System.Collections.Generic
                                     results.[isSrcHostPtr].[isDstHostPtr].[shouldSrcMap].[shouldDstMap].[srcFlags].[dstFlags] <- test
         results
         
-    let GetBestTransferStrategy(device: ComputeDevice, srcAccess: ComputeMemoryFlags, dstAccess: ComputeMemoryFlags, duration, currSize, validate) =   
+    let GetBestTransferStrategy(device: OpenCLDevice, srcAccess: OpenCLMemoryFlags, dstAccess: OpenCLMemoryFlags, duration, currSize, validate) =   
         let mutable min = 0.0
         let bestSrc = new TransferEndpoint()
         let bestDst = new TransferEndpoint()

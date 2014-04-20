@@ -1,14 +1,14 @@
 ﻿namespace FSCL.Runtime
 
 open System
-open Cloo
+open OpenCL
 open FSCL.Compiler
 open System.Collections.Generic
 open System.Reflection
 open Microsoft.FSharp.Quotations
 
 [<AllowNullLiteral>]
-type RuntimeDevice(device: ComputeDevice, context: ComputeContext, queue: ComputeCommandQueue) =
+type RuntimeDevice(device: OpenCLDevice, context: OpenCLContext, queue: OpenCLCommandQueue) =
     member val Device = device with get
     member val Context = context with get
     member val Queue = queue with get
@@ -20,8 +20,8 @@ type RuntimeDevice(device: ComputeDevice, context: ComputeContext, queue: Comput
    
 [<AllowNullLiteral>] 
 type RuntimeCompiledKernel(program, kernel) =
-    member val Program:ComputeProgram = program with get  
-    member val Kernel:ComputeKernel = kernel with get  
+    member val Program:OpenCLProgram = program with get  
+    member val Kernel:OpenCLKernel = kernel with get  
 
     interface IDisposable with
         member this.Dispose() =
