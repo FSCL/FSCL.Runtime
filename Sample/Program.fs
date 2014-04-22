@@ -53,7 +53,40 @@ let MatrixMult(a: float32[,], b: float32[,]) =
     result.[x,y] <- accum
 
     result
+    
+// Matrix multiplication with local and reference to global var (BLOCK_SIZE)
+[<ReflectedDefinition>]
+let BLOCK_SIZE = 16
+[<ReflectedDefinition>]
+let MatrixMultAdvanced(matA: float32[,], matB: float32[,], matC: float32[,]) =
+    let bx = get_group_id(0)
+    let by = get_group_id(1) 
+    let tx = get_local_id(0)
+    let ty = get_local_id(1)
+    let wa = matA.GetLength(0)
+    let wb = matB.GetLength(0)
 
+    let bCol = bx * BLOCK_SIZE
+    let bBeginRow = 0
+    let bStep  = BLOCK_SIZE
+    let mutable bRow = bBeginRow
+    let mutable Csub = 0.0f
+ 
+    let As = local(Array2D.zeroCreate<float32> BLOCK_SIZE BLOCK_SIZE)
+    let Bs = local(Array2D.zeroCreate<float32> BLOCK_SIZE BLOCK_SIZE)
+
+    for aCol in 0 .. BLOCK_SIZE .. (wa - 1) do
+        As.[ty, tx] <- matA.[by * BLOCK_SIZE, aCol]
+        Bs.[ty, tx] <- matB.[bRow, bCol]
+        barrier(CLK_LOCAL_MEM_FENCE)
+ 
+        for k = 0 to BLOCK_SIZE - 1 do
+            Csub <- Csub + (As.[ty,k] * Bs.[k,tx])
+        barrier(CLK_LOCAL_MEM_FENCE)
+
+        bRow <- bRow + bStep
+    matC.[by * BLOCK_SIZE + ty, bx * BLOCK_SIZE + tx] <- Csub
+ 
 [<ReflectedDefinition>]
 let sum a b =
     a + b
@@ -81,7 +114,8 @@ let main argv =
     let bm = Array2D.create matSize matSize 3.0f
     let cm = Array2D.create matSize matSize 116.0f
     let dm = Array2D.zeroCreate<float32> matSize matSize
-    let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * 64.0f + 116.0f)
+    let correctMatMul = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32))
+    let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) + 116.0f)
 
     // Init the runtime to include accelerated collections
     let conf = new PipelineConfiguration(true, [| SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) |])
@@ -174,6 +208,29 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second float4 add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
+        // Matrix multiplication
+        Console.WriteLine("")
+        Console.WriteLine("# Testing advanced matrix multiplication with local vectors")
+        timer.Start()
+        <@ MatrixMultAdvanced(am, bm, dm) @>.Run([| matSizel; matSizel |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+        timer.Stop()
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMatMul.GetLength(0) - 1 do
+            for j = 0 to correctMatMul.GetLength(1) - 1 do
+                if correctMatMul.[i, j] <> dm.[i, j] then
+                    isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First advanced matrix multiplication returned a wrong result!")
+        else
+            Console.WriteLine("  First advanced matrix multiplication execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            timer.Restart()
+            <@ MatrixMultAdvanced(am, bm, dm) @>.Run([| matSizel; matSizel |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+            timer.Stop()
+            Console.WriteLine("  Second advanced matrix multiplication execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
         // Accelerated collection
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
@@ -236,7 +293,6 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
             
-
         // Expression of multiple kernels
         Console.WriteLine("")
         Console.WriteLine("# Testing expressions made of multiple kernels (matrix multiplication followed by a sum) on the first device")
@@ -251,9 +307,10 @@ let main argv =
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
-        for i = 0 to correctMapResult.Length - 1 do
-            if correctMapResult.[i] <> c.[i] then
-                isResultCorrect <- false
+        for i = 0 to correctMatMulAdd.GetLength(0) - 1 do
+            for j = 0 to correctMatMulAdd.GetLength(1) - 1 do
+                if correctMatMulAdd.[i, j] <> dm.[i, j] then
+                    isResultCorrect <- false
         if not isResultCorrect then
             Console.WriteLine("  First accelerated vector sum returned a wrong result!")
         else

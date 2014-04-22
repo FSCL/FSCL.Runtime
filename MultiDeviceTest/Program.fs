@@ -3,13 +3,8 @@ open FSCL.Runtime.Language
 open FSCL.Runtime
 open FSCL.Runtime.MetricTools
 open System
-
-// Vector addition
-[<Device(0,0)>][<ReflectedDefinition>]
-let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = get_global_id(0)
-    c.[gid] <- a.[gid] + b.[gid]
-
+open Kernels
+    
 [<EntryPoint>]
 let main argv = 
     // Check opencl devices
@@ -38,8 +33,8 @@ let main argv =
             Console.WriteLine("- Device " + ": " + device)
             
             // First call causes compilation
-            let a = Array.create 64 512.0f
-            let b = Array.create 64 512.0f
+            let a = Array.create 64 2.0f
+            let b = Array.create 64 2.0f
             let c = Array.zeroCreate<float32> 64
 
             // Test begins
