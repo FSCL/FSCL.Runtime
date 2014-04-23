@@ -35,4 +35,5 @@ type FlowGraphBuildingStep(tm: TypeManager,
     override this.Run((input, creationManager, poolManager), opt) =
         opts <- opt
         kernelCreationManager <- creationManager                
-        ContinueCompilation((this.Process(input).Value, poolManager))
+        let creationResult = (this.Process(input)).Value
+        ContinueCompilation(creationResult, poolManager)

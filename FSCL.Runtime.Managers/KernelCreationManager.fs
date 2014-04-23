@@ -45,7 +45,7 @@ type KernelCreationManager(compiler: Compiler,
 
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.OpenCLBackendAndStore(runtimeKernel: RuntimeKernel,
-                                              platformIndex, deviceIndex) =
+                                              platformIndex, deviceIndex, opts: IReadOnlyDictionary<string, obj>) =
         let mutable device = null
         let mutable compiledKernel = null
         
@@ -64,19 +64,43 @@ type KernelCreationManager(compiler: Compiler,
             this.GlobalCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))
         device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]
                         
-        //#2: Check if the device target code has been already generated           
-        if not (runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex)) then
+        //#2: Evaluate dynamic defines      
+        let dynDefines = new Dictionary<string, string>()
+        if opts.ContainsKey(RuntimeOptions.ConstantDefines) then
+            let defs = opts.[RuntimeOptions.ConstantDefines] :?> (string * obj) list            
+            for key, value in defs do
+                dynDefines.Add(key, value.ToString())
+
+        //#3: Check if the device target code has been already generated with mathing values of dynamic defines          
+        let mustGenerateTargetCode = 
+            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex) then
+                // Check matching defines
+                let oldDynDefines = runtimeKernel.Instances.[(platformIndex, deviceIndex)].DynamicDefines
+                let mutable sameDefinesValues = true
+                for def in dynDefines do
+                    if def.Value <> oldDynDefines.[def.Key] then
+                        sameDefinesValues <- false
+                not sameDefinesValues
+            else
+                true
+        if mustGenerateTargetCode then
             let computeProgram = new OpenCLProgram(device.Context, runtimeKernel.OpenCLCode)
+            // Generate define options
+            let mutable definesOption = ""
+            for d in dynDefines do
+                definesOption <- definesOption + "-D " + d.Key + "=" + d.Value + " "
             try
-                computeProgram.Build([| device.Device |], "", null, System.IntPtr.Zero)
+                computeProgram.Build([| device.Device |], definesOption, null, System.IntPtr.Zero)
             with
             | ex -> 
                 let log = computeProgram.GetBuildLog(device.Device)
                 raise (new KernelCompilationException("Device code generation failed: " + log))
             // Create kernel
             let computeKernel = computeProgram.CreateKernel(runtimeKernel.Kernel.Signature.Name)
+            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex) then
+                runtimeKernel.Instances.Remove((platformIndex, deviceIndex)) |> ignore            
             // Add kernel implementation to the list of implementations for the given kernel
-            let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel)
+            let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel, dynDefines)
             runtimeKernel.Instances.Add((platformIndex, deviceIndex), compiledKernel)
 
         compiledKernel <- runtimeKernel.Instances.[platformIndex, deviceIndex]
@@ -96,7 +120,6 @@ type KernelCreationManager(compiler: Compiler,
             None
         else
             // Valid kernel
-
             // Extract running mode and fallback
             let mode = parsedModule.Kernel.Meta.KernelMeta.Get<RunningModeAttribute>().RunningMode
             let fallback = parsedModule.Kernel.Meta.KernelMeta.Get<MultithreadFallbackAttribute>().Fallback
@@ -119,9 +142,9 @@ type KernelCreationManager(compiler: Compiler,
                 | Some(cachedKernel) ->          
                     // A code has been generated (the cached version is not produced by multithread execution)
                     cachedKernel.Kernel.CloneTo(parsedModule.Kernel)  
-                           
+                                               
                     // Compiler backend and store
-                    let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, device.Platform, device.Device) 
+                    let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, device.Platform, device.Device, opts) 
                     Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode), ckData))                    
                 // Else execute entire compiler pipeline
                 | None ->
@@ -131,10 +154,11 @@ type KernelCreationManager(compiler: Compiler,
                     if not (this.GlobalCache.OpenCLKernels.ContainsKey(parsedModule.Kernel.ID)) then
                         // First of these kernels
                         this.GlobalCache.OpenCLKernels.Add(parsedModule.Kernel.ID, new List<ReadOnlyMetaCollection * RuntimeKernel>())
+                        
                     // Compiler backend and store
                     let runtimeKernel = new RuntimeKernel(parsedModule.Kernel, parsedModule.Code.Value)
                     this.GlobalCache.OpenCLKernels.[parsedModule.Kernel.ID].Add(parsedModule.Kernel.Meta, runtimeKernel)
-                    let devData, ckData = this.OpenCLBackendAndStore(runtimeKernel, device.Platform, device.Device)                     
+                    let devData, ckData = this.OpenCLBackendAndStore(runtimeKernel, device.Platform, device.Device, opts)                     
                     Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, runtimeKernel, ckData)) 
             // Multithread running mode
             else

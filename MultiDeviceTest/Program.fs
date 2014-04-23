@@ -37,6 +37,12 @@ let main argv =
             let b = Array.create 64 2.0f
             let c = Array.zeroCreate<float32> 64
 
+            (*
+            <@ Convolution(a, filter, c, 10) @>.Run(64L, 32L, 
+                                                    (RuntimeOptions.ConstantDefines, box [ ("FILTER_WIDTH", box 5) ]))
+            <@ Convolution(a, filter, c, 10) @>.Run(64L, 32L, 
+                                                    (RuntimeOptions.ConstantDefines, box [ ("FILTER_WIDTH", box 3) ]))
+                                                    *)
             // Test begins
             let size = ref minVectorSize
             while !size <= maxVectorSize do

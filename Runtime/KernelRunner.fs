@@ -23,6 +23,15 @@ open System.Collections.Generic
 open System.Collections.ObjectModel
 
 module Runtime =
+    let VarArgsToDictionary(args:(string * obj)[]) =    
+        let opts = new Dictionary<string, obj>()
+        for key, value in args do
+            if not (opts.ContainsKey(key)) then
+                opts.Add(key, value)
+            else
+                opts.[key] <- value
+        opts
+
     // The Kernel runner
     type internal Runner =            
         inherit Pipeline
@@ -237,6 +246,22 @@ module Runtime =
                                         globalSize, localSize, 
                                         RunningMode.OpenCL, true, 
                                         opts) :?> 'T
+                                        
+        member this.Run([<ParamArray>] args:(string * obj)[]) =            
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.OpenCL, true, 
+                                        VarArgsToDictionary(args)) :?> 'T
+        member this.Run(globalSize: int64, localSize: int64, [<ParamArray>] args:(string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.OpenCL, true, 
+                                        VarArgsToDictionary(args)) :?> 'T
+        member this.Run(globalSize: int64 array, localSize: int64 array, [<ParamArray>] args:(string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.OpenCL, true,  
+                                        VarArgsToDictionary(args)) :?> 'T
             
         member this.RunSequential() =
             kernelRunner.RunExpression(this, 
@@ -269,5 +294,21 @@ module Runtime =
                                         globalSize, localSize, 
                                         RunningMode.Sequential, true, 
                                         opts) :?> 'T
+                                        
+        member this.RunSequential([<ParamArray>] args: (string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        [||], [||], 
+                                        RunningMode.Sequential, true, 
+                                        VarArgsToDictionary(args)) :?> 'T
+        member this.RunSequential(globalSize: int64, localSize: int64, [<ParamArray>] args: (string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        [| globalSize |], [| localSize |], 
+                                        RunningMode.Sequential, true, 
+                                        VarArgsToDictionary(args)) :?> 'T
+        member this.RunSequential(globalSize: int64 array, localSize: int64 array, [<ParamArray>] args: (string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, 
+                                        RunningMode.Sequential, true, 
+                                        VarArgsToDictionary(args)) :?> 'T
             
 

@@ -19,9 +19,10 @@ type RuntimeDevice(device: OpenCLDevice, context: OpenCLContext, queue: OpenCLCo
             this.Context.Dispose()
    
 [<AllowNullLiteral>] 
-type RuntimeCompiledKernel(program, kernel) =
+type RuntimeCompiledKernel(program, kernel, defines) =
     member val Program:OpenCLProgram = program with get  
     member val Kernel:OpenCLKernel = kernel with get  
+    member val DynamicDefines: IReadOnlyDictionary<string, string> = defines with get
 
     interface IDisposable with
         member this.Dispose() =

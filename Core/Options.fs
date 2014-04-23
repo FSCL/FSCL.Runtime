@@ -11,6 +11,8 @@ module RuntimeOptions =
     let WorkSize = "WorkSize"
     [<Literal>]
     let MultithreadFallback = "MultithreadFallback"
+    [<Literal>]
+    let ConstantDefines = "ConstantDefines"
 
 
 
