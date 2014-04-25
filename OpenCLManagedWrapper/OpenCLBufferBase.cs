@@ -59,9 +59,9 @@ namespace OpenCL
         {
             get
             {
-                long sum = 0;
+                long sum = 1;
                 foreach (long c in count)
-                    sum += c;
+                    sum *= c;
                 return sum;
             }
         }
@@ -79,6 +79,37 @@ namespace OpenCL
             get
             {
                 return count.Length;
+            }
+        }
+
+        public bool KernelCanRead
+        {
+            get {
+                return ((Flags & OpenCLMemoryFlags.WriteOnly) == 0);
+            }
+        }
+
+        public bool KernelCanWrite
+        {
+            get
+            {
+                return ((Flags & OpenCLMemoryFlags.ReadOnly) == 0);
+            }
+        }
+
+        public bool HostCanRead
+        {
+            get
+            {
+                return ((Flags & OpenCLMemoryFlags.HostNoAccess) == 0) && ((Flags & OpenCLMemoryFlags.HostWriteOnly) == 0);
+            }
+        }
+
+        public bool HostCanWrite
+        {
+            get
+            {
+                return ((Flags & OpenCLMemoryFlags.HostNoAccess) == 0) && ((Flags & OpenCLMemoryFlags.HostReadOnly) == 0);
             }
         }
 

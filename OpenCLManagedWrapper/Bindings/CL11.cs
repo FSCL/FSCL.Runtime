@@ -154,9 +154,9 @@ namespace OpenCL.Bindings
         [Obsolete("This function has been deprecated in OpenCL 1.1.")]
         new public static OpenCLErrorCode SetCommandQueueProperty(
             CLCommandQueueHandle command_queue,
-            OpenCLCommandQueueFlags properties,
+            OpenCLCommandQueueProperties properties,
             [MarshalAs(UnmanagedType.Bool)] bool enable,
-            out OpenCLCommandQueueFlags old_properties)
+            out OpenCLCommandQueueProperties old_properties)
         {
             Trace.WriteLine("WARNING! clSetCommandQueueProperty has been deprecated in OpenCL 1.1.");
             return CL10.SetCommandQueueProperty(command_queue, properties, enable, out old_properties);

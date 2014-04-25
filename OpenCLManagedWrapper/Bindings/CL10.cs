@@ -73,7 +73,7 @@ namespace OpenCL.Bindings
         [DllImport(libName, EntryPoint = "clGetDeviceIDs")]
         public extern static OpenCLErrorCode GetDeviceIDs(
             CLPlatformHandle platform,
-            OpenCLDeviceTypes device_type,
+            OpenCLDeviceType device_type,
             Int32 num_entries,
             [Out, MarshalAs(UnmanagedType.LPArray)] CLDeviceHandle[] devices,
             out Int32 num_devices);
@@ -107,7 +107,7 @@ namespace OpenCL.Bindings
         [DllImport(libName, EntryPoint = "clCreateContextFromType")]
         public extern static CLContextHandle CreateContextFromType(
             [MarshalAs(UnmanagedType.LPArray)] IntPtr[] properties,
-            OpenCLDeviceTypes device_type,
+            OpenCLDeviceType device_type,
             OpenCLContextNotifier pfn_notify,
             IntPtr user_data,
             out OpenCLErrorCode errcode_ret);
@@ -144,7 +144,7 @@ namespace OpenCL.Bindings
         public extern static CLCommandQueueHandle CreateCommandQueue(
             CLContextHandle context,
             CLDeviceHandle device,
-            OpenCLCommandQueueFlags properties,
+            OpenCLCommandQueueProperties properties,
             out OpenCLErrorCode errcode_ret);
 
         /// <summary>
@@ -179,9 +179,9 @@ namespace OpenCL.Bindings
         [DllImport(libName, EntryPoint = "clSetCommandQueueProperty")]
         public extern static OpenCLErrorCode SetCommandQueueProperty(
             CLCommandQueueHandle command_queue,
-            OpenCLCommandQueueFlags properties,
+            OpenCLCommandQueueProperties properties,
             [MarshalAs(UnmanagedType.Bool)] bool enable,
-            out OpenCLCommandQueueFlags old_properties);
+            out OpenCLCommandQueueProperties old_properties);
 
         /// <summary>
         /// See the OpenCL specification.

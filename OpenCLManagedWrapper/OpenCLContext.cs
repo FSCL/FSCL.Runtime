@@ -155,7 +155,7 @@ namespace OpenCL
             SetID(Handle.Value);
             
             this.properties = properties;
-            OpenCLContextProperty platformProperty = properties.GetByName(OpenCLContextPropertyName.Platform);
+            OpenCLContextProperty platformProperty = properties.GetByName(OpenCLContextProperties.Platform);
             this.platform = OpenCLPlatform.GetByHandle(platformProperty.Value);
             this.devices = GetDevices();
 
@@ -169,7 +169,7 @@ namespace OpenCL
         /// <param name="properties"> A <see cref="OpenCLContextPropertyList"/> of the <see cref="OpenCLContext"/>. </param>
         /// <param name="notify"> A delegate instance that refers to a notification routine. This routine is a callback function that will be used by the OpenCL implementation to report information on errors that occur in the <see cref="OpenCLContext"/>. The callback function may be called asynchronously by the OpenCL implementation. It is the application's responsibility to ensure that the callback function is thread-safe and that the delegate instance doesn't get collected by the Garbage Collector until <see cref="OpenCLContext"/> is disposed. If <paramref name="notify"/> is <c>null</c>, no callback function is registered. </param>
         /// <param name="userDataPtr"> Optional user data that will be passed to <paramref name="notify"/>. </param>
-        public OpenCLContext(OpenCLDeviceTypes deviceType, OpenCLContextPropertyList properties, OpenCLContextNotifier notify, IntPtr userDataPtr)
+        public OpenCLContext(OpenCLDeviceType deviceType, OpenCLContextPropertyList properties, OpenCLContextNotifier notify, IntPtr userDataPtr)
         {
             IntPtr[] propertyArray = (properties != null) ? properties.ToIntPtrArray() : null;
             callback = notify;
@@ -181,7 +181,7 @@ namespace OpenCL
             SetID(Handle.Value);
 
             this.properties = properties;
-            OpenCLContextProperty platformProperty = properties.GetByName(OpenCLContextPropertyName.Platform);
+            OpenCLContextProperty platformProperty = properties.GetByName(OpenCLContextProperties.Platform);
             this.platform = OpenCLPlatform.GetByHandle(platformProperty.Value);
             this.devices = GetDevices();
 

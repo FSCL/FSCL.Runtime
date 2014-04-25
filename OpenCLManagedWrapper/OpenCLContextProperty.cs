@@ -43,7 +43,7 @@ namespace OpenCL
         #region Fields
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private readonly OpenCLContextPropertyName name;
+        private readonly OpenCLContextProperties name;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly IntPtr value;
@@ -56,7 +56,7 @@ namespace OpenCL
         /// Gets the <see cref="OpenCLContextPropertyName"/> of the <see cref="OpenCLContextProperty"/>.
         /// </summary>
         /// <value> The <see cref="OpenCLContextPropertyName"/> of the <see cref="OpenCLContextProperty"/>. </value>
-        public OpenCLContextPropertyName Name { get { return name; } }
+        public OpenCLContextProperties Name { get { return name; } }
 
         /// <summary>
         /// Gets the value of the <see cref="OpenCLContextProperty"/>.
@@ -73,7 +73,7 @@ namespace OpenCL
         /// </summary>
         /// <param name="name"> The name of the <see cref="OpenCLContextProperty"/>. </param>
         /// <param name="value"> The value of the created <see cref="OpenCLContextProperty"/>. </param>
-        public OpenCLContextProperty(OpenCLContextPropertyName name, IntPtr value)
+        public OpenCLContextProperty(OpenCLContextProperties name, IntPtr value)
         {
             this.name = name;
             this.value = value;

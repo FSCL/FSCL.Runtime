@@ -9,14 +9,21 @@ open FSCL.Compiler.Language
 open FSCL.Runtime
 
 [<AllowNullLiteral>]
-type BufferPoolItem(buffer: OpenCLBuffer, queue:OpenCLCommandQueue, access: AccessMode, transfer: TransferMode, isReturn: bool) =
-    member val Access = access with get
+type BufferPoolItem(buffer: OpenCLBuffer, 
+                    queue: OpenCLCommandQueue, 
+                    space: AddressSpace, 
+                    transfer: TransferMode, 
+                    rMode: BufferReadMode, 
+                    wMode: BufferWriteMode, 
+                    isReturn: bool) =
+    member val WriteMode = wMode with get
+    member val ReadMode = rMode with get 
     member val Transfer = transfer with get
+    member val AddressSpace = space with get
     member val IsReturned = isReturn with get 
     member val Buffer = buffer with get
     member val IsAvailable = false with get, set
     member val CurrentQueue = queue with get, set
-    member val HasBeenModified = false with get, set
 
 [<AllowNullLiteral>]
 type BufferPoolManager() =
@@ -27,53 +34,30 @@ type BufferPoolManager() =
     let mutable rootReturnBuffer = None
 
     let reverseTrackedBufferPool = Dictionary<OpenCLBuffer, obj>()
-    (*
-    member private this.CreateReplaceBuffer(t, context, queue, count:int64[], flags) =
-        if pool.ContainsKey(context) then
-            let buffers = pool.[context]
-            let size = (Array.reduce(fun a b -> a * b) count) * (Marshal.SizeOf(t) |> int64)
-            let mutable id = 0
-            if buffers.Count >= maxBuffPerContext then
-                // Check an available buffer that has a similar size to the one we are going to create
-                let mutable selectedIndex = -1
-                let mutable minDiff = Int64.MaxValue
-                for i = 0 to buffers.Count - 1 do
-                    if buffers.[i].IsAvailable then
-                        if Math.Abs(buffers.[i].Buffer.Size - size) < minDiff then
-                            minDiff <- Math.Abs(buffers.[i].Buffer.Size - size)
-                            selectedIndex <- i
-                            id <- buffers.[i].ID
-                // Dispose buffer
-                buffers.[selectedIndex].Buffer.Dispose()
-                // Remove buffer 
-                buffers.RemoveAt(selectedIndex)
-            else
-                id <- poolContextMaxID.[context] + 1
-                poolContextMaxID.[context] <- id
 
-            // Create new buffer
-            let bufferItem = new BufferPoolItem(id, BufferTools.CreateBuffer(t, count, context, queue, flags).Value)
-            pool.[context].Add(bufferItem)
-            (id, bufferItem.Buffer)
-        else
-            // Create new buffer
-            let id = 0
-            poolContextMaxID.Add(context, id)
-
-            let bufferItem = new BufferPoolItem(id, BufferTools.CreateBuffer(t, count, context, queue, flags).Value)
-            pool.Add(context, new List<BufferPoolItem>())
-            pool.[context].Add(bufferItem)
-            (id, bufferItem.Buffer)
-            *)
-        
     // Non-tracking buffer
     // This is the buffer created for buffers allocated and returned inside kernels and for buffer obtained from the execution of other previos kernels
-    member this.CreateUntrackedBuffer(context, queue, parameter:IFunctionParameter, count:int64[], flags, isRoot) =
+    member this.CreateUntrackedBuffer(context, queue, parameter:IFunctionParameter, count:int64[], isRoot) =
+        // Get parameter meta
+        let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+        let readMode = parameter.Meta.Get<BufferReadModeAttribute>()
+        let writeMode = parameter.Meta.Get<BufferWriteModeAttribute>()
+        let addressSpace = parameter.Meta.Get<AddressSpaceAttribute>()
+        let memoryFlags = parameter.Meta.Get<MemoryFlagsAttribute>()
+        let mergedFlags = BufferTools.MergeAccessAndFlags(addressSpace.AddressSpace, parameter.Access, memoryFlags.Flags, isRoot, parameter.IsReturned)
+
         if not (untrackedBufferPool.ContainsKey(context)) then
             untrackedBufferPool.Add(context, new Dictionary<OpenCLBuffer, BufferPoolItem>())
 
         let transferMode = parameter.Meta.Get<TransferModeAttribute>()
-        let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
+        let bufferItem = new BufferPoolItem(
+                            BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, mergedFlags), 
+                            queue,
+                            addressSpace.AddressSpace, 
+                            transferMode.Mode,
+                            readMode.Mode,
+                            writeMode.Mode,
+                            parameter.IsReturned)
         untrackedBufferPool.[context].Add(bufferItem.Buffer, bufferItem)
 
         // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
@@ -103,19 +87,24 @@ type BufferPoolManager() =
                 buffer.Dispose()
                 untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
                 
-    member this.UseUntrackedBuffer(buffer:OpenCLBuffer, context, queue, parameter: IFunctionParameter, flags:OpenCLMemoryFlags, isRoot) =
+    member this.UseUntrackedBuffer(buffer:OpenCLBuffer, context, queue, parameter: IFunctionParameter, isRoot) =
+        let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+        let addressSpace = parameter.Meta.Get<AddressSpaceAttribute>()
+        let memoryFlags = parameter.Meta.Get<MemoryFlagsAttribute>()
+        let mergedFlags = BufferTools.MergeAccessAndFlags(addressSpace.AddressSpace, parameter.Access, memoryFlags.Flags, isRoot, parameter.IsReturned)
+
         if untrackedBufferPool.ContainsKey(buffer.Context) then
             let item = untrackedBufferPool.[buffer.Context].[buffer]
             // Check if this can be used with no copy
             let mutable avoidCopy = context = buffer.Context
             if context = buffer.Context &&
-                (parameter.Access &&& item.Access = parameter.Access) &&
-                (flags &&& item.Buffer.Flags = flags) then
+                BufferTools.AreOpenCLMemoryFlagsCompatible(buffer.Flags, mergedFlags) then
                 buffer
             else
                 // Need to copy
-                let copy = this.CreateUntrackedBuffer(context, queue, parameter, buffer.Count, flags, isRoot) 
-                BufferTools.CopyBuffer(queue, buffer, copy)
+                let copy = this.CreateUntrackedBuffer(context, queue, parameter, buffer.Count, isRoot)
+                if BufferTools.ShouldWriteBuffer(copy, addressSpace.AddressSpace, transferMode.Mode) then
+                    BufferTools.CopyBuffer(queue, buffer, copy)
                 // Dispose old buffer
                 item.IsAvailable <- true
                 this.DisposeBuffer(item.Buffer)
@@ -126,7 +115,15 @@ type BufferPoolManager() =
 
     // Tracking buffer
     // This is the buffer created when an actual argument is provided
-    member this.CreateTrackedBuffer(context, queue, parameter:IFunctionParameter, o, flags, strictFlags, isRoot) =
+    member this.CreateTrackedBuffer(context, queue, parameter:IFunctionParameter, o, strictFlags, isRoot) =    
+        // Get parameter meta
+        let transferMode = parameter.Meta.Get<TransferModeAttribute>()
+        let readMode = parameter.Meta.Get<BufferReadModeAttribute>()
+        let writeMode = parameter.Meta.Get<BufferWriteModeAttribute>()
+        let addressSpace = parameter.Meta.Get<AddressSpaceAttribute>()
+        let memoryFlags = parameter.Meta.Get<MemoryFlagsAttribute>()
+        let mergedFlags = BufferTools.MergeAccessAndFlags(addressSpace.AddressSpace, parameter.Access, memoryFlags.Flags, isRoot, parameter.IsReturned)
+
         // Check if there is a buffer bound to the same object
         if trackedBufferPool.ContainsKey(o) then
             // We are requested to create a buffer matching an object (parameter value) already known
@@ -134,8 +131,7 @@ type BufferPoolManager() =
             // If not used anymore, same context and access we can use it
             assert (prevBuffer.IsAvailable)
             if prevBuffer.Buffer.Context = context &&
-                (prevBuffer.Access ||| parameter.Access = prevBuffer.Access) && 
-                (prevBuffer.Buffer.Flags ||| flags = prevBuffer.Buffer.Flags) then
+                BufferTools.AreOpenCLMemoryFlagsCompatible(prevBuffer.Buffer.Flags, mergedFlags) then
                 
                 // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
                 if parameter.IsReturned && isRoot then
@@ -145,17 +141,18 @@ type BufferPoolManager() =
                 prevBuffer.CurrentQueue <- queue
                 prevBuffer.Buffer
             else
-                let transferMode = parameter.Meta.Get<TransferModeAttribute>()
-                let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
-                // We need to copy buffer only if no write-only                
-                if (parameter.Access &&& AccessMode.ReadAccess |> int > 0) then
+                let bufferItem = new BufferPoolItem(
+                                    BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, mergedFlags), 
+                                    queue, 
+                                    addressSpace.AddressSpace, 
+                                    transferMode.Mode,
+                                    readMode.Mode,
+                                    writeMode.Mode,
+                                    parameter.IsReturned)
+                // We need to copy buffer only if no write-only, host can read and user did not specify NoTransfer                
+                if (BufferTools.ShouldWriteBuffer(bufferItem.Buffer, addressSpace.AddressSpace, transferMode.Mode)) then
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
 
-                // Remember if this has been modified
-                bufferItem.HasBeenModified <- prevBuffer.HasBeenModified
-                if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
-                    bufferItem.HasBeenModified  <- true
-                    
                 // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
                 if parameter.IsReturned && isRoot then
                     rootReturnBuffer <- Some(bufferItem)
@@ -167,23 +164,17 @@ type BufferPoolManager() =
                 bufferItem.Buffer
         else
             // Create a buffer tracking the parameter
-            let transferMode = parameter.Meta.Get<TransferModeAttribute>()
-            let bufferItem = new BufferPoolItem(BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, flags), queue, parameter.Access, transferMode.Mode, parameter.IsReturned)
-            // Check if need to initialize
-            let space = parameter.Meta.Get<AddressSpaceAttribute>()
-            let mustInitBuffer =
-                ((space.AddressSpace = AddressSpace.Auto) ||
-                 (space.AddressSpace = AddressSpace.Global) ||
-                 (space.AddressSpace = AddressSpace.Constant)) &&
-                ((parameter.Access &&& AccessMode.ReadAccess |> int > 0))
-            
-            if mustInitBuffer then
-                BufferTools.WriteBuffer(queue, bufferItem.Buffer, o)    
-                
-            // Remember if this has been modified
-            if (parameter.Access &&& AccessMode.WriteAccess |> int > 0) then
-                bufferItem.HasBeenModified  <- true          
-                              
+            let bufferItem = new BufferPoolItem(
+                                    BufferTools.CreateBuffer(o.GetType().GetElementType(), ArrayUtil.GetArrayLengths(o), context, queue, mergedFlags), 
+                                    queue, 
+                                    addressSpace.AddressSpace, 
+                                    transferMode.Mode,                                     
+                                    readMode.Mode,
+                                    writeMode.Mode,
+                                    parameter.IsReturned)            
+            if BufferTools.ShouldWriteBuffer(bufferItem.Buffer, addressSpace.AddressSpace, transferMode.Mode) then
+                BufferTools.WriteBuffer(queue, writeMode.Mode = BufferWriteMode.MapBuffer, bufferItem.Buffer, o)    
+                                           
             // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
             if parameter.IsReturned && isRoot then
                 rootReturnBuffer <- Some(bufferItem)
@@ -197,16 +188,16 @@ type BufferPoolManager() =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
-                BufferTools.ReadBuffer(poolItem.CurrentQueue, item.Key :?> Array, poolItem.Buffer)
+            if BufferTools.ShouldReadBuffer(poolItem.Buffer, poolItem.AddressSpace, poolItem.Transfer) then
+                BufferTools.ReadBuffer(poolItem.CurrentQueue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key :?> Array, poolItem.Buffer)
         
     member this.ReadRootReturnBuffer() =
         // Read back root return buffer
         let returnValue = 
-            if rootReturnBuffer.IsSome then
+            if rootReturnBuffer.IsSome && (BufferTools.ShouldReadBuffer(rootReturnBuffer.Value.Buffer, rootReturnBuffer.Value.AddressSpace, rootReturnBuffer.Value.Transfer)) then
                 let sizes = rootReturnBuffer.Value.Buffer.Count
                 let returnedArray = Array.CreateInstance(rootReturnBuffer.Value.Buffer.ElementType, sizes)
-                BufferTools.ReadBuffer(rootReturnBuffer.Value.CurrentQueue, returnedArray, rootReturnBuffer.Value.Buffer)
+                BufferTools.ReadBuffer(rootReturnBuffer.Value.CurrentQueue, rootReturnBuffer.Value.ReadMode = BufferReadMode.MapBuffer, returnedArray, rootReturnBuffer.Value.Buffer)
                 rootReturnBuffer <- None
                 returnedArray
             else
@@ -215,8 +206,8 @@ type BufferPoolManager() =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if poolItem.HasBeenModified && (poolItem.Transfer &&& TransferMode.NoTransferBack |> int = 0) then
-                BufferTools.ReadBuffer(poolItem.CurrentQueue, item.Key :?> Array, poolItem.Buffer)
+            if BufferTools.ShouldReadBuffer(poolItem.Buffer, poolItem.AddressSpace, poolItem.Transfer) then
+                BufferTools.ReadBuffer(poolItem.CurrentQueue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key :?> Array, poolItem.Buffer)
                         
         returnValue
 

@@ -74,7 +74,7 @@ type DefaultKerernelExecutionProcessor() =
                         
                     // Allocate the buffer
                     // Since returned, the buffer must not be initialized and it is obiously written
-                    let buffer = pool.CreateUntrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, elementCount, BufferTools.AccessModeToFlags(par.Access), isRoot)                            
+                    let buffer = pool.CreateUntrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, elementCount, isRoot)                            
                     // Set kernel arg
 
                     node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
@@ -101,7 +101,7 @@ type DefaultKerernelExecutionProcessor() =
                     else
                         // Check if read or read_write mode
                         let access = par.Access
-                        let buffer = pool.CreateTrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, o :?> Array, BufferTools.AccessModeToFlags(access), false, isRoot) 
+                        let buffer = pool.CreateTrackedBuffer(node.DeviceData.Context, node.DeviceData.Queue, par, o :?> Array, false, isRoot) 
                         
                         // Set kernel arg
                         node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
@@ -121,7 +121,7 @@ type DefaultKerernelExecutionProcessor() =
                 | KernelOutput(othNode, a) ->
                     // WE SHOULD AVOID COPY!!!
                     // Copy the output buffer of the input kernel
-                    let buffer = pool.UseUntrackedBuffer(inputFromOtherKernelsBuffers.[par.Name], node.DeviceData.Context, node.DeviceData.Queue, par, BufferTools.AccessModeToFlags(par.Access), isRoot)            
+                    let buffer = pool.UseUntrackedBuffer(inputFromOtherKernelsBuffers.[par.Name], node.DeviceData.Context, node.DeviceData.Queue, par, isRoot)            
                     // Store dim sizes
                     let sizeParameters = par.SizeParameters
                     //bufferSizes.Add(par.Name, new Dictionary<string, int>())

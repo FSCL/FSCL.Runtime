@@ -60,7 +60,7 @@ namespace OpenCL
         public OpenCLContextPropertyList(OpenCLPlatform platform)
         {
             properties = new List<OpenCLContextProperty>();
-            properties.Add(new OpenCLContextProperty(OpenCLContextPropertyName.Platform, platform.Handle.Value));
+            properties.Add(new OpenCLContextProperty(OpenCLContextProperties.Platform, platform.Handle.Value));
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace OpenCL
         /// </summary>
         /// <param name="name"> The <see cref="OpenCLContextPropertyName"/> of the <see cref="OpenCLContextProperty"/>. </param>
         /// <returns> The requested <see cref="OpenCLContextProperty"/> or <c>null</c> if no such <see cref="OpenCLContextProperty"/> exists in the <see cref="OpenCLContextPropertyList"/>. </returns>
-        public OpenCLContextProperty GetByName(OpenCLContextPropertyName name)
+        public OpenCLContextProperty GetByName(OpenCLContextProperties name)
         {
             foreach (OpenCLContextProperty property in properties)
                 if (property.Name == name)

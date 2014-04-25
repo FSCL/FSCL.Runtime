@@ -59,7 +59,7 @@ type KernelCreationManager(compiler: Compiler,
             // Create context and queue
             let contextProperties = new OpenCLContextPropertyList(platform)
             let computeContext = new OpenCLContext(devs, contextProperties, null, System.IntPtr.Zero) 
-            let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueFlags.None) 
+            let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueProperties.None) 
             // Add device to the global devices cache
             this.GlobalCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))
         device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]

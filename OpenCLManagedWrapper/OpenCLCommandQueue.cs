@@ -110,7 +110,7 @@ namespace OpenCL
         /// <param name="context"> A <see cref="OpenCLContext"/>. </param>
         /// <param name="device"> A <see cref="OpenCLDevice"/> associated with the <paramref name="context"/>. It can either be one of <see cref="OpenCLContext.Devices"/> or have the same <see cref="OpenCLDeviceTypes"/> as the <paramref name="device"/> specified when the <paramref name="context"/> is created. </param>
         /// <param name="properties"> The properties for the <see cref="OpenCLCommandQueue"/>. </param>
-        public OpenCLCommandQueue(OpenCLContext context, OpenCLDevice device, OpenCLCommandQueueFlags properties)
+        public OpenCLCommandQueue(OpenCLContext context, OpenCLDevice device, OpenCLCommandQueueProperties properties)
         {
             OpenCLErrorCode error = OpenCLErrorCode.Success;
             Handle = CL10.CreateCommandQueue(context.Handle, device.Handle, properties, out error);
@@ -120,9 +120,9 @@ namespace OpenCL
             
             this.device = device;
             this.context = context;
-            
-            outOfOrderExec = ((properties & OpenCLCommandQueueFlags.OutOfOrderExecution) == OpenCLCommandQueueFlags.OutOfOrderExecution);
-            profiling = ((properties & OpenCLCommandQueueFlags.Profiling) == OpenCLCommandQueueFlags.Profiling);
+
+            outOfOrderExec = ((properties & OpenCLCommandQueueProperties.OutOfOrderExecution) == OpenCLCommandQueueProperties.OutOfOrderExecution);
+            profiling = ((properties & OpenCLCommandQueueProperties.Profiling) == OpenCLCommandQueueProperties.Profiling);
             
             Events = new List<OpenCLEventBase>();
 

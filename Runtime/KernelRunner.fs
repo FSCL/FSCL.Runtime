@@ -174,7 +174,12 @@ module Runtime =
                                   localSize: int64 array, 
                                   mode: RunningMode, 
                                   fallback: bool,
-                                  opts: Dictionary<string, obj>) =
+                                  opt: Dictionary<string, obj>) =
+            // Copy options
+            let opts = new Dictionary<string, obj>()
+            for item in opt do
+                opts.Add(item.Key, item.Value)
+
             // Add options for work size and running mode
             if not(opts.ContainsKey(RuntimeOptions.WorkSize) && globalSize.Length > 0 && localSize.Length > 0) then
                 opts.Add(RuntimeOptions.WorkSize, (globalSize, localSize))

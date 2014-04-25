@@ -27,7 +27,7 @@ type RuntimeToCompilerMetadataMapping() =
             // Get dev type from Cloo
             let devType = OpenCLPlatform.Platforms.[dev.Platform].Devices.[dev.Device].Type
             kmeta.Add(match devType with
-                        | OpenCLDeviceTypes.Gpu ->
+                        | OpenCLDeviceType.Gpu ->
                             new DeviceTypeAttribute(DeviceType.Gpu)
                         | _ ->
                             new DeviceTypeAttribute(DeviceType.Cpu))
@@ -40,7 +40,7 @@ type RuntimeToCompilerMetadataMapping() =
             kmeta.Add(new RunningModeAttribute(opts.[RuntimeOptions.RunningMode] :?> RunningMode))
         if not((kmeta :> IKernelMetaCollection).Contains<MultithreadFallbackAttribute>()) then
             kmeta.Add(new MultithreadFallbackAttribute(opts.[RuntimeOptions.MultithreadFallback] :?> bool))
-
+            
         (kmeta, rmeta, pmeta)
 
                 

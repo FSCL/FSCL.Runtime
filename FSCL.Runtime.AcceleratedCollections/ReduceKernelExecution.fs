@@ -69,7 +69,7 @@ type ReduceKernelExecutionProcessor() =
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
                 let elementType = par.DataType.GetElementType()
-                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o :?> Array, BufferTools.AccessModeToFlags(par.Access), false, isRoot)                      
+                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o :?> Array, false, isRoot)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
                 // Store dim sizes
@@ -80,7 +80,7 @@ type ReduceKernelExecutionProcessor() =
             | KernelOutput(node, a) ->
                 // WE SHOULD AVOID COPY!!!
                 // Copy the output buffer of the input kernel
-                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, BufferTools.AccessModeToFlags(par.Access), isRoot)                       
+                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, isRoot)                       
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)             
                 // Store dim sizes
@@ -103,7 +103,7 @@ type ReduceKernelExecutionProcessor() =
             let par = parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.DataType.GetElementType()
-            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], OpenCLMemoryFlags.ReadWrite, isRoot)                            
+            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], isRoot)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
             // Store dim sizes
@@ -146,10 +146,11 @@ type ReduceKernelExecutionProcessor() =
 
             // Read buffer
             let outputPar = kernelData.Kernel.Parameters.[2]
+            let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
             let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
 
-            BufferTools.ReadBuffer(deviceData.Queue, arrobj, outputBuffer)
+            BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
             // Dispose kernel            
             //compiledData.Kernel.Dispose()
@@ -179,8 +180,9 @@ type ReduceKernelExecutionProcessor() =
 
             // If not root must write the result to buffer for the next kernel
             if not isRoot then
-                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], BufferTools.AccessModeToFlags(outputPar.Access), false)
-                BufferTools.WriteBuffer(deviceData.Queue, ob, [| result |])
+                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], false)
+                let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
+                BufferTools.WriteBuffer(deviceData.Queue, useMap, ob, [| result |])
                 
                 // Dispose output buffer
                 pool.DisposeBuffer(outputBuffer)

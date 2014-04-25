@@ -106,7 +106,7 @@ namespace OpenCL
                 result[i] = array[i].ToInt64();
             return result;
         }
-
+        
         internal static CLDeviceHandle[] ExtractHandles(IList<OpenCLDevice> computeObjects, out int handleCount)
         {
             if (computeObjects == null || computeObjects.Count == 0)

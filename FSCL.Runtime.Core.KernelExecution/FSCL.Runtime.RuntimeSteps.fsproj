@@ -82,10 +82,6 @@
       <Name>FSCL.Compiler.Core.Util</Name>
       <Project>{2089BA93-E786-42E3-B717-58105C53BB7A}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\FSCL.Compiler\VectorTypes\FSCL.Compiler.Core.VectorTypes.fsproj">
-      <Name>FSCL.Compiler.Core.VectorTypes</Name>
-      <Project>4E60E123-E793-4FED-A316-B0D6039764E8</Project>
-    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Managers\FSCL.Runtime.Managers.fsproj">
       <Name>FSCL.Runtime.Managers</Name>
       <Project>{3f15f0d8-b89a-40e5-98c8-529e74991812}</Project>

@@ -68,6 +68,11 @@ namespace OpenCL
         MisalignedSubBufferOffset = -13,
         /// <summary> </summary>
         ExecutionStatusErrorForEventsInWaitList = -14,
+        CompileProgramFailure = -15,
+        LinkerNotAvailable = -16,
+        LinkProgramFailure = -17,
+        DevicePartitionFailed = -18,
+        KernelArgInfoNotAvailable = -19,
         /// <summary> </summary>
         InvalidValue = -30,
         /// <summary> </summary>
@@ -136,16 +141,17 @@ namespace OpenCL
         InvalidMipLevel = -62,
         /// <summary> </summary>
         InvalidGlobalWorkSize = -63,
-        /// <summary> </summary>
-        CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR = -1000,
-        /// <summary> </summary>
-        CL_PLATFORM_NOT_FOUND_KHR = -1001,
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_FAILED_EXT = -1057,
-        /// <summary> </summary>
-        CL_INVALID_PARTITION_COUNT_EXT = -1058,
-        /// <summary> </summary>
-        CL_INVALID_PARTITION_NAME_EXT = -1059,
+        InvalidProperty = -64,
+        InvalidImageDescriptor = -65,
+        InvalidCompilerOptions = -66,
+        InvalidLinkerOptions = -67,
+        InvalidDevicePartitionCount = -68,
+        /// Extensions
+        InvalidGLShareGroupReferenceKHR = -1000,
+        PlatformNotFoundKHR = -1001,
+        PartitionFailedEXT = -1057,
+        InvalidPartitionCountEXT = -1058,
+        InvalidPartitionNameEXT = -1059
     }
 
     /// <summary>
@@ -156,7 +162,9 @@ namespace OpenCL
         /// <summary> </summary>
         Version_1_0 = 1,
         /// <summary> </summary>
-        Version_1_1 = 1
+        Version_1_1 = 1,
+        /// <summary> </summary>
+        Version_1_2 = 1
     }
 
     /// <summary>
@@ -167,7 +175,9 @@ namespace OpenCL
         /// <summary> </summary>
         False = 0,
         /// <summary> </summary>
-        True = 1
+        True = 1,
+        Blocking = 1,
+        NonBlocking = 0
     }
 
     /// <summary>
@@ -186,14 +196,14 @@ namespace OpenCL
         /// <summary> </summary>
         Extensions = 0x0904,
         /// <summary> </summary>
-        CL_PLATFORM_ICD_SUFFIX_KHR = 0x0920,
+        ICDSuffixKHR = 0x0920
     }
 
     /// <summary>
     /// The types of devices.
     /// </summary>
     [Flags]
-    public enum OpenCLDeviceTypes : long
+    public enum OpenCLDeviceType : long
     {
         /// <summary> </summary>
         Default = 1 << 0,
@@ -203,6 +213,8 @@ namespace OpenCL
         Gpu = 1 << 2,
         /// <summary> </summary>
         Accelerator = 1 << 3,
+        /// <summary> </summary>
+        Custom = 1 << 4,
         /// <summary> </summary>
         All = 0xFFFFFFFF
     }
@@ -313,9 +325,9 @@ namespace OpenCL
         /// <summary> </summary>
         Platform = 0x1031,
         /// <summary> </summary>
-        CL_DEVICE_DOUBLE_FP_CONFIG = 0x1032,
+        DoubleFPConfig = 0x1032,
         /// <summary> </summary>
-        CL_DEVICE_HALF_FP_CONFIG = 0x1033,
+        HalfFPConfig = 0x1033,
         /// <summary> </summary>
         PreferredVectorWidthHalf = 0x1034,
         /// <summary> </summary>
@@ -336,23 +348,32 @@ namespace OpenCL
         NativeVectorWidthHalf = 0x103C,
         /// <summary> </summary>
         OpenCLCVersion = 0x103D,
-        /// <summary> </summary>
-        CL_DEVICE_PARENT_DEVICE_EXT = 0x4054,
-        /// <summary> </summary>
-        CL_DEVICE_PARITION_TYPES_EXT = 0x4055,
-        /// <summary> </summary>
-        CL_DEVICE_AFFINITY_DOMAINS_EXT = 0x4056,
-        /// <summary> </summary>
-        CL_DEVICE_REFERENCE_COUNT_EXT = 0x4057,
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_STYLE_EXT = 0x4058
+        LinkerAvailable = 0x103E,
+        BuiltInKernels = 0x103F,
+        ImageMaxBufferSize = 0x1040,
+        ImageMaxArraySize = 0x1041,
+        ParentDevice = 0x1042,
+        PartitionMaxSubDevices = 0x1043,
+        PartitionProperties = 0x1044,
+        PartitionAffinity = 0x1045,
+        PartitionType = 0x1046,
+        ReferenceCount = 0x1047,
+        PreferredInteropUserSync = 0x1048,
+        PrintfBufferSize = 0x1049,
+        ImagePitchAlignment = 0x104A,
+        ImageBaseAddressAlignment = 0x104B,
+        // Extension
+        ParentDeviceEXT = 0x4054,
+        PartitionTypesEXT = 0x4055,
+        AffinityDomainsEXT = 0x4056,
+        ReferenceCountEXT = 0x4057,
+        PartitionStyleEXT = 0x4058
     }
 
     /// <summary>
-    /// 
     /// </summary>
     [Flags]
-    public enum OpenCLDeviceSingleCapabilities : long
+    public enum OpenCLDeviceFPConfig : long
     {
         /// <summary> </summary>
         Denorm = 1 << 0,
@@ -367,7 +388,8 @@ namespace OpenCL
         /// <summary> </summary>
         Fma = 1 << 5,
         /// <summary> </summary>
-        SoftFloat = 1 << 6
+        SoftFloat = 1 << 6,
+        CorrectlyRoundedDivideSqrt = 1 << 7
     }
 
     /// <summary>
@@ -409,7 +431,7 @@ namespace OpenCL
     /// 
     /// </summary>
     [Flags]
-    public enum OpenCLCommandQueueFlags : long
+    public enum OpenCLCommandQueueProperties : long
     {
         /// <summary> </summary>
         None = 0,
@@ -431,18 +453,18 @@ namespace OpenCL
         /// <summary> </summary>
         Properties = 0x1082,
         /// <summary> </summary>
-        NumDevices = 0x1083,
-        /// <summary> </summary>
-        Platform = 0x1084,
+        NumDevices = 0x1083
     }
 
     /// <summary>
     /// 
     /// </summary>
-    public enum OpenCLContextPropertyName : int
+    public enum OpenCLContextProperties : int
     {
         /// <summary> </summary>
-        Platform = OpenCLContextInfo.Platform,
+        Platform = 0x1084,
+        /// <summary> </summary>
+        InteropUserSync = 0x1085,
         /// <summary> </summary>
         CL_GL_CONTEXT_KHR = 0x2008,
         /// <summary> </summary>
@@ -453,6 +475,44 @@ namespace OpenCL
         CL_WGL_HDC_KHR = 0x200B,
         /// <summary> </summary>
         CL_CGL_SHAREGROUP_KHR = 0x200C,
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public enum OpenCLDevicePartitionProperties : int
+    {
+        /// <summary> </summary>
+        PartitionEqually = 0x1086,
+        PartitionByCounts = 0x1087,
+        PartitionByCountsListEnd = 0x0,
+        PartitionByAffinityDomain = 0x1088,
+        // Extension
+        PartitionEquallyEXT = 0x4050,
+        PartitionByCountsEXT = 0x4051,
+        PartitionByNamesEXT = 0x4052,
+        PartitionByAffinityDomainEXT = 0x4053
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public enum OpenCLDeviceAffinityDomain : int
+    {
+        /// <summary> </summary>
+        Numa = (1 << 0),
+        L4Cache = (1 << 1),
+        L3Cache = (1 << 2),
+        L2Cache = (1 << 3),
+        L1Cache = (1 << 4),
+        NextPartitionable = (1 << 5),
+        // Extensions
+        NumaEXT = 0x10,
+        L4CacheEXT = 0x4,
+        L3CacheEXT = 0x3,
+        L2CacheEXT = 0x2,
+        L1CacheEXT = 0x1,
+        NextPartitionableEXT = 0x100
     }
 
     /// <summary>
@@ -489,7 +549,15 @@ namespace OpenCL
         /// <summary> </summary>
         AllocateHostPointer = 1 << 4,
         /// <summary> </summary>
-        CopyHostPointer = 1 << 5
+        CopyHostPointer = 1 << 5,
+        /// <summary> </summary>
+        UsePersistentMemAMD = 1 << 6,
+        /// <summary> </summary>
+        HostWriteOnly = 1 << 7,
+        /// <summary> </summary>
+        HostReadOnly = 1 << 8,
+        /// <summary> </summary>
+        HostNoAccess = 1 << 9
     }
 
     /// <summary>
@@ -522,7 +590,11 @@ namespace OpenCL
         /// <summary> </summary>
         Rgx = 0x10BB,
         /// <summary> </summary>
-        Rgbx = 0x10BC
+        Rgbx = 0x10BC,
+        /// <summary> </summary>
+        Depth = 0x10BD,
+        /// <summary> </summary>
+        DepthStencil = 0x10BE
     }
 
     /// <summary>
@@ -560,6 +632,7 @@ namespace OpenCL
         HalfFloat = 0x10DD,
         /// <summary> </summary>
         Float = 0x10DE,
+        UNormInt24 = 0x10DF
     }
 
     /// <summary>
@@ -572,7 +645,14 @@ namespace OpenCL
         /// <summary> </summary>
         Image2D = 0x10F1,
         /// <summary> </summary>
-        Image3D = 0x10F2
+        Image3D = 0x10F2,
+        Image2DArray = 0x10F3,
+        /// <summary> </summary>
+        Image1D = 0x10F4,
+        /// <summary> </summary>
+        Image1DArray = 0x10F5,
+        /// <summary> </summary>
+        Image1DBuffer = 0x10F6
     }
 
     /// <summary>
@@ -618,7 +698,11 @@ namespace OpenCL
         /// <summary> </summary>
         Height = 0x1115,
         /// <summary> </summary>
-        Depth = 0x1116
+        Depth = 0x1116,
+        ImageArraySize = 0x1117,
+        ImageBuffer = 0x1118,
+        ImageNumMipLevels = 0x1119,
+        ImageNumSamples = 0x111A
     }
 
     /// <summary>
@@ -675,7 +759,8 @@ namespace OpenCL
         /// <summary> </summary>
         Read = 1 << 0,
         /// <summary> </summary>
-        Write = 1 << 1
+        Write = 1 << 1,
+        WriteInvalidateRegion = 1 << 2
     }
 
     /// <summary>
@@ -696,7 +781,11 @@ namespace OpenCL
         /// <summary> </summary>
         BinarySizes = 0x1165,
         /// <summary> </summary>
-        Binaries = 0x1166
+        Binaries = 0x1166,
+        /// <summary> </summary>
+        NumKernels = 0x1167,
+        /// <summary> </summary>
+        KernelNames = 0x1168
     }
 
     /// <summary>
@@ -709,9 +798,26 @@ namespace OpenCL
         /// <summary> </summary>
         Options = 0x1182,
         /// <summary> </summary>
-        BuildLog = 0x1183
+        BuildLog = 0x1183,
+        /// <summary> </summary>
+        BuildBinaryType = 0x1184
     }
-
+    
+    /// <summary>
+    /// The program binary type.
+    /// </summary>
+    public enum OpenCLProgramBinaryType : int
+    {
+        /// <summary> </summary>
+        None = 0x0,
+        /// <summary> </summary>
+        CompiledObject = 0x1,
+        /// <summary> </summary>
+        Library = 0x2,
+        /// <summary> </summary>
+        Executable = 0x4
+    }
+    
     /// <summary>
     /// 
     /// </summary>
@@ -741,7 +847,42 @@ namespace OpenCL
         /// <summary> </summary>
         Context = 0x1193,
         /// <summary> </summary>
-        Program = 0x1194
+        Program = 0x1194,
+        /// <summary> </summary>
+        Attributes = 0x1195
+    }
+
+    public enum OpenCLKernelArgInfo : int 
+    {
+        AddressQualifier = 0x1196,
+        AccessQualifier = 0x1197,
+        TypeName = 0x1198,
+        TypeQualifier = 0x1199,
+        ArgName = 0x119A
+    }
+    
+    public enum OpenCLKernelArgAddressQualifier: int 
+    {
+        Global = 0x119B,
+        Local = 0x119C,
+        Constant = 0x119D,
+        Private = 0x119E
+    }
+    
+    public enum OpenCLKernelArgAccessQualifier: int 
+    {
+        ReadOnly = 0x11A0,
+        WriteOnly = 0x11A1,
+        ReadWrite = 0x11A2,
+        None = 0x11A3
+    }
+    
+    public enum OpenCLKernelArgTypeQualifier: int 
+    {
+        None = 0x0,
+        Const = (1 << 0),
+        Restrict = (1 << 1),
+        Volatile = (1 << 2)
     }
 
     /// <summary>
@@ -758,7 +899,9 @@ namespace OpenCL
         /// <summary> </summary>
         PreferredWorkGroupSizeMultiple = 0x11B3,
         /// <summary> </summary>
-        PrivateMemorySize = 0x11B4
+        PrivateMemorySize = 0x11B4,
+        /// <summary> </summary>
+        GlobalWorkSize = 0x11B5
     }
 
     /// <summary>
@@ -826,7 +969,13 @@ namespace OpenCL
         /// <summary> </summary>
         User = 0x1204,
         /// <summary> </summary>
-        CL_COMMAND_MIGRATE_MEM_OBJECT_EXT = 0x4040
+        Barrier = 0x1205,
+        /// <summary> </summary>
+        MigrateMemObjects = 0x1206,
+        /// <summary> </summary>
+        FillBuffer = 0x1207,
+        /// <summary> </summary>
+        FillImage = 0x1208
     }
 
     /// <summary>
@@ -883,7 +1032,15 @@ namespace OpenCL
         /// <summary> </summary>
         Texture3D = 0x2002,
         /// <summary> </summary>
-        Renderbuffer = 0x2003
+        Renderbuffer = 0x2003,
+        /// <summary> </summary>
+        Texture2DArray = 0x200E,
+        /// <summary> </summary>
+        Texture1D = 0x200F,
+        /// <summary> </summary>
+        Texture1DArray = 0x2010,
+        /// <summary> </summary>
+        TextureBuffer = 0x2011
     }
 
     /// <summary>
@@ -894,7 +1051,9 @@ namespace OpenCL
         /// <summary> </summary>
         TextureTarget = 0x2004,
         /// <summary> </summary>
-        MipMapLevel = 0x2005
+        MipMapLevel = 0x2005,
+        /// <summary> </summary>
+        NumSamples = 0x2012
     }
 
     /// <summary>
@@ -906,42 +1065,6 @@ namespace OpenCL
         CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR = 0x2006,
         /// <summary> </summary>
         CL_DEVICES_FOR_GL_CONTEXT_KHR = 0x2007
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    [Flags]
-    public enum cl_device_partition_property_ext
-    {
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_EQUALLY_EXT = 0x4050,
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_BY_COUNTS_EXT = 0x4051,
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_BY_NAMES_EXT = 0x4052,
-        /// <summary> </summary>
-        CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN_EXT = 0x4053,
-
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_L1_CACHE_EXT = 0x1,
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_L2_CACHE_EXT = 0x2,
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_L3_CACHE_EXT = 0x3,
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_L4_CACHE_EXT = 0x4,
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_NUMA_EXT = 0x10,
-        /// <summary> </summary>
-        CL_AFFINITY_DOMAIN_NEXT_FISSIONABLE_EXT = 0x100,
-
-        /// <summary> </summary>
-        CL_PROPERTIES_LIST_END_EXT = 0x0,
-        /// <summary> </summary>
-        CL_PARTITION_BY_COUNTS_LIST_END_EXT = 0x0,
-        /// <summary> </summary>
-        CL_PARTITION_BY_NAMES_LIST_END_EXT = -1
     }
 
     /// <summary>

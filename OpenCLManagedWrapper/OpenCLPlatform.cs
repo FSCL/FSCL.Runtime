@@ -228,11 +228,11 @@ namespace OpenCL
         public ReadOnlyCollection<OpenCLDevice> QueryDevices()
         {
             int handlesLength = 0;
-            OpenCLErrorCode error = CL10.GetDeviceIDs(Handle, OpenCLDeviceTypes.All, 0, null, out handlesLength);
+            OpenCLErrorCode error = CL10.GetDeviceIDs(Handle, OpenCLDeviceType.All, 0, null, out handlesLength);
             OpenCLException.ThrowOnError(error);
 
             CLDeviceHandle[] handles = new CLDeviceHandle[handlesLength];
-            error = CL10.GetDeviceIDs(Handle, OpenCLDeviceTypes.All, handlesLength, handles, out handlesLength);
+            error = CL10.GetDeviceIDs(Handle, OpenCLDeviceType.All, handlesLength, handles, out handlesLength);
             OpenCLException.ThrowOnError(error);
 
             OpenCLDevice[] devices = new OpenCLDevice[handlesLength];

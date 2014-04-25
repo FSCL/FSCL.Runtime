@@ -121,6 +121,8 @@ let main argv =
     let conf = new PipelineConfiguration(true, [| SourceConfiguration(FileSource("FSCL.Compiler.AcceleratedCollections.dll")) |])
     let compiler = new Compiler(conf)
     Init(compiler, None)
+    let opts = new Dictionary<string, obj>()
+    //opts.Add(CompilerOptions.VerboseLevel, 2)
 
     // Check opencl devices
     let plats = ListDevices()
@@ -141,7 +143,7 @@ let main argv =
         // Execute vector add in OpenCL mode
         c <- Array.zeroCreate<float32> (size)
         timer.Start()
-        <@ VectorAdd(a, b, c) @>.Run(lsize, 64L) |> ignore
+        <@ VectorAdd(a, b, c) @>.Run(lsize, 64L, opts) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -166,7 +168,7 @@ let main argv =
         // Execute vector add in OpenCL mode
         c <- Array.zeroCreate<float32> (size)
         timer.Start()
-        <@ WORKSIZE([| lsize |], [| 64L |], VectorAdd(a, b, c)) @>.Run() |> ignore
+        <@ WORKSIZE([| lsize |], [| 64L |], VectorAdd(a, b, c)) @>.Run(opts) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -190,7 +192,7 @@ let main argv =
         Console.WriteLine("# Testing float4 vector add with OpenCL on the first device")
         // Execute vector add in OpenCL mode
         timer.Start()
-        <@ Vector4Add(a4, b4, c4) @>.Run(lsize, 64L) |> ignore
+        <@ Vector4Add(a4, b4, c4) @>.Run(lsize, 64L, opts) |> ignore
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -212,7 +214,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing advanced matrix multiplication with local vectors")
         timer.Start()
-        <@ MatrixMultAdvanced(am, bm, dm) @>.Run([| matSizel; matSizel |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+        <@ MatrixMultAdvanced(am, bm, dm) @>.Run([| matSizel; matSizel |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |], opts)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -236,7 +238,7 @@ let main argv =
         Console.WriteLine("# Testing accelerated vector sum on array (Array.map2 f a b) on the first device")
         c <- Array.zeroCreate<float32> (size)
         timer.Start()
-        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L)
+        c <- <@ Array.map2 (fun el1 el2 -> el1 + el2) a b @>.Run(lsize, 64L, opts)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -259,7 +261,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce sum a @>.Run(lsize, 64L)
+        let mutable reduce_sum = <@ Array.reduce sum a @>.Run(lsize, 64L, opts)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -278,7 +280,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) with lambda fun on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce (fun e1 e2 -> e1 + e2) a @>.Run(lsize, 64L)
+        let mutable reduce_sum = <@ Array.reduce (fun e1 e2 -> e1 + e2) a @>.Run(lsize, 64L, opts)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -303,7 +305,7 @@ let main argv =
                             [| matSizel; matSizel |], [| 8L; 8L |], 
                             MatrixMult(am, bm)),
                         cm, dm)
-                    ) @>.Run()
+                    ) @>.Run(opts)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -312,21 +314,9 @@ let main argv =
                 if correctMatMulAdd.[i, j] <> dm.[i, j] then
                     isResultCorrect <- false
         if not isResultCorrect then
-            Console.WriteLine("  First accelerated vector sum returned a wrong result!")
+            Console.WriteLine("  Multikernel returned a wrong result!")
         else
-            Console.WriteLine("  First accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
-
-            // Re-execute vector add exploiting runtime caching for kernels    
-            timer.Restart()
-            <@ WORKSIZE([| matSizel |], [| 8L |],
-                MatrixAdd(
-                    WORKSIZE(
-                        [| matSizel; matSizel |], [| 8L; 8L |], 
-                        MatrixMult(am, bm)),
-                    cm, dm)
-                ) @>.Run() |> ignore
-            timer.Stop()
-            Console.WriteLine("  Second accelerated vector sum execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+            Console.WriteLine("  First multikernel execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
     Console.WriteLine("Press Enter to exit...")
     Console.Read() |> ignore

@@ -15,7 +15,7 @@ open System.Collections.Generic
         let devices = new System.Collections.Generic.List<OpenCLDevice>();
         devices.Add(device)
         let computeContext = new OpenCLContext(devices, contextProperties, null, System.IntPtr.Zero);
-        let computeQueue = new OpenCLCommandQueue(computeContext, device, OpenCLCommandQueueFlags.OutOfOrderExecution)
+        let computeQueue = new OpenCLCommandQueue(computeContext, device, OpenCLCommandQueueProperties.OutOfOrderExecution)
             
         // Allocate and init src, allocate dst
         let srcPtr = ref None

@@ -48,7 +48,7 @@ namespace OpenCL.Bindings
         private readonly Delegates.clRetainDeviceEXT clRetainDeviceEXT = null;
 
         /// <summary> </summary>
-        public OpenCLErrorCode CreateSubDevicesEXT(IntPtr in_device, cl_device_partition_property_ext[] properties, Int32 num_entries, IntPtr[] out_devices, out Int32 num_devices)
+        public OpenCLErrorCode CreateSubDevicesEXT(IntPtr in_device, OpenCLDevicePartitionProperties[] properties, Int32 num_entries, IntPtr[] out_devices, out Int32 num_devices)
         {
             if (clCreateSubDevicesEXT == null) throw new EntryPointNotFoundException();
             return clCreateSubDevicesEXT(in_device, properties, num_entries, out_devices, out num_devices);
@@ -117,7 +117,7 @@ namespace OpenCL.Bindings
         {
             internal delegate OpenCLErrorCode clCreateSubDevicesEXT(
                 IntPtr in_device,
-                [MarshalAs(UnmanagedType.LPArray)] cl_device_partition_property_ext[] properties,
+                [MarshalAs(UnmanagedType.LPArray)] OpenCLDevicePartitionProperties[] properties,
                 Int32 num_entries,
                 [MarshalAs(UnmanagedType.LPArray)] IntPtr[] out_devices,
                 out Int32 num_devices);
