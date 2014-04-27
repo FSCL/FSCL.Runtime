@@ -558,12 +558,9 @@ namespace OpenCL
             {
                 bool userEventsWritable = (events != null && !events.IsReadOnly);
                 IList<OpenCLEventBase> eventList = (userEventsWritable) ? events : Events;
-                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, null);
-                if (eventList.Count > 0)
-                {
-                    OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
-                    newEvent.TrackGCHandle(sourceGCHandle);
-                }
+                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 
@@ -626,12 +623,8 @@ namespace OpenCL
                 bool userEventsWritable = (events != null && !events.IsReadOnly);
                 IList<OpenCLEventBase> eventList = (userEventsWritable) ? events : Events;
                 Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), eventList);
-
-                if (eventList.Count > 0)
-                {
-                    OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
-                    newEvent.TrackGCHandle(sourceGCHandle);
-                }
+                OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 
@@ -664,12 +657,8 @@ namespace OpenCL
                 bool userEventsWritable = (events != null && !events.IsReadOnly);
                 IList<OpenCLEventBase> eventList = (userEventsWritable) ? events : Events;
                 Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), eventList);
-
-                if (eventList.Count > 0)
-                {
-                    OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
-                    newEvent.TrackGCHandle(sourceGCHandle);
-                }
+                OpenCLEvent newEvent = (OpenCLEvent)eventList[eventList.Count - 1];
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 

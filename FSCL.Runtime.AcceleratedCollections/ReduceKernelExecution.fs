@@ -34,11 +34,12 @@ type ReduceKernelExecutionProcessor() =
 
         // Check if this is an accelerated collection array reduce
         if (isAccelerateReduce) then
+            let sharePriority = node.KernelData.Kernel.Meta.KernelMeta.Get<BufferSharePriorityAttribute>().Priority
             let deviceData, kernelData, compiledData = node.DeviceData, node.KernelData, node.CompiledKernelData
             let localSize = node.KernelData.Kernel.Meta.KernelMeta.Get<WorkSizeAttribute>().LocalSize
-                                
+            let mutable executionOutput = ReturnedValue(())
             // Coming from preceding kernels buffers
-            let mutable prevBuffer = None
+            let mutable prevExecutionResult = ReturnedValue(())
             // Input (coming from preceding kernels) buffers
             let mutable inputBuffer = null
             // Output (returned or simply written) buffers
@@ -53,7 +54,7 @@ type ReduceKernelExecutionProcessor() =
                 match nodeInput.[inputPar.Name] with
                 | KernelOutput(otherKernel, otherParIndex) ->
                     let kernelOutput = step.Process(otherKernel, false)
-                    prevBuffer <- kernelOutput.ReturnBuffer
+                    prevExecutionResult <- kernelOutput
                 | _ ->
                     ()
 
@@ -68,25 +69,24 @@ type ReduceKernelExecutionProcessor() =
                 // Input from an actual argument
                 let o = LeafExpressionConverter.EvaluateQuotation(expr)
                 // Create buffer and eventually init it
-                let elementType = par.DataType.GetElementType()
-                inputBuffer <- pool.CreateTrackedBuffer(deviceData.Context, deviceData.Queue, par, o :?> Array, false, isRoot)                      
+                inputBuffer <- pool.RequireBufferForParameter(par, Some(o :?> Array), ArrayUtil.GetArrayLengths(o), node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority)                      
                 // Set kernel arg
                 compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
-                // Store dim sizes
-                let sizeParameters = par.SizeParameters
-                //bufferSizes.Add(par.Name, new Dictionary<string, int>())
                 // Set size parameter
                 compiledData.Kernel.SetValueArgument(argIndex + 3, ArrayUtil.GetArrayLength(o))
             | KernelOutput(node, a) ->
+                let ib = 
+                    match prevExecutionResult with
+                    | ReturnedUntrackedBuffer(b)
+                    | ReturnedTrackedBuffer(b, _) ->
+                        b
                 // WE SHOULD AVOID COPY!!!
                 // Copy the output buffer of the input kernel
-                inputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par, prevBuffer.Value.Count, isRoot)                       
+                inputBuffer <- pool.RequireBufferForParameter(par, None, ib.Count, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
                 // Set kernel arg
-                compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)             
-                // Store dim sizes
-                let sizeParameters = par.SizeParameters
+                compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)   
                 // Set size parameter                
-                compiledData.Kernel.SetValueArgument(argIndex + 3, inputBuffer.Count.[0] |> int)                               
+                compiledData.Kernel.SetValueArgument(argIndex + 3, ib.Count.[0] |> int)                               
             | _ ->
                 raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
 
@@ -103,7 +103,7 @@ type ReduceKernelExecutionProcessor() =
             let par = parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.DataType.GetElementType()
-            outputBuffer <- pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, par,  [| inputBuffer.Count.[0] / localSize.[0] / 2L |], isRoot)                            
+            outputBuffer <- pool.RequireBufferForParameter(par, None, [| inputBuffer.Count.[0] / localSize.[0] / 2L |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
             // Store dim sizes
@@ -149,7 +149,6 @@ type ReduceKernelExecutionProcessor() =
             let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
             // Allocate array (since if this is a return parameter it has no .NET array matching it)
             let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
-
             BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
             // Dispose kernel            
@@ -176,7 +175,7 @@ type ReduceKernelExecutionProcessor() =
                     result <- r2
 
             // Dispose input buffer
-            pool.DisposeBuffer(inputBuffer)
+            pool.EndUsingBuffer(inputBuffer)
 
             // If not root must write the result to buffer for the next kernel
             if not isRoot then
@@ -185,13 +184,13 @@ type ReduceKernelExecutionProcessor() =
                 BufferTools.WriteBuffer(deviceData.Queue, useMap, ob, [| result |])
                 
                 // Dispose output buffer
-                pool.DisposeBuffer(outputBuffer)
+                pool.EndUsingBuffer(outputBuffer)
                 // Return
-                Some(ExecutionOutput(ob))
+                Some(ReturnedUntrackedBuffer(ob))
             else
                 // Dispose output buffer
-                pool.DisposeBuffer(outputBuffer)
+                pool.EndUsingBuffer(outputBuffer)
                 // Return
-                Some(ExecutionOutput(result))
+                Some(ReturnedValue(result))
         else
             None

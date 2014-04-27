@@ -9,12 +9,6 @@ let BLOCK_SIZE = 16
 [<ReflectedDefinition; DynamicConstantDefine>]
 let mutable FILTER_WIDTH = 3
 
-// Vector addition
-[<ReflectedDefinition>]
-let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = get_global_id(0)
-    c.[gid] <- a.[gid] + b.[gid]
-        
 // Matrix multiplication
 [<ReflectedDefinition>]
 let MatMul(matA: float32[,], matB: float32[,], matC: float32[,]) =

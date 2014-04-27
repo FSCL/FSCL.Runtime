@@ -34,6 +34,7 @@ namespace OpenCL
     using System;
     using System.Runtime.InteropServices;
     using OpenCL.Bindings;
+    using System.Collections.Generic;
 
     /// <summary>
     /// Represents an OpenCL buffer.
@@ -82,8 +83,8 @@ namespace OpenCL
         /// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="OpenCLBuffer{T}"/>. </param>
         /// <param name="data"> The data for the <see cref="OpenCLBuffer{T}"/>. </param>
         /// <remarks> Note, that <paramref name="data"/> cannot be an "immediate" parameter, i.e.: <c>new T[100]</c>, because it could be quickly collected by the GC causing OpenCL to send and invalid reference to OpenCL. </remarks>
-        public OpenCLBuffer(OpenCLContext context, OpenCLMemoryFlags flags, Array data, bool withData)
-		: base(context, flags, data.GetType().GetElementType(), new long[] { data.Length })
+        public OpenCLBuffer(OpenCLContext context, OpenCLMemoryFlags flags, Array data)
+            : base(context, flags, data.GetType().GetElementType(), OpenCLBuffer.GetArrayLengths(data))
         {
             GCHandle dataPtr = GCHandle.Alloc(data, GCHandleType.Pinned);
             try
@@ -127,5 +128,16 @@ namespace OpenCL
         }
 
         #endregion
+
+        #region Private methods
+        
+        private static long[] GetArrayLengths(Array a) {            
+            int rank = a.Rank;
+            List<long> lengths = new List<long>();
+            for (int i = 0; i < rank; i++)
+                lengths.Add(a.GetLongLength(i));
+            return lengths.ToArray();            
+        }
+#endregion
     }
 }

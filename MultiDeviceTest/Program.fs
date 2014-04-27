@@ -4,74 +4,19 @@ open FSCL.Runtime
 open FSCL.Runtime.MetricTools
 open System
 open Kernels
+open VectorAddTest
     
 [<EntryPoint>]
 let main argv = 
-    // Check opencl devices
-    let plats = ListDevices()
-    if plats.Count = 0 then
-        Console.WriteLine("No OpenCL-enabled device found on this platform")
-    else
-        // Show OpenCL devices
-        Console.WriteLine("Your OpenCL-enabled devices are listed below")
-        
-        for platformIndex = 0 to plats.Count - 1 do
-            Console.WriteLine("- Platform " + platformIndex.ToString())
-            for deviceName in plats.[platformIndex] do
-                Console.WriteLine("  - Device " + ": " + deviceName)
-
     // Min and max size
-    let minVectorSize = 1 <<< 10
-    let maxVectorSize = 16 <<< 20
-    let perTestDuration = 7000.0
+    let minVectorSize = 8L <<< 20
+    let maxVectorSize = 8L <<< 20
+    let perTestDuration = 5000.0
 
     // Vector add
     Console.WriteLine(":::::::::::::::: Vector Addition ::::::::::::::::")
-    for platformIndex = 0 to plats.Count - 1 do
-        for deviceIndex = 0 to plats.[platformIndex].Count - 1 do
-            let device = plats.[platformIndex].[deviceIndex]
-            Console.WriteLine("- Device " + ": " + device)
-            
-            // First call causes compilation
-            let a = Array.create 64 2.0f
-            let b = Array.create 64 2.0f
-            let c = Array.zeroCreate<float32> 64
-
-            (*
-            <@ Convolution(a, filter, c, 10) @>.Run(64L, 32L, 
-                                                    (RuntimeOptions.ConstantDefines, box [ ("FILTER_WIDTH", box 5) ]))
-            <@ Convolution(a, filter, c, 10) @>.Run(64L, 32L, 
-                                                    (RuntimeOptions.ConstantDefines, box [ ("FILTER_WIDTH", box 3) ]))
-                                                    *)
-            // Test begins
-            let size = ref minVectorSize
-            while !size <= maxVectorSize do
-                let a = Array.create !size 512.0f
-                let b = Array.create !size 512.0f
-                let c = Array.zeroCreate<float32> !size
-                let localSize = 64L
-                
-                // Pre computation
-                <@ DEVICE(platformIndex, deviceIndex, VectorAdd(a, b, c)) @>.Run([| !size |> int64 |], [| localSize |])
-                let correctResult = Array.create !size 1024.0f
-                let mutable i = 0
-                let mutable found = false
-                while not found && i < !size do  
-                    if correctResult.[i] <> c.[i] then
-                        found <- true
-                    else
-                        i <- i + 1
-                if found then
-                    Console.WriteLine("[[ RESULT ERROR: " + i.ToString() + " ]]")
-
-                // Computation
-                let c = Array.zeroCreate<float32> !size
-                let duration, iterations = Tools.ExcuteFor (perTestDuration) (fun() ->
-                    <@ DEVICE(platformIndex, deviceIndex, VectorAdd(a, b, c)) @>.Run([| !size |> int64 |], [| localSize |]))
-                
-                Console.WriteLine(" - " + size.Value.ToString() + " elements: " + duration.ToString() + "ms (" + iterations.ToString() + " iterations)")
-                size := !size * 4
-
+    VectorAddTest.DoTest(minVectorSize, maxVectorSize, perTestDuration)
+    Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::")
     Console.Read() |> ignore
     0
 

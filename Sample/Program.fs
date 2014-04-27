@@ -132,10 +132,10 @@ let main argv =
         // Show OpenCL devices
         Console.WriteLine("Your OpenCL-enabled devices are listed below")
         
-        for platformIndex = 0 to plats.Count - 1 do
-            Console.WriteLine("- Platform " + platformIndex.ToString())
-            for deviceName in plats.[platformIndex] do
-                Console.WriteLine("  - Device " + ": " + deviceName)
+        for pIndex, pName, devs in plats do
+            Console.WriteLine("- Platform " + pIndex.ToString())
+            for dIndex, dName in devs do
+                Console.WriteLine("  - Device " + ": " + dName)
        
         // Simple vector add
         Console.WriteLine("")

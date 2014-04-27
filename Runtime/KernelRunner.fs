@@ -74,18 +74,15 @@ module Runtime =
             this.pool.TransferBackModifiedBuffers()
 
             // If has return buffer read it
-            if result.ReturnBuffer.IsSome then
-                let v = this.pool.ReadRootReturnBuffer()
+            match result with
+            | ReturnedValue(v) ->
                 // Dispose all buffers
+                this.pool.Dispose()
+                v
+            | _ ->
+                let v = this.pool.ReadRootBuffer()
                 this.pool.Dispose()
                 v :> obj
-            else if result.ReturnValue.IsSome then
-                // Dispose all buffers
-                this.pool.Dispose()
-                result.ReturnValue.Value
-            else
-                this.pool.Dispose()
-                null
                             
         member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
             raise (KernelSetupException("Multithreading support under development"))
@@ -210,12 +207,13 @@ module Runtime =
 
     // List available devices
     let ListDevices() = 
-        let plats = new List<ReadOnlyCollection<string>>()
-        for platform in OpenCLPlatform.Platforms do
-            let devs = new List<string>()
-            for d in platform.Devices do
-                devs.Add(d.Name)
-            plats.Add(devs.AsReadOnly())
+        let plats = new List<int * string * ReadOnlyCollection<int * string>>()
+        for p = 0 to OpenCLPlatform.Platforms.Count - 1 do
+            let platform = OpenCLPlatform.Platforms.[p]
+            let devs = new List<int * string>()
+            for i = 0 to platform.Devices.Count - 1 do
+                devs.Add((i, platform.Devices.[i].Name))
+            plats.Add((p, platform.Name, devs.AsReadOnly()))
         plats.AsReadOnly()
                                
     // Extension methods to run a quoted kernel

@@ -18,21 +18,10 @@ type KernelCreationResult(callArgs: Expr list,
     member val KernelData = kernelData with get
     member val CompiledKernelData = targetData with get
 
-type ExecutionOutput =        
-    val returnValue:obj option
-    val returnBuffer:OpenCLBuffer option
-    
-    new() = { returnBuffer = None; returnValue = None }
-    new(rb) = { returnBuffer = Some(rb); returnValue = None }    
-    new(ro) = { returnBuffer = None; returnValue = Some(ro) }
-
-    member this.ReturnBuffer 
-        with get() =
-            this.returnBuffer
-            
-    member this.ReturnValue
-        with get() =
-            this.returnValue
+type ExecutionOutput =     
+    | ReturnedTrackedBuffer of OpenCLBuffer * Array
+    | ReturnedUntrackedBuffer of OpenCLBuffer
+    | ReturnedValue of obj
 
 
     
