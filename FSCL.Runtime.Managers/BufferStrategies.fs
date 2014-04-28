@@ -47,7 +47,7 @@ type BufferStrategies() =
                 kernelAccessOk && hostAccessOk
                     
     static member DetermineBestFlagsAndReadWriteMode(space: AddressSpace, 
-                                                     accessMode: AccessMode, 
+                                                     accessMode: AccessAnalysisResult, 
                                                      readMode: BufferReadMode, 
                                                      writeMode: BufferWriteMode, 
                                                      transferMode: TransferMode,
@@ -76,9 +76,9 @@ type BufferStrategies() =
                 // Otherwise let's look at access analysis
                 else 
                     match accessMode with
-                    | AccessMode.ReadAccess ->
+                    | AccessAnalysisResult.ReadAccess ->
                         optFlags <- optFlags ||| MemoryFlags.ReadOnly
-                    | AccessMode.WriteAccess ->
+                    | AccessAnalysisResult.WriteAccess ->
                         optFlags <- optFlags ||| MemoryFlags.WriteOnly
                     | _ ->
                         optFlags <- optFlags ||| MemoryFlags.ReadWrite
@@ -112,32 +112,30 @@ type BufferStrategies() =
                 optFlags <- optFlags ||| MemoryFlags.AllocHostPointer
                 
             // If read mode is auto set it to map buffer (same for write)
-            if optReadMode = BufferReadMode.Auto then
+            if optReadMode |> int = 0 then
                 optReadMode <- BufferReadMode.MapBuffer
-            if optWriteMode = BufferWriteMode.Auto then
+            if optWriteMode |> int  = 0 then
                 optWriteMode <- BufferWriteMode.MapBuffer
 
         optFlags, optReadMode, optWriteMode
 
-    static member ShouldInitBuffer(buffer:OpenCLBuffer, space: AddressSpace, transferMode: TransferMode) =
-        buffer.HostCanWrite && 
-        buffer.KernelCanRead && 
+    static member ShouldInitBuffer(analysis: AccessAnalysisResult, space: AddressSpace, transferMode: TransferMode) =
+        analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
         space <> AddressSpace.Private &&
         space <> AddressSpace.Local &&
         ((transferMode &&& TransferMode.NoTransfer) |> int = 0)
         
-    static member ShouldReadBackBuffer(buffer:OpenCLBuffer, space: AddressSpace, transferMode: TransferMode) =
-        buffer.HostCanRead && 
-        buffer.KernelCanWrite && 
+    static member ShouldReadBackBuffer(analysis: AccessAnalysisResult, space: AddressSpace, transferMode: TransferMode) =
+        analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
         space <> AddressSpace.Local &&
         space <> AddressSpace.Private &&
         space <> AddressSpace.Constant &&
         ((transferMode &&& TransferMode.NoTransferBack) |> int = 0)   
         
-    static member ShouldCopyBuffer(fromB:OpenCLBuffer, fromSpace: AddressSpace,
-                                   toB:OpenCLBuffer, toSpace: AddressSpace) =
-        fromB.KernelCanWrite && 
-        toB.KernelCanRead &&
+    static member ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
+                                   toAnalysis: AccessAnalysisResult, toSpace: AddressSpace) =
+        fromAnalysis &&& AccessAnalysisResult.WriteAccess |> int > 0  && 
+        toAnalysis &&& AccessAnalysisResult.ReadAccess |> int > 0 &&
         fromSpace <> AddressSpace.Local &&
         fromSpace <> AddressSpace.Private &&
         fromSpace <> AddressSpace.Constant &&

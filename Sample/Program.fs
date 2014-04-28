@@ -125,7 +125,7 @@ let main argv =
     //opts.Add(CompilerOptions.VerboseLevel, 2)
 
     // Check opencl devices
-    let plats = ListDevices()
+    let plats = GetOpenCLPlatforms()
     if plats.Count = 0 then
         Console.WriteLine("No OpenCL-enabled device found on this platform")
     else
@@ -134,8 +134,8 @@ let main argv =
         
         for pIndex, pName, devs in plats do
             Console.WriteLine("- Platform " + pIndex.ToString())
-            for dIndex, dName in devs do
-                Console.WriteLine("  - Device " + ": " + dName)
+            for dIndex, dName, dType in devs do
+                Console.WriteLine("  - Device " + ": " + dName + "(" + dType.ToString() + ")")
        
         // Simple vector add
         Console.WriteLine("")

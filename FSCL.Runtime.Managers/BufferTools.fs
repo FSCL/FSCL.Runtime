@@ -20,6 +20,7 @@ type BufferTools() =
         let events = new List<OpenCLEventBase>()
         q.CopyBuffer(input, output, 0L, 0L, input.TotalCount, events)
         q.Wait(events)
+        events.[0].Dispose()
         
     static member CreateBuffer(t:Type, 
                                count:int64[],
@@ -30,13 +31,17 @@ type BufferTools() =
         let buffer = new OpenCLBuffer(c, flags, t, count)
         buffer
         
-    static member CreateBuffer(a: obj,
+    static member CreateBuffer(a: Array,
                                c:OpenCLContext, 
                                q:OpenCLCommandQueue, 
                                flags: OpenCLMemoryFlags) =
+        // Check if CopyHostPointer or UseHostPointer otherwise the array is useless
+        if (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int > 0) then
         //Console.WriteLine("Creating buffer with size " + (Array.reduce(fun a b -> a * b) count).ToString() + " and flags " + flags.ToString())
-        let buffer = new OpenCLBuffer(c, flags, a :?> Array)
-        buffer
+            new OpenCLBuffer(c, flags, a)
+        else
+            let count = ArrayUtil.GetArrayLengths(a)
+            new OpenCLBuffer(c, flags, a.GetType().GetElementType(), count)
 
     static member WriteBuffer(queue: OpenCLCommandQueue, useMap:bool, buffer:OpenCLBuffer, o:Array, ?count:int64[]) =
         if useMap then
@@ -74,6 +79,7 @@ type BufferTools() =
                     else
                         OpenCL.SysIntX3(o.GetLength(0), o.GetLength(1), o.GetLength(2))
                 queue.WriteToBuffer(o, buffer, false, offset, offset, region, evt)
+            evt.[0].Dispose()
             
     static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: Array, buffer: OpenCLBuffer, ?count:int64[]) =    
         if useMap then

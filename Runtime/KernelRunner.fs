@@ -21,6 +21,7 @@ open System.Collections.ObjectModel
 open System.Runtime.InteropServices
 open System.Collections.Generic
 open System.Collections.ObjectModel
+open Microsoft.FSharp.Core.LanguagePrimitives
 
 module Runtime =
     let VarArgsToDictionary(args:(string * obj)[]) =    
@@ -206,13 +207,13 @@ module Runtime =
         kernelRunner <- new Runner(compiler, metric)
 
     // List available devices
-    let ListDevices() = 
-        let plats = new List<int * string * ReadOnlyCollection<int * string>>()
+    let GetOpenCLPlatforms() = 
+        let plats = new List<int * string * ReadOnlyCollection<int * string * DeviceType>>()
         for p = 0 to OpenCLPlatform.Platforms.Count - 1 do
             let platform = OpenCLPlatform.Platforms.[p]
-            let devs = new List<int * string>()
+            let devs = new List<int * string * DeviceType>()
             for i = 0 to platform.Devices.Count - 1 do
-                devs.Add((i, platform.Devices.[i].Name))
+                devs.Add((i, platform.Devices.[i].Name, EnumOfValue<int, DeviceType> (platform.Devices.[i].Type |> int)))
             plats.Add((p, platform.Name, devs.AsReadOnly()))
         plats.AsReadOnly()
                                

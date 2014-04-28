@@ -34,7 +34,12 @@ type ReduceKernelExecutionProcessor() =
 
         // Check if this is an accelerated collection array reduce
         if (isAccelerateReduce) then
-            let sharePriority = node.KernelData.Kernel.Meta.KernelMeta.Get<BufferSharePriorityAttribute>().Priority
+            let sharePriority = 
+                if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
+                    opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
+                else
+                    BufferSharePriority.PriorityToFlags
+
             let deviceData, kernelData, compiledData = node.DeviceData, node.KernelData, node.CompiledKernelData
             let localSize = node.KernelData.Kernel.Meta.KernelMeta.Get<WorkSizeAttribute>().LocalSize
             let mutable executionOutput = ReturnedValue(())

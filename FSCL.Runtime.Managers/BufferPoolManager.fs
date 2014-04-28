@@ -12,12 +12,14 @@ open FSCL.Runtime.Language
 [<AllowNullLiteral>]
 type BufferPoolItem(buffer: OpenCLBuffer, 
                     queue: OpenCLCommandQueue, 
+                    analysis: AccessAnalysisResult,
                     flags: MemoryFlags,
                     space: AddressSpace, 
                     transfer: TransferMode, 
                     rMode: BufferReadMode, 
                     wMode: BufferWriteMode, 
                     isReturn: bool) =
+    member val AccessAnalysis = analysis with get
     member val WriteMode = wMode with get
     member val ReadMode = rMode with get 
     member val TransferMode = transfer with get
@@ -56,7 +58,7 @@ type BufferPoolManager() =
         let mergedFlags, readMode, writeMode = 
             BufferStrategies.DetermineBestFlagsAndReadWriteMode(
                                                 addressSpace.AddressSpace, 
-                                                parameter.Access,
+                                                parameter.AccessAnalysis,
                                                 rMode.Mode,
                                                 wMode.Mode,
                                                 transferMode.Mode,
@@ -65,6 +67,7 @@ type BufferPoolManager() =
                                                 parameter.IsReturned,
                                                 true,
                                                 queue.Device)
+        Console.WriteLine("Access analysis says this parameter is: " + parameter.AccessAnalysis.ToString())
         Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
         Console.WriteLine("Best Read Mode: " + readMode.ToString())
         Console.WriteLine("Best Write Mode: " + writeMode.ToString())
@@ -89,8 +92,9 @@ type BufferPoolManager() =
                 Console.WriteLine("No adapted flags can be computed, create new buffer")   
                 // We must create a new buffer
                 let bufferItem = new BufferPoolItem(
-                                    BufferTools.CreateBuffer(arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr), context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
-                                    queue,
+                                    BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                                    queue, 
+                                    parameter.AccessAnalysis,
                                     mergedFlags, 
                                     addressSpace.AddressSpace, 
                                     transferMode.Mode,
@@ -98,7 +102,7 @@ type BufferPoolManager() =
                                     writeMode,
                                     parameter.IsReturned)
                 // We need to copy buffer only if is has been potentially changed the one we are compying from
-                if (BufferStrategies.ShouldCopyBuffer(prevBuffer.Buffer, prevBuffer.AddressSpace, bufferItem.Buffer, addressSpace.AddressSpace)) then
+                if (BufferStrategies.ShouldCopyBuffer(prevBuffer.AccessAnalysis, prevBuffer.AddressSpace, bufferItem.AccessAnalysis, addressSpace.AddressSpace)) then
                     Console.WriteLine("Buffer is copied")    
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
                 else
@@ -117,15 +121,16 @@ type BufferPoolManager() =
             Console.WriteLine("No buffer found, create it")   
             // Create a buffer tracking the parameter
             let bufferItem = new BufferPoolItem(
-                                    BufferTools.CreateBuffer(arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr), context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                                    BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
                                     queue,
+                                    parameter.AccessAnalysis,
                                     mergedFlags,
                                     addressSpace.AddressSpace, 
                                     transferMode.Mode,                                     
                                     readMode,
                                     writeMode,
                                     parameter.IsReturned)            
-            if BufferStrategies.ShouldInitBuffer(bufferItem.Buffer, addressSpace.AddressSpace, transferMode.Mode) then
+            if BufferStrategies.ShouldInitBuffer(bufferItem.AccessAnalysis, addressSpace.AddressSpace, transferMode.Mode) then
                 Console.WriteLine("Buffer is initialised")   
                 BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, arr)    
             else
@@ -157,7 +162,7 @@ type BufferPoolManager() =
         let mergedFlags, readMode, writeMode = 
             BufferStrategies.DetermineBestFlagsAndReadWriteMode(
                                 addressSpace.AddressSpace, 
-                                parameter.Access,
+                                parameter.AccessAnalysis,
                                 rMode.Mode,
                                 wMode.Mode,
                                 transferMode.Mode,
@@ -167,6 +172,7 @@ type BufferPoolManager() =
                                 false,
                                 queue.Device)
                             
+        Console.WriteLine("Access analysis says this parameter is: " + parameter.AccessAnalysis.ToString())
         Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
         Console.WriteLine("Best Read Mode: " + readMode.ToString())
         Console.WriteLine("Best Write Mode: " + writeMode.ToString())
@@ -177,6 +183,7 @@ type BufferPoolManager() =
         let bufferItem = new BufferPoolItem(
                             BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
                             queue,
+                            parameter.AccessAnalysis,
                             mergedFlags,
                             addressSpace.AddressSpace, 
                             transferMode.Mode,
@@ -205,7 +212,7 @@ type BufferPoolManager() =
         let mergedFlags, readMode, writeMode = 
             BufferStrategies.DetermineBestFlagsAndReadWriteMode(
                                 addressSpace.AddressSpace, 
-                                parameter.Access,
+                                parameter.AccessAnalysis,
                                 rMode.Mode,
                                 wMode.Mode,
                                 transferMode.Mode,
@@ -214,6 +221,7 @@ type BufferPoolManager() =
                                 parameter.IsReturned,
                                 true,
                                 queue.Device)
+        Console.WriteLine("Access analysis says this parameter is: " + parameter.AccessAnalysis.ToString())
         Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
         Console.WriteLine("Best Read Mode: " + readMode.ToString())
         Console.WriteLine("Best Write Mode: " + writeMode.ToString())
@@ -228,7 +236,7 @@ type BufferPoolManager() =
             if context = retBuffer.Context &&
                 BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then                
                 Console.WriteLine("Returned buffer is reused with adapteded flags: " + retItem.Flags.ToString())   
-                trackedBufferPool.[retBuffer].IsAvailable <- false
+                trackedBufferPool.[retArr.Value].IsAvailable <- false
                 // Since it's tracked it could be returned
                 if parameter.IsReturned && isRoot then
                     rootReturnBuffer <- Some(retItem, newArr)
@@ -237,7 +245,7 @@ type BufferPoolManager() =
                 // Need to copy
                 Console.WriteLine("No adapted flags can be computed, create new buffer")   
                 let copy = this.CreateTrackedBuffer(context, queue, parameter, retArr.Value, isRoot, sharePriority)
-                if BufferStrategies.ShouldCopyBuffer(retItem.Buffer, retItem.AddressSpace, copy, addressSpace.AddressSpace) then
+                if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
                     Console.WriteLine("Buffer is copied")   
                     BufferTools.CopyBuffer(queue, retBuffer, copy)
                 else
@@ -269,7 +277,7 @@ type BufferPoolManager() =
                 let poolItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
                 // Need to copy
                 let copy = this.CreateTrackedBuffer(context, queue, parameter, newArr, isRoot, sharePriority)
-                if BufferStrategies.ShouldCopyBuffer(poolItem.Buffer, poolItem.AddressSpace, copy, addressSpace.AddressSpace) then
+                if BufferStrategies.ShouldCopyBuffer(poolItem.AccessAnalysis, poolItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
                     Console.WriteLine("Buffer is copied")   
                     BufferTools.CopyBuffer(queue, retBuffer, copy)
                 else
@@ -296,7 +304,7 @@ type BufferPoolManager() =
         let mergedFlags, readMode, writeMode = 
             BufferStrategies.DetermineBestFlagsAndReadWriteMode(
                                     addressSpace.AddressSpace, 
-                                    parameter.Access,
+                                    parameter.AccessAnalysis,
                                     rMode.Mode,
                                     wMode.Mode,
                                     transferMode.Mode,
@@ -305,6 +313,10 @@ type BufferPoolManager() =
                                     parameter.IsReturned,
                                     true,
                                     queue.Device)
+        Console.WriteLine("Access analysis says this parameter is: " + parameter.AccessAnalysis.ToString())
+        Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
+        Console.WriteLine("Best Read Mode: " + readMode.ToString())
+        Console.WriteLine("Best Write Mode: " + writeMode.ToString())
         
         if retArr.IsSome then
             Console.WriteLine("Returned buffer is TRACKED")
@@ -323,14 +335,14 @@ type BufferPoolManager() =
                 Console.WriteLine("No adapted flags can be computed, create new buffer")   
                 // Need to copy
                 let copy = this.CreateUntrackedBuffer(context, queue, parameter, retBuffer.Count, isRoot)
-                if BufferStrategies.ShouldCopyBuffer(retBuffer, retItem.AddressSpace, copy, addressSpace.AddressSpace) then
+                if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
                     Console.WriteLine("Buffer is copied")    
                     BufferTools.CopyBuffer(queue, retBuffer, copy)
                 else
                     Console.WriteLine("Buffer is not copied")
                 // Dispose old buffer
-                trackedBufferPool.[retBuffer].IsAvailable <- true
-                this.EndUsingBuffer(trackedBufferPool.[retBuffer].Buffer)
+                retItem.IsAvailable <- true
+                this.EndUsingBuffer(retItem.Buffer)
                 copy
         else
             Console.WriteLine("Returned buffer is UNTRACKED")
@@ -348,25 +360,25 @@ type BufferPoolManager() =
                 Console.WriteLine("No adapted flags can be computed, create new buffer")  
                 // Need to copy
                 let copy = this.CreateUntrackedBuffer(context, queue, parameter, retBuffer.Count, isRoot)
-                if BufferStrategies.ShouldCopyBuffer(retItem.Buffer, retItem.AddressSpace, copy, addressSpace.AddressSpace) then
+                if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
                     BufferTools.CopyBuffer(queue, retBuffer, copy)
                 // Dispose old buffer
                 retItem.IsAvailable <- true
-                this.EndUsingBuffer(trackedBufferPool.[retBuffer].Buffer)
+                this.EndUsingBuffer(retItem.Buffer)
                 copy
 
     member this.TransferBackModifiedBuffers() =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if BufferStrategies.ShouldReadBackBuffer(poolItem.Buffer, poolItem.AddressSpace, poolItem.TransferMode) then
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.AddressSpace, poolItem.TransferMode) then
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key :?> Array, poolItem.Buffer)
         
     member this.ReadRootBuffer() =
         // Read back root return buffer
         if rootReturnBuffer.IsSome then
             let buff, arr = rootReturnBuffer.Value
-            if (BufferStrategies.ShouldReadBackBuffer(buff.Buffer, buff.AddressSpace, buff.TransferMode)) then
+            if (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.AddressSpace, buff.TransferMode)) then
                 // If it's using UseHostPointer then arr already contains the result
                 if buff.Flags &&& MemoryFlags.UseHostPointer |> int = 0 then
                     BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, arr, buff.Buffer)
@@ -458,7 +470,7 @@ type BufferPoolManager() =
                             // Do not have an arg
                             let elemType = par.DataType.GetElementType()
                             let storeArray = Array.CreateInstance(elemType, count)
-                            let buff = this.CreateTrackedBufferFromReturn(b, Some(arr), null, context, queue, par, isRoot, sharePriority)            
+                            let buff = this.CreateTrackedBufferFromReturn(b, Some(arr), storeArray, context, queue, par, isRoot, sharePriority)            
                             buff
                         else
                             // Do have an arg

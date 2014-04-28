@@ -68,18 +68,6 @@ module Language =
         new() =
             WorkSizeAttribute([| 0L |], [| 0L |])   
             
-    ///
-    ///<summary>
-    ///The attribute to specify the priority in sharing buffers in multi-kernel execution
-    ///</summary>
-    ///
-    [<AllowNullLiteral>]
-    type BufferSharePriorityAttribute(p: BufferSharePriority) =
-        inherit KernelMetadataAttribute()
-        member val Priority = p with get
-        new() =
-            BufferSharePriorityAttribute(BufferSharePriority.PriorityToFlags)
-
     // Functions matching attributes for dynamic marking of parameters
     [<KernelMetadataFunction(typeof<DeviceAttribute>)>]
     let DEVICE(plat: int, dev: int, a) = 
@@ -95,10 +83,6 @@ module Language =
                 
     [<KernelMetadataFunction(typeof<MultithreadFallbackAttribute>)>]
     let MULTITHREAD_FALLBACK(fallback: bool, a) = 
-        a
-               
-    [<KernelMetadataFunction(typeof<BufferSharePriorityAttribute>)>]
-    let BUFFER_SHARE_PRIORITY(p: BufferSharePriority, a) = 
         a
         
 

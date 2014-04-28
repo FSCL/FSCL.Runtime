@@ -31,10 +31,10 @@ let DoTest(minSize: long, maxSize: long, timePerIter: float) =
     use wr = new StreamWriter("VectorAdd.csv", false)
     wr.WriteLine("PLATFORM;DEVICE;READ MODE;WRITE MODE;INPUT FLAGS;OUTPUT FLAGS;SIZE;TIME;ITERATIONS")
 
-    for pIndex, pName, devs in ListDevices() do        
+    for pIndex, pName, devs in GetOpenCLPlatforms() do        
         Console.WriteLine("Platform: " + pName)
-        for dIndex, dName in devs do
-            Console.WriteLine(" Device: " + dName)
+        for dIndex, dName, dType in devs do
+            Console.WriteLine(" Device " + ": " + dName + "(" + dType.ToString() + ")")
             for rm in inputReadModes do
                 Console.WriteLine("  ReadMode: " + rm.ToString())
                 for wm in outputWriteModes do

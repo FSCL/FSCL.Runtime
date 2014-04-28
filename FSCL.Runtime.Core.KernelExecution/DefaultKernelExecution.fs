@@ -24,7 +24,11 @@ type DefaultKerernelExecutionProcessor() =
 
         let node, isRoot = input
 
-        let sharePriority = node.KernelData.Kernel.Meta.KernelMeta.Get<BufferSharePriorityAttribute>().Priority
+        let sharePriority = 
+            if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
+                opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
+            else
+                BufferSharePriority.PriorityToFlags
 
         // If globalSize or localSize are 0-length they should be retrieved in the kernel expression, i.e. in the graph node custom info
         let workSize = node.KernelData.Kernel.Meta.KernelMeta.Get<WorkSizeAttribute>()
