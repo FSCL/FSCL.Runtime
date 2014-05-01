@@ -47,10 +47,10 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContext context;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLMemoryFlags flags;
 
         #endregion

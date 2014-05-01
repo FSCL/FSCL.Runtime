@@ -48,10 +48,10 @@ namespace OpenCL
         private event OpenCLCommandStatusChanged aborted;        
         private event OpenCLCommandStatusChanged completed;
         
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private OpenCLCommandStatusArgs status;
         
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private OpenCLEventCallback statusNotify;
 
         #endregion
@@ -177,7 +177,7 @@ namespace OpenCL
         {
             if (Handle.IsValid)
             {
-                Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+                //Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
                 CL11.ReleaseEvent(Handle);
                 Handle.Invalidate();
             }
@@ -200,7 +200,7 @@ namespace OpenCL
         /// <param name="evArgs"></param>
         protected virtual void OnCompleted(object sender, OpenCLCommandStatusArgs evArgs)
         {
-            Trace.WriteLine("Complete " + Type + " operation of " + this + ".", "Information");
+            //Trace.WriteLine("Complete " + Type + " operation of " + this + ".", "Information");
             if (completed != null)
                 completed(sender, evArgs);
         }

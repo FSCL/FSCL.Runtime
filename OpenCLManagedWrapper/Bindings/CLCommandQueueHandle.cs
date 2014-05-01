@@ -39,7 +39,7 @@ namespace OpenCL.Bindings
     /// </summary>
     public struct CLCommandQueueHandle
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         IntPtr value;
 
         /// <summary>

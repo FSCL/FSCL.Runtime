@@ -39,7 +39,7 @@ namespace OpenCL.Bindings
     /// </summary>
     public struct CLMemoryHandle
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         IntPtr value;
 
         /// <summary>

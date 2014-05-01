@@ -44,7 +44,7 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private IntPtr handle;
 
         #endregion

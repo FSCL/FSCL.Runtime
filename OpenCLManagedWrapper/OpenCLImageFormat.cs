@@ -44,10 +44,10 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLImageChannelOrder channelOrder;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLImageChannelType channelType;
 
         #endregion

@@ -48,25 +48,25 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private ReadOnlyCollection<OpenCLDevice> devices;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly ReadOnlyCollection<string> extensions;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly string name;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private static ReadOnlyCollection<OpenCLPlatform> platforms;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly string profile;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly string vendor;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly string version;
 
         #endregion

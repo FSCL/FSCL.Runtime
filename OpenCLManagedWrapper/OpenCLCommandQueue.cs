@@ -48,19 +48,15 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContext context;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly OpenCLDevice device;
         
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private bool outOfOrderExec;
         
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private bool profiling;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal IList<OpenCLEventBase> Events;
 
         #endregion
@@ -138,22 +134,20 @@ namespace OpenCL
         /// </summary>
         /// <param name="memObjs"> A collection of OpenCL memory objects that correspond to OpenGL objects. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void AcquireGLObjects(IList<OpenCLMemory> memObjs, List<OpenCLEventBase> events)
+        public void AcquireGLObjects(OpenCLMemory[] memObjs, OpenCLEventBase[] events, out OpenCLEvent newEvent)
         {
             int memObjCount;
             CLMemoryHandle[] memObjHandles = OpenCLTools.ExtractHandles(memObjs, out memObjCount);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !(events as ICollection<OpenCLEventBase>).IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = OpenCLErrorCode.Success;
             error = CL10.EnqueueAcquireGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -187,20 +181,18 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void Copy(OpenCLBufferBase source, OpenCLBufferBase destination, long sourceOffset, long destinationOffset, long region, IList<OpenCLEventBase> events) 
+        public void Copy(OpenCLBufferBase source, OpenCLBufferBase destination, long sourceOffset, long destinationOffset, long region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(source.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL11.EnqueueCopyBuffer(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -218,7 +210,7 @@ namespace OpenCL
         /// <param name="destinationSlicePitch"> The size of the destination buffer 2D slice in bytes. If set to zero then <paramref name="destinationSlicePitch"/> equals <c>region.Y * sizeof(T) * destinationRowPitch</c>. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> Requires OpenCL 1.1. </remarks>
-        public void Copy(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, long destinationRowPitch, long destinationSlicePitch, IList<OpenCLEventBase> events) 
+        public void Copy(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, long destinationRowPitch, long destinationSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(source.ElementType);
 
@@ -228,14 +220,12 @@ namespace OpenCL
             
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL11.EnqueueCopyBufferRect(this.Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -248,20 +238,17 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void Copy(OpenCLBufferBase source, OpenCLImage destination, long sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IList<OpenCLEventBase> events) 
+        public void Copy(OpenCLBufferBase source, OpenCLImage destination, long sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(source.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueCopyBufferToImage(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), ref destinationOffset, ref region, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
-
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -273,20 +260,18 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void Copy(OpenCLImage source, OpenCLBufferBase destination, SysIntX3 sourceOffset, long destinationOffset, SysIntX3 region, IList<OpenCLEventBase> events) 
+        public void Copy(OpenCLImage source, OpenCLBufferBase destination, SysIntX3 sourceOffset, long destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(destination.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueCopyImageToBuffer(Handle, source.Handle, destination.Handle, ref sourceOffset, ref region, new IntPtr(destinationOffset * sizeofT), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -298,18 +283,16 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void Copy(OpenCLImage source, OpenCLImage destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IList<OpenCLEventBase> events)
+        public void Copy(OpenCLImage source, OpenCLImage destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueCopyImage(Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -317,18 +300,16 @@ namespace OpenCL
         /// </summary>
         /// <param name="kernel"> The <see cref="OpenCLKernel"/> to execute. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void ExecuteTask(OpenCLKernel kernel, IList<OpenCLEventBase> events)
+        public void ExecuteTask(OpenCLKernel kernel, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueTask(Handle, kernel.Handle, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -339,18 +320,16 @@ namespace OpenCL
         /// <param name="globalWorkSize"> An array of values that describe the number of global work-items in dimensions that will execute the kernel function. The total number of global work-items is computed as global_work_size[0] *...* global_work_size[work_dim - 1]. </param>
         /// <param name="localWorkSize"> An array of values that describe the number of work-items that make up a work-group (also referred to as the size of the work-group) that will execute the <paramref name="kernel"/>. The total number of work-items in a work-group is computed as local_work_size[0] *... * local_work_size[work_dim - 1]. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void Execute(OpenCLKernel kernel, long[] globalWorkOffset, long[] globalWorkSize, long[] localWorkSize, IList<OpenCLEventBase> events)
+        public void Execute(OpenCLKernel kernel, long[] globalWorkOffset, long[] globalWorkSize, long[] localWorkSize, OpenCLEventBase[] waitEvents, out OpenCLEvent newEvent)
         {
             int eventWaitListSize;
-            CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
+            CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(waitEvents, out eventWaitListSize);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueNDRangeKernel(Handle, kernel.Handle, globalWorkSize.Length, OpenCLTools.ConvertArray(globalWorkOffset), OpenCLTools.ConvertArray(globalWorkSize), OpenCLTools.ConvertArray(localWorkSize), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent =  new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -382,13 +361,12 @@ namespace OpenCL
         /// <param name="region"> The region of elements to map. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public IntPtr Map(OpenCLBufferBase buffer, bool blocking, OpenCLMemoryMappingFlags flags, long offset, long region, IList<OpenCLEventBase> events) 
+        public IntPtr Map(OpenCLBufferBase buffer, bool blocking, OpenCLMemoryMappingFlags flags, long offset, long region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(buffer.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             IntPtr mappedPtr = IntPtr.Zero;
@@ -397,8 +375,7 @@ namespace OpenCL
             mappedPtr = CL10.EnqueueMapBuffer(Handle, buffer.Handle, blocking, flags, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, out newEventHandle, out error);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
 
             return mappedPtr;
         }
@@ -413,11 +390,10 @@ namespace OpenCL
         /// <param name="region"> The region of elements to map. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public IntPtr Map(OpenCLImage image, bool blocking, OpenCLMemoryMappingFlags flags, SysIntX3 offset, SysIntX3 region, IList<OpenCLEventBase> events)
+        public IntPtr Map(OpenCLImage image, bool blocking, OpenCLMemoryMappingFlags flags, SysIntX3 offset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             IntPtr mappedPtr, rowPitch, slicePitch;
@@ -426,8 +402,7 @@ namespace OpenCL
             mappedPtr = CL10.EnqueueMapImage(Handle, image.Handle, blocking, flags, ref offset, ref region, out rowPitch, out slicePitch, eventWaitListSize, eventHandles, out newEventHandle, out error);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
 
             return mappedPtr;
         }
@@ -442,20 +417,18 @@ namespace OpenCL
         /// <param name="destination"> A pointer to a preallocated memory area to read the data into. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public void Read(OpenCLBufferBase source, bool blocking, long offset, long region, IntPtr destination, IList<OpenCLEventBase> events) 
+        public void Read(OpenCLBufferBase source, bool blocking, long offset, long region, IntPtr destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(source.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueReadBuffer(Handle, source.Handle, blocking, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -474,7 +447,7 @@ namespace OpenCL
         /// <param name="destination"> A pointer to a preallocated memory area to read the data into. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> Requires OpenCL 1.1. </remarks>
-        private void Read(OpenCLBufferBase source, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, long destinationRowPitch, long destinationSlicePitch, IntPtr destination, IList<OpenCLEventBase> events) 
+        private void Read(OpenCLBufferBase source, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, long destinationRowPitch, long destinationSlicePitch, IntPtr destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(source.ElementType);
 
@@ -484,14 +457,12 @@ namespace OpenCL
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL11.EnqueueReadBufferRect(this.Handle, source.Handle, blocking, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -506,18 +477,16 @@ namespace OpenCL
         /// <param name="destination"> A pointer to a preallocated memory area to read the data into. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public void Read(OpenCLImage source, bool blocking, SysIntX3 offset, SysIntX3 region, long rowPitch, long slicePitch, IntPtr destination, IList<OpenCLEventBase> events)
+        public void Read(OpenCLImage source, bool blocking, SysIntX3 offset, SysIntX3 region, long rowPitch, long slicePitch, IntPtr destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueReadImage(Handle, source.Handle, blocking, ref offset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -525,21 +494,19 @@ namespace OpenCL
         /// </summary>
         /// <param name="memObjs"> A collection of <see cref="OpenCLMemory"/>s that correspond to OpenGL memory objects. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void ReleaseGLObjects(IList<OpenCLMemory> memObjs, IList<OpenCLEventBase> events)
+        public void ReleaseGLObjects(OpenCLMemory[] memObjs, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int memObjCount;
             CLMemoryHandle[] memObjHandles = OpenCLTools.ExtractHandles(memObjs, out memObjCount);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueReleaseGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -548,11 +515,10 @@ namespace OpenCL
         /// <param name="memory"> The <see cref="OpenCLMemory"/>. </param>
         /// <param name="mappedPtr"> The host address returned by a previous call to <see cref="OpenCLCommandQueue.Map"/>. This pointer is <c>IntPtr.Zero</c> after this method returns. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
-        public void Unmap(OpenCLMemory memory, ref IntPtr mappedPtr, IList<OpenCLEventBase> events)
+        public void Unmap(OpenCLMemory memory, ref IntPtr mappedPtr, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueUnmapMemObject(Handle, memory.Handle, mappedPtr, eventWaitListSize, eventHandles, out newEventHandle);
@@ -560,15 +526,14 @@ namespace OpenCL
 
             mappedPtr = IntPtr.Zero;
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
         /// Enqueues a wait command for a collection of <see cref="OpenCLEvent"/>s to complete before any future commands queued in the <see cref="OpenCLCommandQueue"/> are executed.
         /// </summary>
         /// <param name="events"> The <see cref="OpenCLEvent"/>s that this command will wait for. </param>
-        public void Wait(IList<OpenCLEventBase> events)
+        public void Wait(OpenCLEventBase[] events)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
@@ -587,20 +552,18 @@ namespace OpenCL
         /// <param name="source"> The data written to the buffer. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public void Write(OpenCLBufferBase destination, bool blocking, long destinationOffset, long region, IntPtr source, IList<OpenCLEventBase> events) 
+        public void Write(OpenCLBufferBase destination, bool blocking, long destinationOffset, long region, IntPtr source, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(destination.ElementType);
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
             
             OpenCLErrorCode error = CL10.EnqueueWriteBuffer(Handle, destination.Handle, blocking, new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -619,7 +582,7 @@ namespace OpenCL
         /// <param name="source"> The data written to the buffer. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> Requires OpenCL 1.1. </remarks>
-        private void Write(OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long destinationRowPitch, long destinationSlicePitch, long sourceRowPitch, long sourceSlicePitch, IntPtr source, IList<OpenCLEventBase> events) 
+        private void Write(OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long destinationRowPitch, long destinationSlicePitch, long sourceRowPitch, long sourceSlicePitch, IntPtr source, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
         {
             int sizeofT = Marshal.SizeOf(destination.ElementType);
 
@@ -629,14 +592,12 @@ namespace OpenCL
 
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL11.EnqueueWriteBufferRect(this.Handle, destination.Handle, blocking, ref destinationOffset, ref sourceOffset, ref region, new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         /// <summary>
@@ -651,18 +612,16 @@ namespace OpenCL
         /// <param name="source"> The content written to the <see cref="OpenCLImage"/>. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> or read-only a new <see cref="OpenCLEvent"/> identifying this command is created and attached to the end of the collection. </param>
         /// <remarks> If <paramref name="blocking"/> is <c>true</c> this method will not return until the command completes. If <paramref name="blocking"/> is <c>false</c> this method will return immediately after the command is enqueued. </remarks>
-        public void Write(OpenCLImage destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, long rowPitch, long slicePitch, IntPtr source, IList<OpenCLEventBase> events)
+        public void Write(OpenCLImage destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, long rowPitch, long slicePitch, IntPtr source, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
-            bool eventsWritable = (events != null && !events.IsReadOnly);
             CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = CL10.EnqueueWriteImage(Handle, destination.Handle, blocking, ref destinationOffset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
-            if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle, this));
+            newEvent = new OpenCLEvent(newEventHandle, this);
         }
 
         #endregion

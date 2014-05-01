@@ -46,7 +46,7 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private IList<OpenCLContextProperty> properties;
 
         #endregion

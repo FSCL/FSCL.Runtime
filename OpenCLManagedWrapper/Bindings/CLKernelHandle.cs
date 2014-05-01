@@ -39,7 +39,7 @@ namespace OpenCL.Bindings
     /// </summary>
     public struct CLKernelHandle
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         IntPtr value;
 
         /// <summary>

@@ -48,22 +48,22 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContext context;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly ReadOnlyCollection<OpenCLDevice> devices;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly ReadOnlyCollection<string> source;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private ReadOnlyCollection<byte[]> binaries;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private string buildOptions;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private OpenCLProgramBuildNotifier buildNotify;
 
         #endregion
@@ -141,7 +141,7 @@ namespace OpenCL
             this.devices = context.Devices;
             this.source = new ReadOnlyCollection<string>(new string[] { source });
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace OpenCL
             this.devices = context.Devices;
             this.source = new ReadOnlyCollection<string>(source);
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         /// <summary>
@@ -219,7 +219,7 @@ namespace OpenCL
             this.devices = new ReadOnlyCollection<OpenCLDevice>(
                 (devices != null) ? devices : context.Devices);
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         #endregion
@@ -310,7 +310,7 @@ namespace OpenCL
         {
             if (Handle.IsValid)
             {
-                Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+                //Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
                 CL10.ReleaseProgram(Handle);
                 Handle.Invalidate();
             }

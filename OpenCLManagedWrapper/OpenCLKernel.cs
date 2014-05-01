@@ -48,13 +48,13 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContext context;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly string functionName;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLProgram program;
 
         #endregion

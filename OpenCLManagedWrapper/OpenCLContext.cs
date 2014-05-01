@@ -87,16 +87,16 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly ReadOnlyCollection<OpenCLDevice> devices;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLPlatform platform;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContextPropertyList properties;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private OpenCLContextNotifier callback;
 
         #endregion

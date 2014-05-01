@@ -42,10 +42,10 @@ namespace OpenCL
     {
         #region Fields
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly OpenCLContextProperties name;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        
         private readonly IntPtr value;
 
         #endregion

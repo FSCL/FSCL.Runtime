@@ -55,7 +55,7 @@ module TransferTools =
         
     let InitializeBuffer(computeQueue:OpenCLCommandQueue, currSize, info:TransferEndpoint, src:OpenCLBuffer ref) =
         let initializer = Array.create<float32> (currSize / sizeof<float32>) 2.0f
-        computeQueue.WriteToBuffer(initializer, !src, true, null)
+        computeQueue.WriteToBuffer(initializer, !src, true, null, null)
 
     // Test copy from host ptr to host ptr
     let HostPtrToHostPtr(currSize, validate, src: float32[] ref, dst: float32[] ref) =         
@@ -69,20 +69,20 @@ module TransferTools =
             let sourceHandle = GCHandle.Alloc(!src, GCHandleType.Pinned)
             try 
                 let sourcePtr = sourceHandle.AddrOfPinnedObject()
-                let destPtrFava = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null)
+                let destPtrFava = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
                 MemoryUtil.RtlMoveMemory(sourcePtr, destPtrFava, (uint32)currSize)                                   
-                computeQueue.Unmap(!dst, ref destPtrFava, null)                             
+                computeQueue.Unmap(!dst, ref destPtrFava, null, null)                             
             finally
                 if (sourceHandle.IsAllocated) then
                     sourceHandle.Free()
         else
             // From array to buffer, via writeBuffer, including allocation and initialization
-            computeQueue.WriteToBuffer(!src, !dst, true, null)
+            computeQueue.WriteToBuffer(!src, !dst, true, null, null)
                         
         // Validate            
         if validate then
             let finalizer = Array.zeroCreate<float32>(currSize / sizeof<float32>)
-            computeQueue.ReadFromBuffer(!dst, ref (finalizer :> Array), true, null)
+            computeQueue.ReadFromBuffer(!dst, ref (finalizer :> Array), true, null, null)
             Array.iteri (fun i element -> 
                 if element <> finalizer.[i] then
                     raise (new TransferException("Source and destination do not match"))) !src   
@@ -94,14 +94,14 @@ module TransferTools =
             let destHandle = GCHandle.Alloc(dst, GCHandleType.Pinned)
             try 
                 let destPtr = destHandle.AddrOfPinnedObject()
-                let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null)
+                let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
                 MemoryUtil.RtlMoveMemory(sourcePtr, destPtr, (uint32)currSize) 
-                computeQueue.Unmap(!src, ref sourcePtr, null)                                                                 
+                computeQueue.Unmap(!src, ref sourcePtr, null, null)                                                                 
             finally
                 if (destHandle.IsAllocated) then
                     destHandle.Free() 
         else
-            computeQueue.ReadFromBuffer(!src, dst, true, null)
+            computeQueue.ReadFromBuffer(!src, dst, true, null, null)
 
         // Validate
         if validate then
@@ -113,29 +113,29 @@ module TransferTools =
     let BufferToBuffer<'T>(computeContext:OpenCLContext, computeQueue:OpenCLCommandQueue, currSize, validate, srcInfo:TransferEndpoint, dstInfo:TransferEndpoint, src: OpenCLBuffer ref, dst: OpenCLBuffer ref) =
         if srcInfo.ShouldMap && dstInfo.ShouldMap then
             // From buffer to buffer, via map and memcpy, including allocation
-            let destPtr = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null)
-            let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null)
+            let destPtr = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
+            let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
             MemoryUtil.RtlMoveMemory(sourcePtr, destPtr, (uint32)currSize) 
-            computeQueue.Unmap(!dst, ref destPtr, null)            
-            computeQueue.Unmap(!src, ref sourcePtr, null)    
+            computeQueue.Unmap(!dst, ref destPtr, null, null)            
+            computeQueue.Unmap(!src, ref sourcePtr, null, null)    
         elif srcInfo.ShouldMap && (not dstInfo.ShouldMap) then
             // From buffer to buffer, via writeBuffer, including allocation
-            let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null)
-            computeQueue.Write(!dst, true, 0L, (int64)(currSize / sizeof<float32>), sourcePtr, null)
-            computeQueue.Unmap(!src, ref sourcePtr, null)  
+            let sourcePtr = computeQueue.Map(!src, true, OpenCLMemoryMappingFlags.Read, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
+            computeQueue.Write(!dst, true, 0L, (int64)(currSize / sizeof<float32>), sourcePtr, null, null)
+            computeQueue.Unmap(!src, ref sourcePtr, null, null)  
         elif (not srcInfo.ShouldMap) && dstInfo.ShouldMap then
             // From buffer to buffer, via readBuffer, including allocation
-            let destPtr = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null)
-            computeQueue.Read(!src, true, 0L, (int64)(currSize / sizeof<float32>), destPtr, null)
-            computeQueue.Unmap(!src, ref destPtr, null)
+            let destPtr = computeQueue.Map(!dst, true, OpenCLMemoryMappingFlags.Write, (int64)0, (int64)(currSize / sizeof<float32>), null, null)
+            computeQueue.Read(!src, true, 0L, (int64)(currSize / sizeof<float32>), destPtr, null, null)
+            computeQueue.Unmap(!src, ref destPtr, null, null)
         else                                                    
             // From buffer to buffer, via buffer copy, including allocation
-            computeQueue.CopyBuffer(!src, !dst, null)  
+            computeQueue.CopyBuffer(!src, !dst, null, null)  
             
         // Validate
         if validate then
             let finalizer = Array.zeroCreate<float32>(currSize / sizeof<float32>)
-            computeQueue.ReadFromBuffer(!dst, ref (finalizer :> Array), true, null)
+            computeQueue.ReadFromBuffer(!dst, ref (finalizer :> Array), true, null, null)
             Array.iteri (fun i element -> 
                 if element <> 2.0f then
                     raise (new TransferException("Source and destination do not match"))) finalizer       
