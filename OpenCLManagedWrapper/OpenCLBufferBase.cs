@@ -142,7 +142,7 @@ namespace OpenCL
 
             Size = (long)GetInfo<CLMemoryHandle, OpenCLMemoryInfo, IntPtr>(Handle, OpenCLMemoryInfo.Size, CL10.GetMemObjectInfo);
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         #endregion

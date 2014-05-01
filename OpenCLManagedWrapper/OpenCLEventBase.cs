@@ -178,7 +178,7 @@ namespace OpenCL
             if (Handle.IsValid)
             {
                 Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
-                CL10.ReleaseEvent(Handle);
+                CL11.ReleaseEvent(Handle);
                 Handle.Invalidate();
             }
         }

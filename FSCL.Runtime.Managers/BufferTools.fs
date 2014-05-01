@@ -43,51 +43,52 @@ type BufferTools() =
             let count = ArrayUtil.GetArrayLengths(a)
             new OpenCLBuffer(c, flags, a.GetType().GetElementType(), count)
 
-    static member WriteBuffer(queue: OpenCLCommandQueue, useMap:bool, buffer:OpenCLBuffer, o:Array, ?count:int64[]) =
+    static member WriteBuffer(queue: OpenCLCommandQueue, useMap:bool, buffer:OpenCLBuffer, arr:Array, ?count:int64[]) =
+        let evt = null;//new List<OpenCLEventBase>()
         if useMap then
             let tCount = if count.IsSome then Array.reduce (fun a b -> a * b) count.Value else buffer.TotalCount
-            let sourceHandle = GCHandle.Alloc(o, GCHandleType.Pinned)
+            let sourceHandle = GCHandle.Alloc(arr, GCHandleType.Pinned)
             try 
                 let srcPtr = sourceHandle.AddrOfPinnedObject()
-                let dstPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Write, 0L, tCount, null)
+                let dstPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Write, 0L, tCount, evt)
                 RtlMoveMemory(srcPtr, dstPtr, buffer.Size |> uint32)                                   
                 queue.Unmap(buffer, ref dstPtr, null)                             
             finally
                 if (sourceHandle.IsAllocated) then
                     sourceHandle.Free()
         else
-            let evt = new List<OpenCLEventBase>()
             match buffer.Count.Length with
             | 1 ->
                 if count.IsNone then
-                    queue.WriteToBuffer(o, buffer, false, evt)
+                    queue.WriteToBuffer(arr, buffer, false, evt)
                 else
-                    queue.WriteToBuffer(o, buffer, false, 0L, 0L, count.Value.[0], evt)
+                    queue.WriteToBuffer(arr, buffer, false, 0L, 0L, count.Value.[0], evt)
             | 2 ->
                 let offset = OpenCL.SysIntX2(0, 0)                
                 let region = 
                     if count.IsSome then
                         OpenCL.SysIntX2(count.Value.[0], count.Value.[1])
                     else
-                        OpenCL.SysIntX2(o.GetLength(0), o.GetLength(1))
-                queue.WriteToBuffer(o, buffer, false, offset, offset, region, evt)
+                        OpenCL.SysIntX2(arr.GetLength(0), arr.GetLength(1))
+                queue.WriteToBuffer(arr, buffer, false, offset, offset, region, evt)
             | _ ->
                 let offset = OpenCL.SysIntX3(0, 0, 0)
                 let region = 
                     if count.IsSome then
                         OpenCL.SysIntX3(count.Value.[0], count.Value.[1], count.Value.[2])
                     else
-                        OpenCL.SysIntX3(o.GetLength(0), o.GetLength(1), o.GetLength(2))
-                queue.WriteToBuffer(o, buffer, false, offset, offset, region, evt)
-            evt.[0].Dispose()
+                        OpenCL.SysIntX3(arr.GetLength(0), arr.GetLength(1), arr.GetLength(2))
+                queue.WriteToBuffer(arr, buffer, false, offset, offset, region, evt)
+            //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
             
-    static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: Array, buffer: OpenCLBuffer, ?count:int64[]) =    
+    static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: Array, buffer: OpenCLBuffer, ?count:int64[]) =        
+        let evt = null;//new List<OpenCLEventBase>()
         if useMap then
             let tCount = if count.IsSome then Array.reduce (fun a b -> a * b) count.Value else buffer.TotalCount
             let dstHandle = GCHandle.Alloc(o, GCHandleType.Pinned)
             try 
                 let dstPtr = dstHandle.AddrOfPinnedObject()
-                let srcPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Read, 0L, tCount, null)
+                let srcPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Read, 0L, tCount, evt)
                 RtlMoveMemory(srcPtr, dstPtr, buffer.Size |> uint32)                                   
                 queue.Unmap(buffer, ref srcPtr, null)                             
             finally
@@ -97,9 +98,9 @@ type BufferTools() =
             match buffer.Count.Length with
             | 1 ->
                 if count.IsNone then
-                    queue.ReadFromBuffer(buffer, ref o, true, 0L, 0L, o.LongLength, null)           
+                    queue.ReadFromBuffer(buffer, ref o, true, 0L, 0L, o.LongLength, evt)           
                 else
-                    queue.ReadFromBuffer(buffer, ref o, true, 0L, 0L, count.Value.[0], null)
+                    queue.ReadFromBuffer(buffer, ref o, true, 0L, 0L, count.Value.[0], evt)
             | 2 ->
                 let offset = OpenCL.SysIntX2(0,0)
                 let region = 
@@ -118,5 +119,6 @@ type BufferTools() =
                         OpenCL.SysIntX3(count.Value.[0], count.Value.[1], count.Value.[2])
                     else
                         OpenCL.SysIntX3(o.GetLength(0), o.GetLength(1), o.GetLength(2))
-                queue.ReadFromBuffer(buffer, ref o, true, offset, offset, region, null)
+                queue.ReadFromBuffer(buffer, ref o, true, offset, offset, region, evt)
+        //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
        

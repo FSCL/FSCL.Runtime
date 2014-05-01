@@ -79,7 +79,7 @@ type DefaultKerernelExecutionProcessor() =
                         
                     // Allocate the buffer
                     let buffer = pool.RequireBufferForParameter(par, None, elementCount, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority)
-                   
+                    
                     // Set kernel arg
                     node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store buffer/object data
@@ -183,6 +183,7 @@ type DefaultKerernelExecutionProcessor() =
         // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
         // We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
         node.DeviceData.Queue.Execute(node.CompiledKernelData.Kernel, offset, workSize.GlobalSize, workSize.LocalSize, null)
+        node.DeviceData.Queue.Finish()
 
         // Dispose buffers
         for b in buffers do

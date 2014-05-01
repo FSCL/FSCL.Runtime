@@ -12,7 +12,7 @@ open System
 type ParametersAccessAnalysis() =        
     inherit FunctionPostprocessingProcessor()
     
-    let DiscoverArrayParametersReferences(a: Expr, kInfo: KernelInfo) =
+    let DiscoverArrayParametersReferences(a: Expr, kInfo: FunctionInfo) =
         let rec discoverReferencesInternal(e: Expr, parent: Expr option) =
             match e with
             | ExprShape.ShapeVar(v) ->
@@ -55,7 +55,7 @@ type ParametersAccessAnalysis() =
 
     override this.Run(fInfo, s, opts) =
         let step = s :?> FunctionPostprocessingStep
-        DiscoverArrayParametersReferences(fInfo.Body, fInfo :?> KernelInfo)
+        DiscoverArrayParametersReferences(fInfo.Body, fInfo)
 
                     
 

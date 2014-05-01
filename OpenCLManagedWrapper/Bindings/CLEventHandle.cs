@@ -33,13 +33,15 @@ namespace OpenCL.Bindings
 {
     using System;
     using System.Diagnostics;
-
+    using System;
+    using System.Runtime.InteropServices;
     /// <summary>
     /// Represents the <see cref="OpenCLEvent"/> ID.
     /// </summary>
+    ///
+    [StructLayout(LayoutKind.Sequential)]
     public struct CLEventHandle
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         IntPtr value;
 
         /// <summary>

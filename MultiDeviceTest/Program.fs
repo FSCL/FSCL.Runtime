@@ -9,13 +9,13 @@ open VectorAddTest
 [<EntryPoint>]
 let main argv = 
     // Min and max size
-    let minVectorSize = 8L <<< 20
+    let minVectorSize = 2L <<< 10
     let maxVectorSize = 8L <<< 20
-    let perTestDuration = 5000.0
+    let perTestDuration = 2000.0
 
     // Vector add
     Console.WriteLine(":::::::::::::::: Vector Addition ::::::::::::::::")
-    VectorAddTest.DoTest(minVectorSize, maxVectorSize, perTestDuration)
+    VectorAddTest.DoTest(minVectorSize, maxVectorSize, 100)
     Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::")
     Console.Read() |> ignore
     0

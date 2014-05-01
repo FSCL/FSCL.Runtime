@@ -146,14 +146,14 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !(events as ICollection<OpenCLEventBase>).IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
             OpenCLErrorCode error = OpenCLErrorCode.Success;
-            error = CL10.EnqueueAcquireGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, newEventHandle);
+            error = CL10.EnqueueAcquireGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -194,13 +194,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueCopyBuffer(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL11.EnqueueCopyBuffer(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -229,13 +229,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL11.EnqueueCopyBufferRect(this.Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL11.EnqueueCopyBufferRect(this.Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -255,13 +255,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueCopyBufferToImage(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), ref destinationOffset, ref region, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueCopyBufferToImage(Handle, source.Handle, destination.Handle, new IntPtr(sourceOffset * sizeofT), ref destinationOffset, ref region, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -280,13 +280,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueCopyImageToBuffer(Handle, source.Handle, destination.Handle, ref sourceOffset, ref region, new IntPtr(destinationOffset * sizeofT), eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueCopyImageToBuffer(Handle, source.Handle, destination.Handle, ref sourceOffset, ref region, new IntPtr(destinationOffset * sizeofT), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -303,13 +303,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueCopyImage(Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueCopyImage(Handle, source.Handle, destination.Handle, ref sourceOffset, ref destinationOffset, ref region, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -322,13 +322,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueTask(Handle, kernel.Handle, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueTask(Handle, kernel.Handle, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -344,13 +344,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueNDRangeKernel(Handle, kernel.Handle, globalWorkSize.Length, OpenCLTools.ConvertArray(globalWorkOffset), OpenCLTools.ConvertArray(globalWorkSize), OpenCLTools.ConvertArray(localWorkSize), eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueNDRangeKernel(Handle, kernel.Handle, globalWorkSize.Length, OpenCLTools.ConvertArray(globalWorkOffset), OpenCLTools.ConvertArray(globalWorkSize), OpenCLTools.ConvertArray(localWorkSize), eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -389,16 +389,16 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
             IntPtr mappedPtr = IntPtr.Zero;
 
             OpenCLErrorCode error = OpenCLErrorCode.Success;
-            mappedPtr = CL10.EnqueueMapBuffer(Handle, buffer.Handle, blocking, flags, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, newEventHandle, out error);
+            mappedPtr = CL10.EnqueueMapBuffer(Handle, buffer.Handle, blocking, flags, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), eventWaitListSize, eventHandles, out newEventHandle, out error);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
 
             return mappedPtr;
         }
@@ -418,16 +418,16 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
             IntPtr mappedPtr, rowPitch, slicePitch;
 
             OpenCLErrorCode error = OpenCLErrorCode.Success;
-            mappedPtr = CL10.EnqueueMapImage(Handle, image.Handle, blocking, flags, ref offset, ref region, out rowPitch, out slicePitch, eventWaitListSize, eventHandles, newEventHandle, out error);
+            mappedPtr = CL10.EnqueueMapImage(Handle, image.Handle, blocking, flags, ref offset, ref region, out rowPitch, out slicePitch, eventWaitListSize, eventHandles, out newEventHandle, out error);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
 
             return mappedPtr;
         }
@@ -449,13 +449,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueReadBuffer(Handle, source.Handle, blocking, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), destination, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueReadBuffer(Handle, source.Handle, blocking, new IntPtr(offset * sizeofT), new IntPtr(region * sizeofT), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -485,13 +485,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL11.EnqueueReadBufferRect(this.Handle, source.Handle, blocking, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), destination, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL11.EnqueueReadBufferRect(this.Handle, source.Handle, blocking, ref sourceOffset, ref destinationOffset, ref region, new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -511,13 +511,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueReadImage(Handle, source.Handle, blocking, ref offset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), destination, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueReadImage(Handle, source.Handle, blocking, ref offset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), destination, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -533,13 +533,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueReleaseGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueReleaseGLObjects(Handle, memObjCount, memObjHandles, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -553,15 +553,15 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueUnmapMemObject(Handle, memory.Handle, mappedPtr, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueUnmapMemObject(Handle, memory.Handle, mappedPtr, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             mappedPtr = IntPtr.Zero;
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -594,13 +594,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
             
-            OpenCLErrorCode error = CL10.EnqueueWriteBuffer(Handle, destination.Handle, blocking, new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), source, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueWriteBuffer(Handle, destination.Handle, blocking, new IntPtr(destinationOffset * sizeofT), new IntPtr(region * sizeofT), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -630,13 +630,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL11.EnqueueWriteBufferRect(this.Handle, destination.Handle, blocking, ref destinationOffset, ref sourceOffset, ref region, new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), source, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL11.EnqueueWriteBufferRect(this.Handle, destination.Handle, blocking, ref destinationOffset, ref sourceOffset, ref region, new IntPtr(destinationRowPitch), new IntPtr(destinationSlicePitch), new IntPtr(sourceRowPitch), new IntPtr(sourceSlicePitch), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         /// <summary>
@@ -656,13 +656,13 @@ namespace OpenCL
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
             bool eventsWritable = (events != null && !events.IsReadOnly);
-            CLEventHandle[] newEventHandle = (eventsWritable) ? new CLEventHandle[1] : null;
+            CLEventHandle newEventHandle;
 
-            OpenCLErrorCode error = CL10.EnqueueWriteImage(Handle, destination.Handle, blocking, ref destinationOffset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), source, eventWaitListSize, eventHandles, newEventHandle);
+            OpenCLErrorCode error = CL10.EnqueueWriteImage(Handle, destination.Handle, blocking, ref destinationOffset, ref region, new IntPtr(rowPitch), new IntPtr(slicePitch), source, eventWaitListSize, eventHandles, out newEventHandle);
             OpenCLException.ThrowOnError(error);
 
             if (eventsWritable)
-                events.Add(new OpenCLEvent(newEventHandle[0], this));
+                events.Add(new OpenCLEvent(newEventHandle, this));
         }
 
         #endregion

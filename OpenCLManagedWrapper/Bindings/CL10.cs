@@ -524,7 +524,7 @@ namespace OpenCL.Bindings
             IntPtr ptr,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -538,8 +538,8 @@ namespace OpenCL.Bindings
             IntPtr cb,
             IntPtr ptr,
             Int32 num_events_in_wait_list,
-            [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [In] [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -553,8 +553,8 @@ namespace OpenCL.Bindings
             IntPtr dst_offset,
             IntPtr cb,
             Int32 num_events_in_wait_list,
-            [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [In] [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -571,7 +571,7 @@ namespace OpenCL.Bindings
             IntPtr ptr,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -588,7 +588,7 @@ namespace OpenCL.Bindings
             IntPtr ptr,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -603,7 +603,7 @@ namespace OpenCL.Bindings
             ref SysIntX3 region,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -618,7 +618,7 @@ namespace OpenCL.Bindings
             IntPtr dst_offset,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -633,7 +633,7 @@ namespace OpenCL.Bindings
             ref SysIntX3 region,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -648,7 +648,7 @@ namespace OpenCL.Bindings
             IntPtr cb,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst = 1)] CLEventHandle[] new_event,
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event,
             out OpenCLErrorCode errcode_ret);
 
         /// <summary>
@@ -666,7 +666,7 @@ namespace OpenCL.Bindings
             out IntPtr image_slice_pitch,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst = 1)] CLEventHandle[] new_event,
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event,
             out OpenCLErrorCode errcode_ret);
 
         /// <summary>
@@ -679,7 +679,7 @@ namespace OpenCL.Bindings
             IntPtr mapped_ptr,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -694,7 +694,7 @@ namespace OpenCL.Bindings
             [MarshalAs(UnmanagedType.LPArray)] IntPtr[] local_work_size,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -705,7 +705,7 @@ namespace OpenCL.Bindings
             CLKernelHandle kernel,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         // <summary>
         // See the OpenCL specification.
@@ -837,7 +837,7 @@ namespace OpenCL.Bindings
             [MarshalAs(UnmanagedType.LPArray)] CLMemoryHandle[] mem_objects,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -849,7 +849,7 @@ namespace OpenCL.Bindings
             [MarshalAs(UnmanagedType.LPArray)] CLMemoryHandle[] mem_objects,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
+            [Out] [MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
     }
 
     /// <summary>

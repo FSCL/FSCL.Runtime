@@ -101,15 +101,15 @@ type BufferStrategies() =
 
         // #2: If the device is a CPU it's better to use UseHostPointer if the buffer is visible to host, 
         //     AllocHostPointer otherwise
-        if dev.Type = OpenCLDeviceType.Cpu && 
-            (MemoryFlagsUtil.WithNoAccessFlags(optFlags) |> int = 0) then
-            // Programmer did not force any alloc flags
-            if isVisibleToHost then
-                // The buffer is visible to host
-                optFlags <- optFlags ||| MemoryFlags.UseHostPointer
-            else
-                // The buffer is visible to host
-                optFlags <- optFlags ||| MemoryFlags.AllocHostPointer
+        if dev.Type = OpenCLDeviceType.Cpu then
+            if MemoryFlagsUtil.WithNoAccessFlags(optFlags) |> int = 0 then
+                // Programmer did not force any alloc flags
+                if isVisibleToHost then
+                    // The buffer is visible to host
+                    optFlags <- MemoryFlagsUtil.OnlyAccessFlags(optFlags) ||| MemoryFlags.UseHostPointer
+                else
+                    // The buffer is visible to host
+                    optFlags <- MemoryFlagsUtil.OnlyAccessFlags(optFlags) ||| MemoryFlags.AllocHostPointer
                 
             // If read mode is auto set it to map buffer (same for write)
             if optReadMode |> int = 0 then
@@ -119,17 +119,19 @@ type BufferStrategies() =
 
         optFlags, optReadMode, optWriteMode
 
-    static member ShouldInitBuffer(analysis: AccessAnalysisResult, space: AddressSpace, transferMode: TransferMode) =
+    static member ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
         space <> AddressSpace.Private &&
         space <> AddressSpace.Local &&
+        (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
         ((transferMode &&& TransferMode.NoTransfer) |> int = 0)
         
-    static member ShouldReadBackBuffer(analysis: AccessAnalysisResult, space: AddressSpace, transferMode: TransferMode) =
+    static member ShouldReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
         space <> AddressSpace.Local &&
         space <> AddressSpace.Private &&
         space <> AddressSpace.Constant &&
+        (flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0 &&
         ((transferMode &&& TransferMode.NoTransferBack) |> int = 0)   
         
     static member ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
