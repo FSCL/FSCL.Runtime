@@ -48,9 +48,8 @@ namespace OpenCL
     {
         #region Fields
 
+        
         private GCHandle gcHandle;
-        //private Object lockObj = new Object();
-        private bool isGCHandleDisposed = false;
         
         #endregion
 
@@ -87,10 +86,8 @@ namespace OpenCL
 
         internal void TrackGCHandle(GCHandle handle)
         {
-           // lock (lockObj)
-            //{
-                gcHandle = handle;
-            //}
+            gcHandle = handle;
+
             Completed += new OpenCLCommandStatusChanged(Cleanup);
             Aborted += new OpenCLCommandStatusChanged(Cleanup);
         }
@@ -106,8 +103,8 @@ namespace OpenCL
         /// <remarks> <paramref name="manual"/> must be <c>true</c> if this method is invoked directly by the application. </remarks>
         protected override void Dispose(bool manual)
         {
-            base.Dispose(manual);
             FreeGCHandle();
+            base.Dispose(manual);
         }
 
         #endregion
@@ -123,15 +120,15 @@ namespace OpenCL
                     CommandQueue.Events.Remove(this);
                     Dispose();
                 }
+                else
+                    FreeGCHandle();
             }
         }
 
         private void FreeGCHandle()
         {
-                if (gcHandle.IsAllocated && gcHandle.Target != null)
-                {
-                    gcHandle.Free();
-                }
+            if (gcHandle.IsAllocated && gcHandle.Target != null)
+                gcHandle.Free();
         }
 
         #endregion

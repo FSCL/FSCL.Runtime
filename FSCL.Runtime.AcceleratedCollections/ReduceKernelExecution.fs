@@ -85,6 +85,9 @@ type ReduceKernelExecutionProcessor() =
                     | ReturnedUntrackedBuffer(b)
                     | ReturnedTrackedBuffer(b, _) ->
                         b
+                    | _ ->
+                        raise (new KernelSetupException("Explicit return value  is possible only for root kernels"))
+
                 // WE SHOULD AVOID COPY!!!
                 // Copy the output buffer of the input kernel
                 inputBuffer <- pool.RequireBufferForParameter(par, None, ib.Count, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      

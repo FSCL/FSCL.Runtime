@@ -178,7 +178,7 @@ namespace OpenCL
             if (Handle.IsValid)
             {
                 //Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
-                CL11.ReleaseEvent(Handle);
+                CL10.ReleaseEvent(Handle);
                 Handle.Invalidate();
             }
         }
@@ -212,7 +212,7 @@ namespace OpenCL
         /// <param name="evArgs"></param>
         protected virtual void OnAborted(object sender, OpenCLCommandStatusArgs evArgs)
         {
-            Trace.WriteLine("Abort " + Type + " operation of " + this + ".", "Information");
+            //Trace.WriteLine("Abort " + Type + " operation of " + this + ".", "Information");
             if (aborted != null)
                 aborted(sender, evArgs);
         }

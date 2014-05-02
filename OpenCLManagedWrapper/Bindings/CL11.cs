@@ -107,7 +107,7 @@ namespace OpenCL.Bindings
             IntPtr ptr,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
+            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -126,8 +126,8 @@ namespace OpenCL.Bindings
             IntPtr host_slice_pitch,
             IntPtr ptr,
             Int32 num_events_in_wait_list,
-            [In] [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
+            [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
+            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -146,7 +146,7 @@ namespace OpenCL.Bindings
             IntPtr dst_slice_pitch,
             Int32 num_events_in_wait_list,
             [MarshalAs(UnmanagedType.LPArray)] CLEventHandle[] event_wait_list,
-            [Out, MarshalAs(UnmanagedType.Struct)] out CLEventHandle new_event);
+            [Out, MarshalAs(UnmanagedType.LPArray, SizeConst=1)] CLEventHandle[] new_event);
 
         /// <summary>
         /// See the OpenCL specification.
@@ -158,7 +158,7 @@ namespace OpenCL.Bindings
             [MarshalAs(UnmanagedType.Bool)] bool enable,
             out OpenCLCommandQueueProperties old_properties)
         {
-            Trace.WriteLine("WARNING! clSetCommandQueueProperty has been deprecated in OpenCL 1.1.");
+            //Trace.WriteLine("WARNING! clSetCommandQueueProperty has been deprecated in OpenCL 1.1.");
             return CL10.SetCommandQueueProperty(command_queue, properties, enable, out old_properties);
         }
     }

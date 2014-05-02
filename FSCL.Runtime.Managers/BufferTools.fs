@@ -19,7 +19,7 @@ type BufferTools() =
     static member CopyBuffer(q:OpenCLCommandQueue, input:OpenCLBuffer, output:OpenCLBuffer) =
         let events = new List<OpenCLEventBase>()
         q.CopyBuffer(input, output, 0L, 0L, input.TotalCount, null, events)
-        q.Wait(events.ToArray())
+        q.Wait(events.AsReadOnly())
         events.[0].Dispose()
         
     static member CreateBuffer(t:Type, 

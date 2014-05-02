@@ -34,11 +34,11 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
     wr.Close()
     wr.Dispose()
 
-    for pIndex, pName, devs in GetOpenCLPlatforms() do        
-        Console.WriteLine("Platform: " + pName)
-        for dIndex, dName, dType in devs do
+    for pIndex = 0 to 0 do        
+        Console.WriteLine("Platform: " + pIndex.ToString())
+        for dIndex = 0 to 2 do
             if dIndex >= 0 then
-                Console.WriteLine(" Device " + ": " + dName + "(" + dType.ToString() + ")")
+                Console.WriteLine(" Device " + ": " + dIndex.ToString() + "(" + dIndex.ToString() + ")")
                 let wr = new StreamWriter("VectorAdd.csv", true)
 
                 for rm in inputReadModes do
@@ -84,7 +84,7 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                     Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
                                     let s = String.Format("{0};{1};{2};{3};{4};{5};{6};{7};{8}", 
                                                     pIndex, 
-                                                    (dIndex.ToString() +  " " + dName), 
+                                                    (dIndex.ToString() +  " " + dIndex.ToString()), 
                                                     rm, wm, ifl, ofl, 
                                                     !size,
                                                     ttime,

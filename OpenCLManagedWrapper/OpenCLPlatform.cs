@@ -131,31 +131,28 @@ namespace OpenCL
 
         static OpenCLPlatform()
         {
-            lock (typeof(OpenCLPlatform))
+            try
             {
-                try
-                {
-                    if (platforms != null)
-                        return;
-                    CLPlatformHandle[] handles;
-                    int handlesLength;
-                    OpenCLErrorCode error = CL10.GetPlatformIDs(0, null, out handlesLength);
-                    OpenCLException.ThrowOnError(error);
-                    handles = new CLPlatformHandle[handlesLength];
+                if (platforms != null)
+                    return;
+                CLPlatformHandle[] handles;
+                int handlesLength;
+                OpenCLErrorCode error = CL10.GetPlatformIDs(0, null, out handlesLength);
+                OpenCLException.ThrowOnError(error);
+                handles = new CLPlatformHandle[handlesLength];
 
-                    error = CL10.GetPlatformIDs(handlesLength, handles, out handlesLength);
-                    OpenCLException.ThrowOnError(error);
+                error = CL10.GetPlatformIDs(handlesLength, handles, out handlesLength);
+                OpenCLException.ThrowOnError(error);
 
-                    List<OpenCLPlatform> platformList = new List<OpenCLPlatform>(handlesLength);
-                    foreach (CLPlatformHandle handle in handles)
-                        platformList.Add(new OpenCLPlatform(handle));
+                List<OpenCLPlatform> platformList = new List<OpenCLPlatform>(handlesLength);
+                foreach (CLPlatformHandle handle in handles)
+                    platformList.Add(new OpenCLPlatform(handle));
 
-                    platforms = platformList.AsReadOnly();
-                }
-                catch (DllNotFoundException)
-                {
-                    platforms = new List<OpenCLPlatform>().AsReadOnly();
-                }
+                platforms = platformList.AsReadOnly();
+            }
+            catch (DllNotFoundException)
+            {
+                platforms = new List<OpenCLPlatform>().AsReadOnly();
             }
         }
 

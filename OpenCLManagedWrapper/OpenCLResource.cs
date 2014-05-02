@@ -73,7 +73,7 @@ namespace OpenCL
         /// </summary>
         ~OpenCLResource()
         {
-            Trace.WriteLine(ToString() + " leaked!", "Warning");
+            //Trace.WriteLine(ToString() + " leaked!", "Warning");
             Dispose(false);
         }
 

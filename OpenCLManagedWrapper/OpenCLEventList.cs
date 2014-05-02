@@ -87,7 +87,7 @@ namespace OpenCL
         /// Waits on the host thread for the specified events to complete.
         /// </summary>
         /// <param name="events"> The events to be waited for completition. </param>
-        public static void Wait(OpenCLEventBase[] events)
+        public static void Wait(List<OpenCLEventBase> events)
         {
             int eventWaitListSize;
             CLEventHandle[] eventHandles = OpenCLTools.ExtractHandles(events, out eventWaitListSize);
@@ -100,7 +100,7 @@ namespace OpenCL
         /// </summary>
         public void Wait()
         {
-            OpenCLEventList.Wait(events.ToArray());
+            OpenCLEventList.Wait(events);
         }
 
         #endregion

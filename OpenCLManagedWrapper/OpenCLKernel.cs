@@ -101,7 +101,7 @@ namespace OpenCL
             functionName = GetStringInfo<CLKernelHandle, OpenCLKernelInfo>(Handle, OpenCLKernelInfo.FunctionName, CL10.GetKernelInfo);
             this.program = program;
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         internal OpenCLKernel(string functionName, OpenCLProgram program)
@@ -116,7 +116,7 @@ namespace OpenCL
             this.functionName = functionName;
             this.program = program;
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         #endregion
@@ -288,7 +288,7 @@ namespace OpenCL
         {
             if (Handle.IsValid)
             {
-                Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+                //Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
                 CL10.ReleaseKernel(Handle);
                 Handle.Invalidate();
             }

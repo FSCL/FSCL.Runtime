@@ -185,7 +185,9 @@ type MultithreadKernelAdaptor() =
                     | OperandType.InlineMethod ->
                         gen.Emit(instr.OpCode, str :?> MethodInfo)
                     | OperandType.InlineField ->                        
-                        gen.Emit(instr.OpCode, str :?> FieldInfo)                           
+                        gen.Emit(instr.OpCode, str :?> FieldInfo)  
+                    | _->
+                        raise (NotSupportedException())                        
                 | _ ->
                     raise (NotSupportedException())
                 

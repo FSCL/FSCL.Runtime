@@ -136,7 +136,7 @@ namespace OpenCL
             SlicePitch = (long)GetInfo<CLMemoryHandle, OpenCLImageInfo, IntPtr>(Handle, OpenCLImageInfo.SlicePitch, CL10.GetImageInfo);
             Width = (int)GetInfo<CLMemoryHandle, OpenCLImageInfo, IntPtr>(Handle, OpenCLImageInfo.Width, CL10.GetImageInfo);
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         #endregion

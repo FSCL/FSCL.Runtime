@@ -159,7 +159,7 @@ namespace OpenCL
             this.platform = OpenCLPlatform.GetByHandle(platformProperty.Value);
             this.devices = GetDevices();
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         /// <summary>
@@ -185,7 +185,7 @@ namespace OpenCL
             this.platform = OpenCLPlatform.GetByHandle(platformProperty.Value);
             this.devices = GetDevices();
 
-            Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+            //Trace.WriteLine("Create " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
         }
 
         #endregion
@@ -207,7 +207,7 @@ namespace OpenCL
             // free native resources
             if (Handle.IsValid)
             {
-                Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
+                //Trace.WriteLine("Dispose " + this + " in Thread(" + Thread.CurrentThread.ManagedThreadId + ").", "Information");
                 CL10.ReleaseContext(Handle);
                 Handle.Invalidate();
             }

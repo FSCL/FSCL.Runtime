@@ -106,26 +106,7 @@ namespace OpenCL
                 result[i] = array[i].ToInt64();
             return result;
         }
-
-        internal static CLDeviceHandle[] ExtractHandles(OpenCLDevice[] computeObjects, out int handleCount)
-        {
-            if (computeObjects == null || computeObjects.Length == 0)
-            {
-                handleCount = 0;
-                return null;
-            }
-
-            CLDeviceHandle[] result = new CLDeviceHandle[computeObjects.Length];
-            int i = 0;
-            foreach (OpenCLDevice computeObj in computeObjects)
-            {
-                result[i] = computeObj.Handle;
-                i++;
-            }
-            handleCount = computeObjects.Length;
-            return result;
-        }
-
+        
         internal static CLDeviceHandle[] ExtractHandles(IList<OpenCLDevice> computeObjects, out int handleCount)
         {
             if (computeObjects == null || computeObjects.Count == 0)
@@ -144,76 +125,40 @@ namespace OpenCL
             handleCount = computeObjects.Count;
             return result;
         }
-        /*
-        internal static CLDeviceHandle[] ExtractHandles(OpenCLDevice[] computeObjects, out int handleCount)
+
+        internal static CLEventHandle[] ExtractHandles(IReadOnlyList<OpenCLEventBase> computeObjects, out int handleCount)
         {
-            if (computeObjects == null || computeObjects.Length == 0)
+            if (computeObjects == null || computeObjects.Count == 0)
             {
                 handleCount = 0;
                 return null;
             }
 
-            CLDeviceHandle[] result = new CLDeviceHandle[computeObjects.Length];
-            int i = 0;
-            foreach (OpenCLDevice computeObj in computeObjects)
-            {
-                result[i] = computeObj.Handle;
-                i++;
-            }
-            handleCount = computeObjects.Length;
-            return result;
-        }*/
-        
-        internal static CLEventHandle[] ExtractHandles(OpenCLEventBase[] computeObjects, out int handleCount)
-        {
-            if (computeObjects == null || computeObjects.Length == 0)
-            {
-                handleCount = 0;
-                return null;
-            }
-
-            CLEventHandle[] result = new CLEventHandle[computeObjects.Length];
-            for (int i = 0; i < computeObjects.Length; i++)
+            CLEventHandle[] result = new CLEventHandle[computeObjects.Count];
+            for (int i = 0; i < computeObjects.Count; i++)
             {
                 result[i] = computeObjects[i].Handle;
             }
-            handleCount = computeObjects.Length;
+            handleCount = computeObjects.Count;
             return result;
         }
 
-        internal static CLEventHandle[] ExtractHandles(OpenCLEvent[] computeObjects, out int handleCount)
+        internal static CLMemoryHandle[] ExtractHandles(IList<OpenCLMemory> computeObjects, out int handleCount)
         {
-            if (computeObjects == null || computeObjects.Length == 0)
+            if (computeObjects == null || computeObjects.Count == 0)
             {
                 handleCount = 0;
                 return null;
             }
 
-            CLEventHandle[] result = new CLEventHandle[computeObjects.Length];
-            for (int i = 0; i < computeObjects.Length; i++)
-            {
-                result[i] = computeObjects[i].Handle;
-            }
-            handleCount = computeObjects.Length;
-            return result;
-        }
-        
-        internal static CLMemoryHandle[] ExtractHandles(OpenCLMemory[] computeObjects, out int handleCount)
-        {
-            if (computeObjects == null || computeObjects.Length == 0)
-            {
-                handleCount = 0;
-                return null;
-            }
-
-            CLMemoryHandle[] result = new CLMemoryHandle[computeObjects.Length];
+            CLMemoryHandle[] result = new CLMemoryHandle[computeObjects.Count];
             int i = 0;
             foreach (OpenCLMemory computeObj in computeObjects)
             {
                 result[i] = computeObj.Handle;
                 i++;
             }
-            handleCount = computeObjects.Length;
+            handleCount = computeObjects.Count;
             return result;
         }
 

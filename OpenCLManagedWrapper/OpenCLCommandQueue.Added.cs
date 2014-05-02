@@ -34,6 +34,7 @@ namespace OpenCL
     using System;
     using System.Collections.Generic;
     using System.Runtime.InteropServices;
+    using System.Linq;
 
     public partial class OpenCLCommandQueue
     {
@@ -46,9 +47,9 @@ namespace OpenCL
         /// <param name="source"> The buffer to copy from. </param>
         /// <param name="destination"> The buffer to copy to. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, 0, 0, source.TotalCount, events, out newEvent);
+            Copy(source, destination, 0, 0, source.TotalCount, events, newEvents);
         }
 
         /// <summary>
@@ -61,9 +62,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, long sourceOffset, long destinationOffset, long region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, long sourceOffset, long destinationOffset, long region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, events, newEvents);
         }
 
         /// <summary>
@@ -76,9 +77,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), 0, 0, 0, 0, events, out newEvent);
+            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -91,9 +92,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -108,9 +109,9 @@ namespace OpenCL
         /// <param name="sourceRowPitch"> The size of a row of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationRowPitch"> The size of a row of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, events, out newEvent);
+            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, events, newEvents);
         }
 
         /// <summary>
@@ -127,9 +128,9 @@ namespace OpenCL
         /// <param name="sourceSlicePitch"> The size of a 2D slice of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationSlicePitch"> The size of a 2D slice of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBuffer(OpenCLBufferBase source, OpenCLBufferBase destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, events, newEvents);
         }
 
         #endregion
@@ -143,9 +144,9 @@ namespace OpenCL
         /// <param name="source"> The buffer to copy from. </param>
         /// <param name="destination"> The image to copy to. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage destination, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, 0, new SysIntX3(), new SysIntX3(destination.Width, destination.Height, (destination.Depth == 0) ? 1 : destination.Depth), events, out newEvent);
+            Copy(source, destination, 0, new SysIntX3(), new SysIntX3(destination.Width, destination.Height, (destination.Depth == 0) ? 1 : destination.Depth), events, newEvents);
         }
 
         /// <summary>
@@ -158,9 +159,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage2D destination, long sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage2D destination, long sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, out newEvent);
+            Copy(source, destination, sourceOffset, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, newEvents);
         }
 
         /// <summary>
@@ -173,9 +174,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage3D destination, long sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyBufferToImage(OpenCLBufferBase source, OpenCLImage3D destination, long sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, events, newEvents);
         }
 
         #endregion
@@ -188,9 +189,9 @@ namespace OpenCL
         /// <param name="source"> The image to copy from. </param>
         /// <param name="destination"> The image to copy to. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImage(OpenCLImage source, OpenCLImage destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyImage(OpenCLImage source, OpenCLImage destination, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, new SysIntX3(), new SysIntX3(), new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), events, out newEvent);
+            Copy(source, destination, new SysIntX3(), new SysIntX3(), new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), events, newEvents);
         }
 
         /// <summary>
@@ -202,9 +203,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImage(OpenCLImage2D source, OpenCLImage2D destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyImage(OpenCLImage2D source, OpenCLImage2D destination, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, out newEvent);
+            Copy(source, destination, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, newEvents);
         }
 
         /// <summary>
@@ -216,9 +217,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImage(OpenCLImage2D source, OpenCLImage3D destination, SysIntX2 sourceOffset, SysIntX3 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyImage(OpenCLImage2D source, OpenCLImage3D destination, SysIntX2 sourceOffset, SysIntX3 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, new SysIntX3(sourceOffset, 0), destinationOffset, new SysIntX3(region, 1), events, out newEvent);
+            Copy(source, destination, new SysIntX3(sourceOffset, 0), destinationOffset, new SysIntX3(region, 1), events, newEvents);
         }
 
         /// <summary>
@@ -230,9 +231,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImage(OpenCLImage3D source, OpenCLImage2D destination, SysIntX3 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyImage(OpenCLImage3D source, OpenCLImage2D destination, SysIntX3 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, sourceOffset, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, out newEvent);
+            Copy(source, destination, sourceOffset, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), events, newEvents);
         }
 
         /// <summary>
@@ -244,9 +245,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImage(OpenCLImage3D source, OpenCLImage3D destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void CopyImage(OpenCLImage3D source, OpenCLImage3D destination, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, events, newEvents);
         }
 
         #endregion
@@ -260,9 +261,9 @@ namespace OpenCL
         /// <param name="source"> The image to copy from. </param>
         /// <param name="destination"> The buffer to copy to. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImageToBuffer(OpenCLImage source, OpenCLBufferBase destination, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyImageToBuffer(OpenCLImage source, OpenCLBufferBase destination, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, new SysIntX3(), 0, new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), events, out newEvent);
+            Copy(source, destination, new SysIntX3(), 0, new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), events, newEvents);
         }
 
         /// <summary>
@@ -275,9 +276,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImageToBuffer(OpenCLImage2D source, OpenCLBufferBase destination, SysIntX2 sourceOffset, long destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyImageToBuffer(OpenCLImage2D source, OpenCLBufferBase destination, SysIntX2 sourceOffset, long destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, new SysIntX3(sourceOffset, 0), destinationOffset, new SysIntX3(region, 1), events, out newEvent);
+            Copy(source, destination, new SysIntX3(sourceOffset, 0), destinationOffset, new SysIntX3(region, 1), events, newEvents);
         }
 
         /// <summary>
@@ -290,9 +291,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to copy. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void CopyImageToBuffer(OpenCLImage3D source, OpenCLBufferBase destination, SysIntX3 sourceOffset, long destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void CopyImageToBuffer(OpenCLImage3D source, OpenCLBufferBase destination, SysIntX3 sourceOffset, long destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            Copy(source, destination, sourceOffset, destinationOffset, region, events, out newEvent);
+            Copy(source, destination, sourceOffset, destinationOffset, region, events, newEvents);
         }
 
         #endregion
@@ -307,9 +308,9 @@ namespace OpenCL
         /// <param name="destination"> The array to write to. </param>
         /// <param name="blocking"> The mode of operation of this command. If <c>true</c> this call will not return until the command has finished execution. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            ReadFromBuffer(source, ref destination, blocking, 0, 0, source.TotalCount, events, out newEvent);
+            ReadFromBuffer(source, ref destination, blocking, 0, 0, source.TotalCount, events, newEvents);
         }
 
         /// <summary>
@@ -323,20 +324,22 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, long sourceOffset, long destinationOffset, long region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, long sourceOffset, long destinationOffset, long region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle destinationGCHandle = GCHandle.Alloc(destination, GCHandleType.Pinned);
             IntPtr destinationOffsetPtr = Marshal.UnsafeAddrOfPinnedArrayElement(destination, (int)destinationOffset);
             
             if (blocking)
             {
-                Read(source, blocking, sourceOffset, region, destinationOffsetPtr, events, out newEvent);
+                Read(source, blocking, sourceOffset, region, destinationOffsetPtr, events, newEvents);
                 destinationGCHandle.Free();
             }
             else
             {
-                Read(source, blocking, sourceOffset, region, destinationOffsetPtr, events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(destinationGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, sourceOffset, region, destinationOffsetPtr, events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(destinationGCHandle);
             }
         }
 
@@ -351,9 +354,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, out newEvent);
+            ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -367,9 +370,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, out newEvent);
+            ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -385,19 +388,21 @@ namespace OpenCL
         /// <param name="sourceRowPitch"> The size of a row of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationRowPitch"> The size of a row of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle destinationGCHandle = GCHandle.Alloc(destination, GCHandleType.Pinned);
 
             if (blocking)
             {
-                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destinationGCHandle.AddrOfPinnedObject(), events, out newEvent);
+                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destinationGCHandle.AddrOfPinnedObject(), events, newEvents);
                 destinationGCHandle.Free();
             }
             else
             {
-                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destinationGCHandle.AddrOfPinnedObject(), events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(destinationGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destinationGCHandle.AddrOfPinnedObject(), events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(destinationGCHandle);
             }
         }
 
@@ -416,19 +421,21 @@ namespace OpenCL
         /// <param name="sourceSlicePitch"> The size of a 2D slice of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationSlicePitch"> The size of a 2D slice of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle destinationGCHandle = GCHandle.Alloc(destination, GCHandleType.Pinned);
 
             if (blocking)
             {
-                Read(source, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destinationGCHandle.AddrOfPinnedObject(), events, out newEvent);
+                Read(source, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destinationGCHandle.AddrOfPinnedObject(), events, newEvents);
                 destinationGCHandle.Free();
             }
             else
             {
-                Read(source, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destinationGCHandle.AddrOfPinnedObject(), events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(destinationGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destinationGCHandle.AddrOfPinnedObject(), events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(destinationGCHandle);
             }
         }
 
@@ -443,9 +450,9 @@ namespace OpenCL
         /// <param name="destination"> A valid pointer to a preallocated memory area to write to. </param>
         /// <param name="blocking"> The mode of operation of this command. If <c>true</c> this call will not return until the command has finished execution. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromImage(OpenCLImage source, IntPtr destination, bool blocking, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void ReadFromImage(OpenCLImage source, IntPtr destination, bool blocking, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Read(source, blocking, new SysIntX3(), new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), 0, 0, destination, events, out newEvent);
+            Read(source, blocking, new SysIntX3(), new SysIntX3(source.Width, source.Height, (source.Depth == 0) ? 1 : source.Depth), 0, 0, destination, events, newEvents);
         }
 
         /// <summary>
@@ -457,9 +464,9 @@ namespace OpenCL
         /// <param name="sourceOffset"> The <paramref name="source"/> element position where reading starts. </param>
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromImage(OpenCLImage2D source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void ReadFromImage(OpenCLImage2D source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(region, 1), 0, 0, destination, events, out newEvent);
+            Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(region, 1), 0, 0, destination, events, newEvents);
         }
 
         /// <summary>
@@ -471,9 +478,9 @@ namespace OpenCL
         /// <param name="sourceOffset"> The <paramref name="source"/> element position where reading starts. </param>
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromImage(OpenCLImage3D source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void ReadFromImage(OpenCLImage3D source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Read(source, blocking, sourceOffset, region, 0, 0, destination, events, out newEvent);
+            Read(source, blocking, sourceOffset, region, 0, 0, destination, events, newEvents);
         }
 
         /// <summary>
@@ -486,9 +493,9 @@ namespace OpenCL
         /// <param name="region"> The region of elements to read. </param>
         /// <param name="sourceRowPitch"> The size of a row of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromImage(OpenCLImage2D source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, long sourceRowPitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void ReadFromImage(OpenCLImage2D source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, long sourceRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destination, events, out newEvent);
+            Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destination, events, newEvents);
         }
 
         /// <summary>
@@ -502,9 +509,9 @@ namespace OpenCL
         /// <param name="sourceRowPitch"> The size of a row of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="sourceSlicePitch"> The size of a 2D slice of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void ReadFromImage(OpenCLImage3D source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void ReadFromImage(OpenCLImage3D source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, long sourceRowPitch, long sourceSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Read(source, blocking, sourceOffset, region, sourceRowPitch, sourceSlicePitch, destination, events, out newEvent);
+            Read(source, blocking, sourceOffset, region, sourceRowPitch, sourceSlicePitch, destination, events, newEvents);
         }
 
         #endregion
@@ -519,9 +526,9 @@ namespace OpenCL
         /// <param name="destination"> The buffer to write to. </param>
         /// <param name="blocking"> The mode of operation of this command. If <c>true</c> this call will not return until the command has finished execution. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            WriteToBuffer(source, destination, blocking, 0, 0, destination.TotalCount, events, out newEvent);
+            WriteToBuffer(source, destination, blocking, 0, 0, destination.TotalCount, events, newEvents);
         }
 
         /// <summary>
@@ -535,20 +542,22 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, long sourceOffset, long destinationOffset, long region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, long sourceOffset, long destinationOffset, long region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle sourceGCHandle = GCHandle.Alloc(source, GCHandleType.Pinned);
             IntPtr sourceOffsetPtr = Marshal.UnsafeAddrOfPinnedArrayElement(source, (int)sourceOffset);
 
             if (blocking)
             {
-                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, events, out newEvent);
+                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, events, newEvents);
                 sourceGCHandle.Free();
             }
             else
             {
-                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(sourceGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, destinationOffset, region, sourceOffsetPtr, events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 
@@ -563,9 +572,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, out newEvent);
+            WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -579,9 +588,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent) 
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
-            WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, out newEvent);
+            WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -597,19 +606,21 @@ namespace OpenCL
         /// <param name="sourceRowPitch"> The size of a row of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationRowPitch"> The size of a row of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle sourceGCHandle = GCHandle.Alloc(source, GCHandleType.Pinned);
 
             if (blocking)
             {
-                Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), events, out newEvent);
+                Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), events, newEvents);
                 sourceGCHandle.Free();
             }
             else
             {
-                Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(sourceGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 
@@ -628,19 +639,21 @@ namespace OpenCL
         /// <param name="sourceSlicePitch"> The size of a 2D slice of elements of <paramref name="source"/> in bytes. </param>
         /// <param name="destinationSlicePitch"> The size of a 2D slice of elements of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             GCHandle sourceGCHandle = GCHandle.Alloc(source, GCHandleType.Pinned);
 
             if (blocking)
             {
-                Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), events, out newEvent);
+                Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), events, newEvents);
                 sourceGCHandle.Free();
             }
             else
             {
-                Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), events, out newEvent);
-                (newEvent as OpenCLEvent).TrackGCHandle(sourceGCHandle);
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), events, eventList);
+                OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
+                newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
 
@@ -655,9 +668,9 @@ namespace OpenCL
         /// <param name="destination"> The image to write to. </param>
         /// <param name="blocking"> The mode of operation of this command. If <c>true</c> this call will not return until the command has finished execution. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToImage(IntPtr source, OpenCLImage destination, bool blocking, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToImage(IntPtr source, OpenCLImage destination, bool blocking, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Write(destination, blocking, new SysIntX3(), new SysIntX3(destination.Width, destination.Height, (destination.Depth == 0) ? 1 : destination.Depth), 0, 0, source, events, out newEvent);
+            Write(destination, blocking, new SysIntX3(), new SysIntX3(destination.Width, destination.Height, (destination.Depth == 0) ? 1 : destination.Depth), 0, 0, source, events, newEvents);
         }
 
         /// <summary>
@@ -669,9 +682,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToImage(IntPtr source, OpenCLImage2D destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToImage(IntPtr source, OpenCLImage2D destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Write(destination, blocking, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), 0, 0, source, events, out newEvent);
+            Write(destination, blocking, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), 0, 0, source, events, newEvents);
         }
 
         /// <summary>
@@ -683,9 +696,9 @@ namespace OpenCL
         /// <param name="destinationOffset"> The <paramref name="destination"/> element position where writing starts. </param>
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToImage(IntPtr source, OpenCLImage3D destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToImage(IntPtr source, OpenCLImage3D destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Write(destination, blocking, destinationOffset, region, 0, 0, source, events, out newEvent);
+            Write(destination, blocking, destinationOffset, region, 0, 0, source, events, newEvents);
         }
 
         /// <summary>
@@ -698,9 +711,9 @@ namespace OpenCL
         /// <param name="region"> The region of elements to write. </param>
         /// <param name="destinationRowPitch"> The size of a row of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToImage(IntPtr source, OpenCLImage2D destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, long destinationRowPitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToImage(IntPtr source, OpenCLImage2D destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Write(destination, blocking, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), destinationRowPitch, 0, source, events, out newEvent);
+            Write(destination, blocking, new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), destinationRowPitch, 0, source, events, newEvents);
         }
 
         /// <summary>
@@ -714,9 +727,9 @@ namespace OpenCL
         /// <param name="destinationRowPitch"> The size of a row of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="destinationSlicePitch"> The size of a 2D slice of pixels of <paramref name="destination"/> in bytes. </param>
         /// <param name="events"> A collection of events that need to complete before this particular command can be executed. If <paramref name="events"/> is not <c>null</c> a new event identifying this command is attached to the end of the collection. </param>
-        public void WriteToImage(IntPtr source, OpenCLImage3D destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, long destinationRowPitch, long destinationSlicePitch, OpenCLEventBase[] events, out OpenCLEventBase newEvent)
+        public void WriteToImage(IntPtr source, OpenCLImage3D destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, long destinationRowPitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
         {
-            Write(destination, blocking, destinationOffset, region, destinationRowPitch, destinationSlicePitch, source, events, out newEvent);
+            Write(destination, blocking, destinationOffset, region, destinationRowPitch, destinationSlicePitch, source, events, newEvents);
         }
 
         #endregion
