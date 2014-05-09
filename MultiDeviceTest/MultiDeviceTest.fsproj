@@ -47,6 +47,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Kernels.fs" />
     <Compile Include="VectorAddTest.fs" />
+    <Compile Include="MatrixMultTest.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
   </ItemGroup>
