@@ -3,8 +3,6 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>12.0.0</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{9798C149-593E-4A31-8B5D-807C20808A00}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>FSCL.Runtime.AcceleratedCollections</RootNamespace>
@@ -58,8 +56,7 @@
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\AcceleratedCollections\FSCL.Compiler.AcceleratedCollections.fsproj">
       <Name>FSCL.Compiler.AcceleratedCollections</Name>
-      <Project>{5da99afc-09cc-4d46-9145-ddad276bb68e}</Project>
-      <Private>True</Private>
+      <Project>5DA99AFC-09CC-4D46-9145-DDAD276BB68E</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
@@ -71,13 +68,11 @@
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Language\FSCL.Compiler.Core.Language.fsproj">
       <Name>FSCL.Compiler.Core.Language</Name>
-      <Project>{02cc39bd-a326-49f6-b5e6-2987eada1ba2}</Project>
-      <Private>True</Private>
+      <Project>{02CC39BD-A326-49F6-B5E6-2987EADA1BA2}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\ModuleParsing\FSCL.Compiler.Core.ModuleParsing.fsproj">
       <Name>FSCL.Compiler.Core.ModuleParsing</Name>
-      <Project>{a42da267-4d0e-4f14-a7e0-f2f9ab587005}</Project>
-      <Private>True</Private>
+      <Project>A42DA267-4D0E-4F14-A7E0-F2F9AB587005</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\Util\FSCL.Compiler.Core.Util.fsproj">
       <Name>FSCL.Compiler.Core.Util</Name>
@@ -85,13 +80,11 @@
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core.KernelExecution\FSCL.Runtime.RuntimeSteps.fsproj">
       <Name>FSCL.Runtime.RuntimeSteps</Name>
-      <Project>{c0b03fa8-df51-417d-8f17-bd41f59fc313}</Project>
-      <Private>True</Private>
+      <Project>{C0B03FA8-DF51-417D-8F17-BD41F59FC313}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Managers\FSCL.Runtime.Managers.fsproj">
       <Name>FSCL.Runtime.Managers</Name>
-      <Project>{3f15f0d8-b89a-40e5-98c8-529e74991812}</Project>
-      <Private>True</Private>
+      <Project>3F15F0D8-B89A-40E5-98C8-529E74991812</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Util\FSCL.Runtime.Util.fsproj">
       <Project>{7C90C48C-4C3A-4FC3-8510-A7E50EF76DB3}</Project>
@@ -99,18 +92,15 @@
     </ProjectReference>
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
-      <Project>{cd77f2ca-f702-4a05-a6e6-7725fc656084}</Project>
-      <Private>True</Private>
+      <Project>CD77F2CA-F702-4A05-A6E6-7725FC656084</Project>
     </ProjectReference>
     <ProjectReference Include="..\Metric\FSCL.Runtime.Metric.fsproj">
       <Name>FSCL.Runtime.Metric</Name>
-      <Project>{a329e02a-c967-4f11-99bf-cf6c16a009af}</Project>
-      <Private>True</Private>
+      <Project>A329E02A-C967-4F11-99BF-CF6C16A009AF</Project>
     </ProjectReference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
-      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
-      <Private>True</Private>
+      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
     </ProjectReference>
   </ItemGroup>
 </Project>

@@ -44,7 +44,6 @@ namespace OpenCL
     public abstract class OpenCLBufferBase : OpenCLMemory
     {
         #region Fields
-        private long[] count = null;
         #endregion
 
         #region Properties
@@ -60,25 +59,22 @@ namespace OpenCL
             get
             {
                 long sum = 1;
-                foreach (long c in count)
+				foreach (long c in Count)
                     sum *= c;
                 return sum;
             }
         }
 
-        public long[] Count
-        {
-            get
-            {
-                return count;
-            }
+        public long[] Count {
+			get;
+			set;
         }
 
         public int Rank
         {
             get
             {
-                return count.Length;
+				return Count.Length;
             }
         }
 
@@ -126,7 +122,7 @@ namespace OpenCL
             : base(context, flags)
         {
             ElementType = elementType;
-            this.count = count;
+			this.Count = count;
         }
 
         #endregion

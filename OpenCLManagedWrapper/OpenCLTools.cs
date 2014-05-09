@@ -87,8 +87,7 @@ namespace OpenCL
         {
             if (array == null) return null;
 
-            NumberFormatInfo nfi = new NumberFormatInfo();
-
+            
             IntPtr[] result = new IntPtr[array.Length];
             for (long i = 0; i < array.Length; i++)
                 result[i] = new IntPtr(array[i]);
@@ -99,8 +98,7 @@ namespace OpenCL
         {
             if (array == null) return null;
 
-            NumberFormatInfo nfi = new NumberFormatInfo();
-
+            
             long[] result = new long[array.Length];
             for (long i = 0; i < array.Length; i++)
                 result[i] = array[i].ToInt64();

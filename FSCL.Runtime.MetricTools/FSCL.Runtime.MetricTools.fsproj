@@ -4,14 +4,12 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>CB4C5F5A-CDFD-4372-A565-BC7D2E362E22</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>MetricTools</RootNamespace>
     <AssemblyName>MetricTools</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Name>FSCL.Runtime.MetricTools</Name>
-    <ProductVersion>12.0.0</ProductVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -62,8 +60,7 @@
     </ProjectReference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
-      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
-      <Private>True</Private>
+      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

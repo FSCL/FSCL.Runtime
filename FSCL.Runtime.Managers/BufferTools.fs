@@ -9,9 +9,9 @@ open FSCL.Runtime
 open FSCL.Compiler.Configuration
 open System.Collections.Generic
   
-module internal MemoryUtil =      
+module internal MemoryUtil =     
     [<DllImport("kernel32.dll")>]
-    extern void RtlMoveMemory(IntPtr dest, IntPtr src, uint32 len);
+    extern void memcpy(IntPtr dest, IntPtr src, IntPtr len);
 
 open MemoryUtil
 
@@ -51,7 +51,7 @@ type BufferTools() =
             try 
                 let srcPtr = sourceHandle.AddrOfPinnedObject()
                 let dstPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Write, 0L, tCount, null, evt)
-                RtlMoveMemory(srcPtr, dstPtr, buffer.Size |> uint32)                                   
+                memcpy(srcPtr, dstPtr, new IntPtr(buffer.Size))                                  
                 queue.Unmap(buffer, ref dstPtr, null, null)                             
             finally
                 if (sourceHandle.IsAllocated) then
@@ -89,7 +89,7 @@ type BufferTools() =
             try 
                 let dstPtr = dstHandle.AddrOfPinnedObject()
                 let srcPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Read, 0L, tCount, null, evt)
-                RtlMoveMemory(srcPtr, dstPtr, buffer.Size |> uint32)                                   
+                memcpy(srcPtr, dstPtr, new IntPtr(buffer.Size))                               
                 queue.Unmap(buffer, ref srcPtr, null, null)                             
             finally
                 if (dstHandle.IsAllocated) then

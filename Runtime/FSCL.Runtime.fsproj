@@ -4,14 +4,12 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>57A5E768-A0AA-4B4F-B538-2BEA1B4E5895</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>FSCL</RootNamespace>
     <AssemblyName>FSCL</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <Name>FSCL.Runtime</Name>
-    <ProductVersion>12.0.0</ProductVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -71,13 +69,11 @@
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core.KernelExecution\FSCL.Runtime.RuntimeSteps.fsproj">
       <Name>FSCL.Runtime.RuntimeSteps</Name>
-      <Project>{c0b03fa8-df51-417d-8f17-bd41f59fc313}</Project>
-      <Private>True</Private>
+      <Project>{C0B03FA8-DF51-417D-8F17-BD41F59FC313}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Managers\FSCL.Runtime.Managers.fsproj">
       <Name>FSCL.Runtime.Managers</Name>
-      <Project>{3f15f0d8-b89a-40e5-98c8-529e74991812}</Project>
-      <Private>True</Private>
+      <Project>3F15F0D8-B89A-40E5-98C8-529E74991812</Project>
     </ProjectReference>
     <ProjectReference Include="..\Language\FSCL.Runtime.Core.Language.fsproj">
       <Name>FSCL.Runtime.Core.Language</Name>
@@ -101,8 +97,7 @@
     </ProjectReference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
-      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
-      <Private>True</Private>
+      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

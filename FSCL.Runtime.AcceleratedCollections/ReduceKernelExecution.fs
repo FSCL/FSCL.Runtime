@@ -121,17 +121,16 @@ type ReduceKernelExecutionProcessor() =
             
             // Execute until the output size is smaller than group size * number of compute units (full utilization of pipeline)
             let mutable currentGlobalSize = inputBuffer.Count.[0] / 2L
-            let smallestGlobalSize = (1L <<< 10) / 2L - 1L//currentGlobalSize - 1L // 
+            let mutable currentDataSize = inputBuffer.Count.[0]
+            let smallestDataSize = node.KernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length //currentGlobalSize - 1L // 
             let mutable currentLocalSize = localSize.[0]
             let mutable lastOutputSize = inputBuffer.Count.[0]
             
             let offset = Array.zeroCreate<int64>(inputBuffer.Count.[0] |> int)
             
-            while (currentGlobalSize > smallestGlobalSize) do
+            while (currentDataSize > smallestDataSize) do
                 deviceData.Queue.Execute(compiledData.Kernel, offset, [| currentGlobalSize |], [| currentLocalSize |], null)                
-               
-                // TESTING ITERATION - TO COMMENT
-                lastOutputSize <- currentGlobalSize / currentLocalSize     
+                   
                
                 // TESTING ITERATION - TO COMMENT
                 //let obj = Array.CreateInstance(kernelData.Info.Parameters.[2].Type.GetElementType(), [| currentGlobalSize / currentLocalSize |])
@@ -139,62 +138,62 @@ type ReduceKernelExecutionProcessor() =
 
                 // Recompute work size
                 // Il local size become greater than or equal to global size, we set it to be half the global size
-                let outputSize = currentGlobalSize / currentLocalSize
-                if currentLocalSize >= (outputSize / 2L) then
-                    currentLocalSize <- outputSize / 4L
-                currentGlobalSize <- outputSize / 2L
+                currentDataSize <- currentGlobalSize / currentLocalSize
+                if currentLocalSize >= (currentDataSize / 2L) then
+                    currentLocalSize <- currentDataSize / 2L
+                currentGlobalSize <- currentDataSize / 2L
                 
-                if(currentGlobalSize > smallestGlobalSize) then
+                if(currentDataSize > smallestDataSize) then
                     // Exchange buffer
                     compiledData.Kernel.SetMemoryArgument(0, outputBuffer)
-                    compiledData.Kernel.SetValueArgument(3, outputSize |> int)
+                    compiledData.Kernel.SetValueArgument(3, currentDataSize |> int)
 
                     // Set local buffer arg                 
                     compiledData.Kernel.SetValueArgument(4, currentLocalSize |> int)
 
             // Read buffer
+            let mutable result = null
             let outputPar = kernelData.Kernel.Parameters.[2]
-            let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
-            // Allocate array (since if this is a return parameter it has no .NET array matching it)
-            let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
-            BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
+            if currentDataSize > 1L then
+                let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
+                // Allocate array (since if this is a return parameter it has no .NET array matching it)
+                let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
+                BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
-            // Dispose kernel            
-            //compiledData.Kernel.Dispose()
+                // Do final iteration on CPU
+                let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
+                match reduceFunction with
+                | :? MethodInfo ->
+                    for i = 1 to arrobj.Length - 1 do
+                        // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
+                        result <- (reduceFunction :?> MethodInfo).Invoke(null, [| result; arrobj.GetValue(i) |])
+                | _ ->
+                    // WARNING:
+                    // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
+                    // It seems that converting to Linq expressions works, but it's less efficient 
+                    let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
 
-            // Do final iteration on CPU
-            let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
-            let mutable result = arrobj.GetValue(0)
-            match reduceFunction with
-            | :? MethodInfo ->
-                for i = 1 to arrobj.Length - 1 do
-                    // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                    result <- (reduceFunction :?> MethodInfo).Invoke(null, [| result; arrobj.GetValue(i) |])
-            | _ ->
-                // WARNING:
-                // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
-                // It seems that converting to Linq expressions works, but it's less efficient 
-                let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
-
-                // Curried
-                for i = 1 to arrobj.Length - 1 do
-                    let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| result |])
-                    let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arrobj.GetValue(i) |])
-                    result <- r2
+                    // Curried
+                    for i = 1 to arrobj.Length - 1 do
+                        let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| result |])
+                        let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arrobj.GetValue(i) |])
+                        result <- r2
 
             // Dispose input buffer
             pool.EndUsingBuffer(inputBuffer)
 
             // If not root must write the result to buffer for the next kernel
             if not isRoot then
-                let ob = pool.CreateUntrackedBuffer(deviceData.Context, deviceData.Queue, outputPar, [| 1L |], false)
-                let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
-                BufferTools.WriteBuffer(deviceData.Queue, useMap, ob, [| result |])
-                
+                if currentDataSize > 1L then
+                    let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
+                    // If some iterations performed on CPU write them back to the buffer
+                    BufferTools.WriteBuffer(deviceData.Queue, useMap, outputBuffer, [| result |])
+                // Otherwise they are already in the buffer
+                outputBuffer.Count <- [| 1L |]
                 // Dispose output buffer
                 pool.EndUsingBuffer(outputBuffer)
-                // Return
-                Some(ReturnedUntrackedBuffer(ob))
+                // Return 
+                Some(ReturnedUntrackedBuffer(outputBuffer))
             else
                 // Dispose output buffer
                 pool.EndUsingBuffer(outputBuffer)
