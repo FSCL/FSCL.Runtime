@@ -125,14 +125,14 @@ let VerifyCPU(r: float4[,], cols: long) =
 let DoTest(minSize: long, maxSize: long, iters: int) =
     let inputReadModes = [ BufferReadMode.EnqueueReadBuffer; BufferReadMode.MapBuffer ]
     let outputWriteModes = [ BufferWriteMode.EnqueueWriteBuffer; BufferWriteMode.MapBuffer ]
-    let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
-                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; 
-                       MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly; ]
-    let outputFlags = [ MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly;
-                        MemoryFlags.HostReadOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.WriteOnly;
-                        MemoryFlags.HostReadOnly ||| MemoryFlags.WriteOnly; ]
+    let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly;
+                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
+                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; ]
+    let outputFlags = [ MemoryFlags.HostReadOnly ||| MemoryFlags.WriteOnly;
+                        MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly;
+                        MemoryFlags.HostReadOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.WriteOnly; ]
 
-    let wr = new StreamWriter("MatrixMult.csv", true)
+    let wr = new StreamWriter("MatrixMult.csv", false)
     wr.WriteLine("PLATFORM;DEVICE;READ MODE;WRITE MODE;INPUT FLAGS;OUTPUT FLAGS;SIZE;TIME;ITERATIONS")
 
     let sizes = (seq {

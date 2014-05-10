@@ -105,31 +105,29 @@ type ReduceKernelExecutionProcessor() =
             let sizeParameters = par.SizeParameters
             // Set size parameter                
             compiledData.Kernel.SetValueArgument(argIndex + 3, localSize.[0] |> int)
-                
+              
+            let mutable currentDataSize = inputBuffer.Count.[0]
+            let mutable currentGlobalSize = currentDataSize / 2L
+            let mutable currentLocalSize = if localSize.[0] > currentGlobalSize then currentGlobalSize else localSize.[0]
+              
             argIndex <- argIndex + 1
             // Third parameter: output buffer
             let par = parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.DataType.GetElementType()
-            outputBuffer <- pool.RequireBufferForParameter(par, None, [| inputBuffer.Count.[0] / localSize.[0] / 2L |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
+            outputBuffer <- pool.RequireBufferForParameter(par, None, [| currentDataSize / currentLocalSize |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
             // Store dim sizes
             let sizeParameters = par.SizeParameters
             // Set size parameter
-            compiledData.Kernel.SetValueArgument(argIndex + 3, inputBuffer.Count.[0] / localSize.[0] / 2L |> int)
+            compiledData.Kernel.SetValueArgument(argIndex + 3, currentDataSize / currentLocalSize |> int)
             
             // Execute until the output size is smaller than group size * number of compute units (full utilization of pipeline)
-            let mutable currentGlobalSize = inputBuffer.Count.[0] / 2L
-            let mutable currentDataSize = inputBuffer.Count.[0]
             let smallestDataSize = node.KernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length //currentGlobalSize - 1L // 
-            let mutable currentLocalSize = localSize.[0]
-            let mutable lastOutputSize = inputBuffer.Count.[0]
-            
-            let offset = Array.zeroCreate<int64>(inputBuffer.Count.[0] |> int)
-            
+                        
             while (currentDataSize > smallestDataSize) do
-                deviceData.Queue.Execute(compiledData.Kernel, offset, [| currentGlobalSize |], [| currentLocalSize |], null)                
+                deviceData.Queue.Execute(compiledData.Kernel, [| 0L |], [| currentGlobalSize |], [| currentLocalSize |], null)                
                    
                
                 // TESTING ITERATION - TO COMMENT
@@ -157,13 +155,14 @@ type ReduceKernelExecutionProcessor() =
             if currentDataSize > 1L then
                 let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
                 // Allocate array (since if this is a return parameter it has no .NET array matching it)
-                let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), lastOutputSize)
+                let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), currentDataSize)
                 BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
                 // Do final iteration on CPU
                 let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
                 match reduceFunction with
                 | :? MethodInfo ->
+                    result <- arrobj.GetValue(0)
                     for i = 1 to arrobj.Length - 1 do
                         // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
                         result <- (reduceFunction :?> MethodInfo).Invoke(null, [| result; arrobj.GetValue(i) |])
@@ -172,7 +171,8 @@ type ReduceKernelExecutionProcessor() =
                     // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
                     // It seems that converting to Linq expressions works, but it's less efficient 
                     let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
-
+                    
+                    result <- arrobj.GetValue(0)
                     // Curried
                     for i = 1 to arrobj.Length - 1 do
                         let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| result |])
@@ -195,9 +195,20 @@ type ReduceKernelExecutionProcessor() =
                 // Return 
                 Some(ReturnedUntrackedBuffer(outputBuffer))
             else
-                // Dispose output buffer
-                pool.EndUsingBuffer(outputBuffer)
-                // Return
-                Some(ReturnedValue(result))
+                if currentDataSize > 1L then
+                    // Dispose output buffer
+                    pool.EndUsingBuffer(outputBuffer)
+                    Some(ReturnedValue(result))
+                else
+                    let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
+                    // Allocate array (since if this is a return parameter it has no .NET array matching it)
+                    let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), 1)
+                    outputBuffer.Count <- [| 1L |]
+                    BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
+
+                    // Dispose output buffer
+                    pool.EndUsingBuffer(outputBuffer)
+                    // Return
+                    Some(ReturnedValue(arrobj.GetValue(0)))
         else
             None

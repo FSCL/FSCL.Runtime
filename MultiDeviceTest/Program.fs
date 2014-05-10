@@ -23,6 +23,11 @@ let main argv =
     Console.WriteLine("::::::::::::: Matrix Multiplication :::::::::::::")
     MatrixMultTest.DoTest(minMatSize, maxMatSize, 100)
     Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::")
+    
+    Console.WriteLine(":::::::::::::::: Vector Reduction :::::::::::::::")
+    ReduceTest.DoTest(minVectorSize, maxVectorSize, 100)
+    Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::")
+
     Console.Read() |> ignore
     0
 

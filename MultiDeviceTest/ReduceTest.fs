@@ -1,4 +1,4 @@
-﻿module VectorAddTest
+﻿module ReduceTest
 
 open Utils
 open FSCL.Compiler
@@ -9,27 +9,24 @@ open System
 open System.IO
 open System.Diagnostics
 
-// Vector addition
-[<ReflectedDefinition>]
-let VectorAdd(a: float32[], b: float32[], c: float32[]) =
-    let gid = get_global_id(0)
-    c.[gid] <- a.[gid] + b.[gid]
+let Verify(r: float32[], result: float32) =
+    (Array.reduce (fun a b -> a + b) r) = result
 
-let Verify(r: float32[]) =
-    let v = Array.tryFind(fun (it:float32) -> it <> (float32)r.Length) r
-    v.IsNone
-        
+[<ReflectedDefinition>]
+let sum a b =
+    a + b
+            
 let DoTest(minSize: long, maxSize: long, iters: int) =
     let inputReadModes = [ BufferReadMode.EnqueueReadBuffer; BufferReadMode.MapBuffer ]
     let outputWriteModes = [ BufferWriteMode.EnqueueWriteBuffer; BufferWriteMode.MapBuffer ]
-    let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly;
-                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
-                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; ]
-    let outputFlags = [ MemoryFlags.HostReadOnly ||| MemoryFlags.WriteOnly;
-                        MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly;
-                        MemoryFlags.HostReadOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.WriteOnly; ]
+    let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
+                       MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; 
+                       MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly; ]
+    let outputFlags = [ MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer;
+                        MemoryFlags.HostReadOnly ||| MemoryFlags.UsePersistentMemAMD;
+                        MemoryFlags.HostReadOnly ]
 
-    let wr = new StreamWriter("VectorAdd.csv", false)
+    let wr = new StreamWriter("VectorReduce.csv", false)
     wr.WriteLine("PLATFORM;DEVICE;READ MODE;WRITE MODE;INPUT FLAGS;OUTPUT FLAGS;SIZE;TIME;ITERATIONS")
 
     for pIndex, pName, pDevs in GetOpenCLPlatforms() do        
@@ -50,32 +47,34 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                     Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
                                     if dType <> DeviceType.Cpu || ((ifl &&& MemoryFlags.UsePersistentMemAMD |> int = 0) && (ofl &&& MemoryFlags.UsePersistentMemAMD |> int = 0)) then
                                         let a = Array.zeroCreate<float32> (!size |> int)
-                                        let b = Array.zeroCreate<float32> (!size |> int)
-                                        let c = Array.zeroCreate<float32> (!size |> int)
                                         for i = 0 to (!size |> int) - 1 do
-                                            a.[i] <- (float32)i
-                                            b.[i] <- (float32)((!size |> int) - i)
-                                        let comp = <@ DEVICE(pIndex, dIndex,
-                                                        VectorAdd(
-                                                         BUFFER_READ_MODE(rm, 
-                                                            MEMORY_FLAGS(ifl, 
-                                                                a)),
-                                                         BUFFER_READ_MODE(rm, 
-                                                            MEMORY_FLAGS(ifl, 
-                                                                b)),
-                                                         BUFFER_WRITE_MODE(wm, 
-                                                            MEMORY_FLAGS(ofl, 
-                                                                c)))) @>
+                                            a.[i] <- 1.0f
+
+                                        let mutable minSizeForCPU = 1L
+                                        //while minSizeForCPU < !size / 2L do
+                                        Console.WriteLine("      Fallback on CPU when size is: " + String.Format("{0,10:##########}", minSizeForCPU))
+                                        let comp = <@ 
+                                                            DEVICE(pIndex, dIndex,
+                                                                RETURN_BUFFER_READ_MODE(rm, 
+                                                                    RETURN_BUFFER_WRITE_MODE(wm,
+                                                                        RETURN_MEMORY_FLAGS(ofl,
+                                                                            Array.reduce 
+                                                                                sum 
+                                                                                (BUFFER_READ_MODE(rm, 
+                                                                                    BUFFER_WRITE_MODE(wm,
+                                                                                        MEMORY_FLAGS(ifl,
+                                                                                            a))))))))
+                                                    @>
                                         // Run once to skip compilation time
-                                        comp.Run(!size, 128L)
-                                        if not (Verify(c)) then
+                                        let c = comp.Run(!size, 128L)
+                                        if not (Verify(a, c)) then
                                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                                         else
                                             // Run
                                             let watch = new Stopwatch()
                                             watch.Start()
                                             for i = 0 to iters - 1 do
-                                                comp.Run(!size, 128L)
+                                                comp.Run(!size, 128L) |> ignore
                                             watch.Stop()
                                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iters), iters
                                             //let ttime, iters = Utils.ExcuteFor 1000.0 (fun () -> comp.Run(!size, 64L))
@@ -90,7 +89,8 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                                             iters)
                                             wr.WriteLine(s)
                                             System.Threading.Thread.Sleep(2000)
-
+    
+                                            //minSizeForCPU <- minSizeForCPU * 2L
                                     size := !size * 2L                                    
     wr.Close()
                     
