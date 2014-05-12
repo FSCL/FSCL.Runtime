@@ -10,8 +10,8 @@ open FSCL.Compiler.Configuration
 open System.Collections.Generic
   
 module internal MemoryUtil =     
-    [<DllImport("kernel32.dll")>]
-    extern void memcpy(IntPtr dest, IntPtr src, IntPtr len);
+    [<DllImport("msvcrt.dll", SetLastError=false, CallingConvention=CallingConvention.Cdecl)>]
+    extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr len);
 
 open MemoryUtil
 
@@ -47,11 +47,12 @@ type BufferTools() =
         let evt = null;//new List<OpenCLEventBase>()
         if useMap then
             let tCount = if count.IsSome then Array.reduce (fun a b -> a * b) count.Value else buffer.TotalCount
+            let tBytes = tCount * (Marshal.SizeOf(buffer.ElementType) |> int64)
             let sourceHandle = GCHandle.Alloc(arr, GCHandleType.Pinned)
             try 
                 let srcPtr = sourceHandle.AddrOfPinnedObject()
                 let dstPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Write, 0L, tCount, null, evt)
-                memcpy(srcPtr, dstPtr, new IntPtr(buffer.Size))                                  
+                memcpy(dstPtr, srcPtr, new UIntPtr(tBytes |> uint64)) |> ignore                           
                 queue.Unmap(buffer, ref dstPtr, null, null)                             
             finally
                 if (sourceHandle.IsAllocated) then
@@ -85,11 +86,12 @@ type BufferTools() =
         let evt = null;//new List<OpenCLEventBase>()
         if useMap then
             let tCount = if count.IsSome then Array.reduce (fun a b -> a * b) count.Value else buffer.TotalCount
+            let tBytes = tCount * (Marshal.SizeOf(buffer.ElementType) |> int64)
             let dstHandle = GCHandle.Alloc(o, GCHandleType.Pinned)
             try 
                 let dstPtr = dstHandle.AddrOfPinnedObject()
                 let srcPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Read, 0L, tCount, null, evt)
-                memcpy(srcPtr, dstPtr, new IntPtr(buffer.Size))                               
+                memcpy(dstPtr, srcPtr, new UIntPtr(tBytes |> uint64)) |> ignore                                                          
                 queue.Unmap(buffer, ref srcPtr, null, null)                             
             finally
                 if (dstHandle.IsAllocated) then

@@ -35,10 +35,10 @@ type BufferPoolItem(buffer: OpenCLBuffer,
 type BufferPoolManager() =
     let mutable noObjID = 0
 
-    let trackedBufferPool = Dictionary<obj, BufferPoolItem>()
+    let trackedBufferPool = Dictionary<Array, BufferPoolItem>()
     let untrackedBufferPool = Dictionary<OpenCLContext, Dictionary<OpenCLBuffer, BufferPoolItem>>()
     let mutable rootReturnBuffer = None
-    let reverseTrackedBufferPool = Dictionary<OpenCLBuffer, obj>()
+    let reverseTrackedBufferPool = Dictionary<OpenCLBuffer, Array>()
     
     // Tracking buffer
     // This is the buffer is amtching an array argument
@@ -227,39 +227,14 @@ type BufferPoolManager() =
         
         if retArr.IsSome then
             // Return is tracked
-            let retItem = trackedBufferPool.[retArr.Value]
-            assert(retItem.IsAvailable)                   
-            // Check if this can be used with no copy
-            let mutable avoidCopy = context = retBuffer.Context
-            //Console.WriteLine("Returned buffer is TRACKED")
-            if context = retBuffer.Context &&
-                BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then                
-                //Console.WriteLine("Returned buffer is reused with adapteded flags: " + retItem.Flags.ToString())   
-                trackedBufferPool.[retArr.Value].IsAvailable <- false
-                // Since it's tracked it could be returned
-                if parameter.IsReturned && isRoot then
-                    rootReturnBuffer <- Some(retItem, newArr)
-                retBuffer
-            else
-                // Need to copy
-                //Console.WriteLine("No adapted flags can be computed, create new buffer")   
-                let copy = this.CreateTrackedBuffer(context, queue, parameter, retArr.Value, isRoot, sharePriority)
-                if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
-                    //Console.WriteLine("Buffer is copied")   
-                    BufferTools.CopyBuffer(queue, retBuffer, copy)
-                //else
-                    //Console.WriteLine("Buffer is NOT copied")   
-                // Dispose old buffer
-                trackedBufferPool.[retBuffer].IsAvailable <- true
-                this.EndUsingBuffer(trackedBufferPool.[retBuffer].Buffer)
-                copy
+            // Create tracked buffer will handle possible no copy
+            this.CreateTrackedBuffer(context, queue, parameter, retArr.Value, isRoot, sharePriority)
         else
             // Return is untracked
             let retItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
             assert(retItem.IsAvailable)  
             //Console.WriteLine("Returned buffer is UNTRACKED")                 
             // Check if this can be used with no copy
-            let mutable avoidCopy = context = retBuffer.Context
             if context = retBuffer.Context &&
                 BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then
                 //Console.WriteLine("Returned buffer is promoted to TRACKED with adapteded flags: " + retItem.Flags.ToString())  
@@ -283,7 +258,7 @@ type BufferPoolManager() =
                     //Console.WriteLine("Buffer is NOT copied")   
                 // Dispose old buffer
                 poolItem.IsAvailable <- true
-                this.EndUsingBuffer(trackedBufferPool.[retBuffer].Buffer)
+                this.EndUsingBuffer(poolItem.Buffer)
                 copy
              
     // This is called for buffers bound to subkernels and not returned or returned from non-root   
@@ -319,30 +294,8 @@ type BufferPoolManager() =
         
         if retArr.IsSome then
             //Console.WriteLine("Returned buffer is TRACKED")
-            // Return is tracked
-            let retItem = trackedBufferPool.[retArr.Value]
-            assert(retItem.IsAvailable)                   
-            // Check if this can be used with no copy
-            let mutable avoidCopy = context = retBuffer.Context
-            if context = retBuffer.Context &&
-                BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then
-                //Console.WriteLine("This buffer is promoted to TRACKED with adapteded flags: " + retItem.Flags.ToString())  
-                // An untracked using a tracked remains tracked, so simply returns
-                trackedBufferPool.[retArr.Value].IsAvailable <- false
-                retBuffer
-            else
-                //Console.WriteLine("No adapted flags can be computed, create new buffer")   
-                // Need to copy
-                let copy = this.CreateUntrackedBuffer(context, queue, parameter, retBuffer.Count, isRoot)
-                if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
-                    //Console.WriteLine("Buffer is copied")    
-                    BufferTools.CopyBuffer(queue, retBuffer, copy)
-                //else
-                    //Console.WriteLine("Buffer is not copied")
-                // Dispose old buffer
-                retItem.IsAvailable <- true
-                this.EndUsingBuffer(retItem.Buffer)
-                copy
+            // A tracked buffer remains tracked
+            this.CreateTrackedBuffer(context, queue, parameter, retArr.Value, isRoot, sharePriority)
         else
             //Console.WriteLine("Returned buffer is UNTRACKED")
             // Return is untracked
@@ -371,7 +324,7 @@ type BufferPoolManager() =
         for item in trackedBufferPool do
             let poolItem = item.Value
             if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
-                BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key :?> Array, poolItem.Buffer)                
+                BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key, poolItem.Buffer)                
                 
     member this.ReadRootBuffer() =
         // Read back root return buffer
@@ -383,6 +336,13 @@ type BufferPoolManager() =
                 arr
             else
                 arr
+        else
+            null
+            
+    member this.GetTrackedBufferManagedArray(buffer: OpenCLBuffer) =
+        // Read back root return buffer
+        if reverseTrackedBufferPool.ContainsKey(buffer) then
+            reverseTrackedBufferPool.[buffer]
         else
             null
         

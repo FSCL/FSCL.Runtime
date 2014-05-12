@@ -17,8 +17,8 @@ let sum a b =
     a + b
             
 let DoTest(minSize: long, maxSize: long, iters: int) =
-    let inputReadModes = [ BufferReadMode.EnqueueReadBuffer; BufferReadMode.MapBuffer ]
-    let outputWriteModes = [ BufferWriteMode.EnqueueWriteBuffer; BufferWriteMode.MapBuffer ]
+    let inputReadModes = [ BufferReadMode.MapBuffer ]
+    let outputWriteModes = [ BufferWriteMode.MapBuffer ]
     let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
                        MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; 
                        MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly; ]
@@ -52,7 +52,7 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
 
                                         let mutable minSizeForCPU = 1L
                                         //while minSizeForCPU < !size / 2L do
-                                        Console.WriteLine("      Fallback on CPU when size is: " + String.Format("{0,10:##########}", minSizeForCPU))
+                                        //Console.WriteLine("      Fallback on CPU when size is: " + String.Format("{0,10:##########}", minSizeForCPU))
                                         let comp = <@ 
                                                             DEVICE(pIndex, dIndex,
                                                                 RETURN_BUFFER_READ_MODE(rm, 
@@ -88,7 +88,7 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                                             ttime,
                                                             iters)
                                             wr.WriteLine(s)
-                                            System.Threading.Thread.Sleep(2000)
+                                            System.Threading.Thread.Sleep(500)
     
                                             //minSizeForCPU <- minSizeForCPU * 2L
                                     size := !size * 2L                                    

@@ -153,9 +153,13 @@ type ReduceKernelExecutionProcessor() =
             let mutable result = null
             let outputPar = kernelData.Kernel.Parameters.[2]
             if currentDataSize > 1L then
+                // Check if there is an array tracking the output buffer
+                let mutable arrobj = pool.GetTrackedBufferManagedArray(outputBuffer)
+                if arrobj = null then
+                    arrobj <- Array.CreateInstance(outputPar.DataType.GetElementType(), currentDataSize)
+                // Check if we need to read from buffer or map it
                 let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
                 // Allocate array (since if this is a return parameter it has no .NET array matching it)
-                let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), currentDataSize)
                 BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
                 // Do final iteration on CPU
@@ -200,9 +204,13 @@ type ReduceKernelExecutionProcessor() =
                     pool.EndUsingBuffer(outputBuffer)
                     Some(ReturnedValue(result))
                 else
+                    // Check if there is an array tracking the output buffer
+                    let mutable arrobj = pool.GetTrackedBufferManagedArray(outputBuffer)
+                    if arrobj = null then
+                        arrobj <- Array.CreateInstance(outputPar.DataType.GetElementType(), 1)
+
                     let useMap = outputPar.Meta.Get<BufferReadModeAttribute>().Mode = BufferReadMode.MapBuffer
                     // Allocate array (since if this is a return parameter it has no .NET array matching it)
-                    let arrobj = Array.CreateInstance(outputPar.DataType.GetElementType(), 1)
                     outputBuffer.Count <- [| 1L |]
                     BufferTools.ReadBuffer(deviceData.Queue, useMap, arrobj, outputBuffer)
 
