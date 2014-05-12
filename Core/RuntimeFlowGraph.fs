@@ -14,6 +14,7 @@ type FlowGraphNodeInput =
 | ActualArgument of Expr
 | BufferAllocationSize of (Dictionary<string, obj> * int64 array * int64 array -> int64 array)
 | SizeArgument
+| IntrinsicArgument
 
 and [<AllowNullLiteral>] FlowGraphNode(deviceData: RuntimeDevice, 
                                        kernelData: RuntimeKernel,

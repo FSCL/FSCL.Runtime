@@ -46,7 +46,6 @@
     <Compile Include="BufferPoolManager.fs" />
     <Compile Include="MultithreadManager.fs" />
     <Compile Include="KernelCreationManager.fs">
-      <DependentUpon>BufferTools.fs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>

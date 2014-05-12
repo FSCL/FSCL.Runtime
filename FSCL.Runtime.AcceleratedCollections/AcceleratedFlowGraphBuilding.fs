@@ -169,14 +169,22 @@ type AcceleratedFlowGraphBuildingProcessor() =
                 | _ ->                    
                     FlowGraphUtil.SetNodeInput(node,
                                                parameters.[0].Name,
-                                               ActualArgument(input.CallArgs.[1]))                                               
-                FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) -> localSize))
-                FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                                                            // Size is number of groups
-                                                                                            [| globalSize.[0] / localSize.[0] |]))
-                FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, SizeArgument)
+                                               ActualArgument(input.CallArgs.[1]))    
+                // If cpu then this is block_size otherwise it's a local array   
+                let devType = input.DeviceData.Device.Type   
+                if devType = OpenCLDeviceType.Cpu then                     
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, IntrinsicArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, IntrinsicArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
+                else                                
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) -> localSize))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                                                    // Size is number of groups
+                                                                                                    [| globalSize.[0] / localSize.[0] |]))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, SizeArgument)
 
                 // Create input for next step
                 Some(node)

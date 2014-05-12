@@ -30,7 +30,7 @@ type BufferPoolItem(buffer: OpenCLBuffer,
     member val Buffer = buffer with get
     member val IsAvailable = false with get, set
     member val Queue = queue with get
-
+               
 [<AllowNullLiteral>]
 type BufferPoolManager() =
     let mutable noObjID = 0
@@ -339,12 +339,47 @@ type BufferPoolManager() =
         else
             null
             
-    member this.GetTrackedBufferManagedArray(buffer: OpenCLBuffer) =
-        // Read back root return buffer
-        if reverseTrackedBufferPool.ContainsKey(buffer) then
-            reverseTrackedBufferPool.[buffer]
-        else
-            null
+    member this.OperateOnBuffer(buffer: OpenCLBuffer, syncMode: TransferMode, action: Array -> Array) =
+        let arr, poolItem =
+            // If buffer is tracked we already have an array bound to the buffer
+            if reverseTrackedBufferPool.ContainsKey(buffer) then
+                let arr = reverseTrackedBufferPool.[buffer]
+                let poolItem = trackedBufferPool.[arr]
+                arr, poolItem
+            else
+                let poolItem = untrackedBufferPool.[buffer.Context].[buffer]
+                let arr = Array.CreateInstance(buffer.ElementType, buffer.Count)   
+                arr, poolItem
+
+        // Check if buffer can/is modified to see if must be read into the array before action
+        if (syncMode &&& TransferMode.NoTransfer |> int = 0) then 
+             // Read buffer
+             BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, arr, poolItem.Buffer) 
+    
+        // Do action
+        let newArr = action(arr)
+  
+        // Write back arr to buffer
+        if (syncMode &&& TransferMode.NoTransferBack |> int = 0) then
+            BufferTools.WriteBuffer(poolItem.Queue, poolItem.WriteMode = BufferWriteMode.MapBuffer, poolItem.Buffer, newArr) 
+        
+        // Check if arr changed (new array)
+        if not (newArr.Equals(arr)) then
+           // Set buffer count to the new array count
+           if newArr.Length |> int64 < buffer.TotalCount then
+              // If new array is smaller we can simply update the buffer count property
+              for r = 0 to newArr.Rank - 1 do
+                  buffer.Count.[r] <- newArr.GetLength(r) |> int64 
+           else if newArr.Length |> int64 > buffer.TotalCount then
+               // Buffer cannot handle new capacity, we must create a new buffer
+               raise (new KernelExecutionException("Managed side cannot operate on a buffer in a way that increases its size"))
+
+           if reverseTrackedBufferPool.ContainsKey(buffer) then
+               // Action creates a new buffer, must change tracking key
+               trackedBufferPool.Remove(arr) |> ignore
+               reverseTrackedBufferPool.Remove(buffer) |> ignore
+               trackedBufferPool.Add(newArr, poolItem)
+               reverseTrackedBufferPool.Add(buffer, newArr)   
         
     member this.EndUsingBuffer(buffer) =        
         if reverseTrackedBufferPool.ContainsKey(buffer) then

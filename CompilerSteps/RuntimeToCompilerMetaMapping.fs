@@ -14,7 +14,8 @@ open System
 open OpenCL
 
 [<StepProcessor("FSCL_RUNTIME_TO_COMPILER_META_MAPPING_PROCESSOR", 
-                "FSCL_MODULE_PARSING_STEP")>]
+                "FSCL_MODULE_PARSING_STEP",
+                Before=[| "FSCL_ACCELERATED_ARRAY_META_FILTERING_PROCESSOR" |])>]
 type RuntimeToCompilerMetadataMapping() = 
     inherit MetadataFinalizerProcessor()
     

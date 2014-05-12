@@ -65,8 +65,16 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                                                                         MEMORY_FLAGS(ifl,
                                                                                             a))))))))
                                                     @>
+
+                                        // If device is cpu set global size to core count
+                                        let globalSize = 
+                                            if dType = DeviceType.Cpu then 
+                                                8L
+                                            else
+                                                !size
+
                                         // Run once to skip compilation time
-                                        let c = comp.Run(!size, 128L)
+                                        let c = comp.Run(globalSize, 128L)
                                         if not (Verify(a, c)) then
                                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                                         else
@@ -74,7 +82,7 @@ let DoTest(minSize: long, maxSize: long, iters: int) =
                                             let watch = new Stopwatch()
                                             watch.Start()
                                             for i = 0 to iters - 1 do
-                                                comp.Run(!size, 128L) |> ignore
+                                                comp.Run(globalSize, 128L) |> ignore
                                             watch.Stop()
                                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iters), iters
                                             //let ttime, iters = Utils.ExcuteFor 1000.0 (fun () -> comp.Run(!size, 64L))
