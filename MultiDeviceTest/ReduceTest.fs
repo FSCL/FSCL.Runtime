@@ -17,8 +17,8 @@ let sum a b =
     a + b
             
 let DoTest(minSize: long, maxSize: long, iters: int) =
-    let inputReadModes = [ BufferReadMode.MapBuffer ]
-    let outputWriteModes = [ BufferWriteMode.MapBuffer ]
+    let inputReadModes = [ BufferReadMode.EnqueueReadBuffer; BufferReadMode.MapBuffer ]
+    let outputWriteModes = [ BufferWriteMode.EnqueueWriteBuffer; BufferWriteMode.MapBuffer ]
     let inputFlags = [ MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly;
                        MemoryFlags.HostWriteOnly ||| MemoryFlags.UsePersistentMemAMD ||| MemoryFlags.ReadOnly; 
                        MemoryFlags.HostWriteOnly ||| MemoryFlags.ReadOnly; ]

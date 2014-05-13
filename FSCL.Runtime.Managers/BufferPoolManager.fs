@@ -352,7 +352,7 @@ type BufferPoolManager() =
                 arr, poolItem
 
         // Check if buffer can/is modified to see if must be read into the array before action
-        if (syncMode &&& TransferMode.NoTransfer |> int = 0) then 
+        if (syncMode &&& TransferMode.NoTransfer |> int = 0) && (poolItem.Flags &&& MemoryFlags.UseHostPointer |> int = 0) then 
              // Read buffer
              BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, arr, poolItem.Buffer) 
     

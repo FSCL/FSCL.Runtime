@@ -10,7 +10,7 @@ open VectorAddTest
 let main argv = 
     // Min and max size
     let minVectorSize = 2L <<< 10
-    let maxVectorSize = 4L <<< 10
+    let maxVectorSize = 8L <<< 20
     let minMatSize = 64L
     let maxMatSize = 2048L
     let perTestDuration = 2000.0
