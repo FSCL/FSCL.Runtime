@@ -7,6 +7,7 @@ open FSCL.Runtime.Managers
 open FSCL.Runtime.Language
 open System.Collections.Generic
 open System.Reflection
+open FSCL.Compiler.Language
 open OpenCL
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
@@ -171,8 +172,8 @@ type AcceleratedFlowGraphBuildingProcessor() =
                                                parameters.[0].Name,
                                                ActualArgument(input.CallArgs.[1]))    
                 // If cpu then this is block_size otherwise it's a local array   
-                let devType = input.DeviceData.Device.Type   
-                if devType = OpenCLDeviceType.Cpu then                     
+                let devType = input.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>()  
+                if devType.Type = DeviceType.Cpu then                     
                     FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, IntrinsicArgument)
                     FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, IntrinsicArgument)
                     FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)

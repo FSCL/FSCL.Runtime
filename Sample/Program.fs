@@ -26,6 +26,14 @@ let VectorAddReturn(a: float32[], b: float32[]) =
     c.[gid] <- a.[gid] + b.[gid]
     c
     
+[<ReflectedDefinition>]
+let sum(a, b) =
+    a + b
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAddWithUtilityFunction(a: float32[], b: float32[], c: float32[]) =
+    let gid = get_global_id(0)
+    c.[gid] <- sum(a.[gid], b.[gid])
+
 // Vector4 addition
 [<Device(0,0)>][<ReflectedDefinition>]
 let Vector4Add(a: float4[], b: float4[], c: float4[]) =
@@ -88,7 +96,7 @@ let MatrixMultAdvanced(matA: float32[,], matB: float32[,], matC: float32[,]) =
     matC.[by * BLOCK_SIZE + ty, bx * BLOCK_SIZE + tx] <- Csub
  
 [<ReflectedDefinition>]
-let sum a b =
+let sumCurried a b =
     a + b
 
 [<EntryPoint>]
@@ -187,6 +195,31 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
+        // Simple vector add with utility function
+        Console.WriteLine("")
+        Console.WriteLine("# Testing vector add with utility function with OpenCL on the first device")
+        // Execute vector add in OpenCL mode
+        c <- Array.zeroCreate<float32> (size)
+        timer.Start()
+        <@ VectorAddWithUtilityFunction(a, b, c) @>.Run(lsize, 64L, opts) |> ignore
+        timer.Stop()
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMapResult.Length - 1 do
+            if correctMapResult.[i] <> c.[i] then
+                isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First vector add returned a wrong result!")
+        else
+            Console.WriteLine("  First vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            c <- Array.zeroCreate<float32> (size)
+            timer.Restart()
+            <@ VectorAddWithUtilityFunction(a, b, c) @>.Run(lsize, 64L) |> ignore
+            timer.Stop()
+            Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+                       
         // Float4 vector add
         Console.WriteLine("")
         Console.WriteLine("# Testing float4 vector add with OpenCL on the first device")
@@ -261,7 +294,7 @@ let main argv =
         Console.WriteLine("")
         Console.WriteLine("# Testing accelerated vector reduce on array (Array.reduce f a) on the first device")
         timer.Start()
-        let mutable reduce_sum = <@ Array.reduce sum a @>.Run(lsize, 64L, opts)
+        let mutable reduce_sum = <@ Array.reduce sumCurried a @>.Run(lsize, 64L, opts)
         timer.Stop()
         // Check result
         let isResultCorrect = (reduce_sum = correctReduceResult)
@@ -272,7 +305,7 @@ let main argv =
 
             // Re-execute vector add exploiting runtime caching for kernels    
             timer.Restart()
-            reduce_sum <- <@ Array.reduce sum a @>.Run(lsize, 64L)
+            reduce_sum <- <@ Array.reduce sumCurried a @>.Run(lsize, 64L)
             timer.Stop()
             Console.WriteLine("  Second accelerated vector reduce execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
             

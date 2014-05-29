@@ -25,8 +25,8 @@ type ReduceKernelExecutionProcessor() =
         let isAccelerateReduce = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
                                  node.KernelData.Kernel.CustomInfo.ContainsKey("ReduceFunction")
         if (isAccelerateReduce) then
-            let dev = node.DeviceData.Device.Type
-            if dev = OpenCLDeviceType.Cpu then
+            let dev = node.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>().Type
+            if dev = DeviceType.Cpu then
                 this.OneStageReduce((node, isRoot), s, opts)
             else
                 this.TwoStageReduce((node, isRoot), s, opts)
@@ -248,13 +248,13 @@ type ReduceKernelExecutionProcessor() =
         let par = parameters.[argIndex]
         // Create buffer and eventually init it
         let elementType = par.DataType.GetElementType()
-        outputBuffer <- pool.RequireBufferForParameter(par, None, [| currentDataSize / currentLocalSize |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
+        outputBuffer <- pool.RequireBufferForParameter(par, None, [| currentGlobalSize / currentLocalSize |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
         // Set kernel arg
         compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
         // Store dim sizes
         let sizeParameters = par.SizeParameters
         // Set size parameter
-        compiledData.Kernel.SetValueArgument(argIndex + 3, currentDataSize / currentLocalSize |> int)
+        compiledData.Kernel.SetValueArgument(argIndex + 3, currentGlobalSize / currentLocalSize |> int)
         
         // Execute until the output size is smaller than group size * number of compute units (full utilization of pipeline)
         let smallestDataSize = node.KernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length //currentGlobalSize - 1L // 
@@ -264,9 +264,10 @@ type ReduceKernelExecutionProcessor() =
                
            
             // TESTING ITERATION - TO COMMENT
-            //let obj = Array.CreateInstance(kernelData.Info.Parameters.[2].Type.GetElementType(), [| currentGlobalSize / currentLocalSize |])
-            //BufferTools.ReadBuffer(kernelData.Info.Parameters.[2].Type.GetElementType(), deviceData.Queue, obj, outputBuffer, [| 1 |])
-
+            (*
+            let obj = Array.CreateInstance(outputBuffer.ElementType, [| currentGlobalSize |])
+            BufferTools.ReadBuffer(deviceData.Queue, false, obj, outputBuffer, [| currentGlobalSize |])
+            *)
             // Recompute work size
             // Il local size become greater than or equal to global size, we set it to be half the global size
             currentDataSize <- currentGlobalSize / currentLocalSize
