@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{64A8CFFC-623A-4C0F-8C6F-E916A0055EAC}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>FSCL.Runtime.Scheduling</RootNamespace>
+    <AssemblyName>FSCL.Runtime.Scheduling</AssemblyName>
+    <UseMSBuildEngine>True</UseMSBuildEngine>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <ConsolePause>false</ConsolePause>
+    <Tailcalls>false</Tailcalls>
+    <PlatformTarget>
+    </PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget>
+    </PlatformTarget>
+    <ConsolePause>false</ConsolePause>
+    <Tailcalls>true</Tailcalls>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Stack.fs" />
+    <Compile Include="Tools.fs" />
+    <Compile Include="QuotationUtil.fs" />
+    <Compile Include="Exception.fs" />
+    <Compile Include="ExpressionCounter.fs" />
+    <Compile Include="MemoryTransfer.Tools.fs" />
+    <Compile Include="MemoryTransfer.Test.fs" />
+    <Compile Include="SchedulingMetric.fs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler\FSCL.Compiler.fsproj">
+      <Project>{AA752A37-7BE8-4805-8B12-7A9D1DCF66D6}</Project>
+      <Name>FSCL.Compiler</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler.Core\FSCL.Compiler.Core.fsproj">
+      <Project>{54853A79-FFD2-469D-B1E4-52F24A4C95D1}</Project>
+      <Name>FSCL.Compiler.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\FSCL.Language\FSCL.Compiler.Language.fsproj">
+      <Project>{7CFBAE88-1C33-4103-B5A7-BB0A55CBBEA6}</Project>
+      <Name>FSCL.Compiler.Language</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
+      <Project>{CEDABECE-D58B-4B52-98E2-242E06348796}</Project>
+      <Name>FSCL.Runtime.Language</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Project>{55EB06A9-9F34-464C-880A-CA20EA631DD4}</Project>
+      <Name>OpenCLManagedWrapper</Name>
+    </ProjectReference>
+  </ItemGroup>
+</Project>
