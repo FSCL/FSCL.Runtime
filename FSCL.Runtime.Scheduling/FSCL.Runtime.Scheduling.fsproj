@@ -73,5 +73,9 @@
       <Project>{55EB06A9-9F34-464C-880A-CA20EA631DD4}</Project>
       <Name>OpenCLManagedWrapper</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler.Util\FSCL.Compiler.Util.fsproj">
+      <Project>{0E5212B9-8C3A-4E71-864E-114CD8256FA7}</Project>
+      <Name>FSCL.Compiler.Util</Name>
+    </ProjectReference>
   </ItemGroup>
 </Project>

@@ -10,6 +10,7 @@ open System
 open QuotationUtil
 open FSCL.Language
 open FSCL.Compiler
+open FSCL.Compiler.Util
 
 (* EXPRESSION COUNTER *)
 type CountAction =
@@ -143,7 +144,7 @@ type ExpressionCounter() =
     static member private PopStack(stack: VarStack) =
         stack.Pop() |> ignore
 
-    // Estimator function
+    // Build an expression that contains the number of interesting items
     static member private Estimate(functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
                                    action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
@@ -152,6 +153,7 @@ type ExpressionCounter() =
                                    dynamicDefinesPlaceholders: Var list,
                                    considerLoopIncr: bool) =            
         let rec EstimateInternal(expr: Expr) =
+            // Check if this is an interesting item
             match action(expr, parameters, ExpressionCounter.ContinueCount parameters action stack workItemIdContainerPlaceholder dynamicDefinesPlaceholders considerLoopIncr) with
             | Value(c) ->
                 c
@@ -209,6 +211,24 @@ type ExpressionCounter() =
                     let ev2 = EstimateInternal(body)
                     <@ %ev1 + %ev2 @>
 
+                | Patterns.Call(o, mi, arguments) ->
+                    // Check if this is a call to a reflected function
+                    match mi with
+                    | DerivedPatterns.MethodWithReflectedDefinition(b) ->
+                        // It's a reflected method
+                        match QuotationAnalysis.GetCurriedOrTupledArgs(b) with
+                        | Some(paramVars) ->       
+                            let parameters = List.zip (mi.GetParameters() |> List.ofArray) paramVars
+                            // Count inside arguments
+                            let l = EstimateList(arguments)
+                            // Build an evaluator for this function
+                            //let evaluator = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
+                            // Create and expression that sums the estimation for arguments to the invocation of the evaluator
+                            <@ 0.0f @>
+                        | _ ->      
+                            EstimateList(arguments)
+                    | _ ->      
+                        EstimateList(arguments)
                 | ExprShape.ShapeVar(var) ->
                     <@ 0.0f @>
                 | ExprShape.ShapeLambda(var, lambda) ->
@@ -337,8 +357,11 @@ type ExpressionCounter() =
                 true
             | ExprShape.ShapeLambda(v, b) ->                
                 CheckModification(vs, b, varModification, true)
-            | ExprShape.ShapeCombination(o, bl) ->                
-                bl |> List.map (fun it -> CheckModification(vs, it, varModification, true)) |> List.reduce(fun a b -> a && b)
+            | ExprShape.ShapeCombination(o, bl) ->               
+                if bl.Length > 0 then
+                    bl |> List.map (fun it -> CheckModification(vs, it, varModification, true)) |> List.reduce(fun a b -> a && b)
+                else
+                    true
 
         and BuildWhileLoopEstimator(guard:Expr, body:Expr, stack: VarStack) =
             // Determine the free variables in guard
