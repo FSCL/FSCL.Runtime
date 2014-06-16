@@ -144,7 +144,7 @@ type ExpressionCounter() =
         stack.Pop() |> ignore
 
     // Estimator function
-    static member private Estimate(expr: Expr, 
+    static member private Estimate(functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
                                    action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
                                    stack: VarStack,
@@ -201,6 +201,12 @@ type ExpressionCounter() =
                 | Patterns.Sequential(e1, e2) ->
                     let ev1 = EstimateInternal(e1)
                     let ev2 = EstimateInternal(e2)
+                    <@ %ev1 + %ev2 @>
+
+                | Patterns.WhileLoop(guard, body) ->
+                    let estimator = BuildWhileLoopEstimator(guard, body, stack)
+                    let ev1 = EstimateInternal(guard)
+                    let ev2 = EstimateInternal(body)
                     <@ %ev1 + %ev2 @>
 
                 | ExprShape.ShapeVar(var) ->
@@ -297,8 +303,51 @@ type ExpressionCounter() =
             | ExprShape.ShapeCombination(o, l) ->
                 let replList = l |> List.map(fun e -> UnfoldExpr(e, stack))
                 ExprShape.RebuildShapeCombination(o, replList)
-                               
-        EstimateInternal(expr)
+
+        and CheckModification(vs: Var list, expr: Expr, varModification: Dictionary<Var, Expr list>, validModificationContext: bool) =
+            match expr with
+            | Patterns.VarSet(v, value) ->
+                if ((List.tryFind (fun vl -> vl = v) vs).IsSome) then 
+                    // One of the while loop guard variables is modified here
+                    if not validModificationContext then
+                        false
+                    else
+                        // Add this modification to the set of modifications for the variable
+                        if not (varModification.ContainsKey(v)) then
+                            varModification.Add(v, [])
+                        varModification.[v] <- varModification.[v] @ [value]
+                        CheckModification(vs, value, varModification, true)
+                else
+                    CheckModification(vs, value, varModification, true)
+            | Patterns.WhileLoop(guard, body) ->
+                // Not a valid modification context
+                let first = CheckModification(vs, guard, varModification, false)
+                first && CheckModification(vs, body, varModification, false)
+            | Patterns.IfThenElse(guard, ifb, elseb) ->
+                // Not a valid modification context
+                let first = CheckModification(vs, guard, varModification, false)
+                let snd = first && CheckModification(vs, ifb, varModification, false)
+                snd && CheckModification(vs, elseb, varModification, false)
+            | Patterns.ForIntegerRangeLoop(v, st, en, b) ->
+                // Not a valid modification context
+                let first = CheckModification(vs, st, varModification, false)
+                let snd = first && CheckModification(vs, en, varModification, false)
+                snd && CheckModification(vs, b, varModification, false)
+            | ExprShape.ShapeVar(v) ->
+                true
+            | ExprShape.ShapeLambda(v, b) ->                
+                CheckModification(vs, b, varModification, true)
+            | ExprShape.ShapeCombination(o, bl) ->                
+                bl |> List.map (fun it -> CheckModification(vs, it, varModification, true)) |> List.reduce(fun a b -> a && b)
+
+        and BuildWhileLoopEstimator(guard:Expr, body:Expr, stack: VarStack) =
+            // Determine the free variables in guard
+            let freeVars = ReplaceFunctionBody(functionBody, guard).Value.GetFreeVars() |> List.ofSeq
+            let varModification = new Dictionary<Var, Expr list>()
+            let isValidModification = CheckModification(freeVars, body, varModification, true)
+            ()
+
+        EstimateInternal(functionBody)            
             
     // Removes (0+0+0+0+0+) useless counts in the expression
     static member private CleanInstructionCount (expr: Expr<float32>) =

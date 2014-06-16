@@ -39,7 +39,13 @@ Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "BufferPoolSample", "Computa
 EndProject
 Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "MultiDeviceSample", "ComputationSample\MultiDeviceSample\MultiDeviceSample.fsproj", "{5D9FFE9B-3BCB-4475-9C4B-EE43D53245A2}"
 EndProject
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "FSCL.Runtime.FeatureExtractionTest", "ComputationSample\FSCL.Runtime.FeatureExtractionTest\FSCL.Runtime.FeatureExtractionTest.fsproj", "{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC}"
+EndProject
 Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "FSCL.Runtime.Scheduling", "FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj", "{64A8CFFC-623A-4C0F-8C6F-E916A0055EAC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scheduling", "Scheduling", "{2881B9F1-AD17-466A-ACB9-A8C2F1152ACE}"
+EndProject
+Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "FSCL.Runtime.FeatureExtraction", "FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj", "{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +69,10 @@ Global
 		{40EBD40B-6C79-4678-8BD0-FB756820FB68}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{40EBD40B-6C79-4678-8BD0-FB756820FB68}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{40EBD40B-6C79-4678-8BD0-FB756820FB68}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{54853A79-FFD2-469D-B1E4-52F24A4C95D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{54853A79-FFD2-469D-B1E4-52F24A4C95D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{54853A79-FFD2-469D-B1E4-52F24A4C95D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -99,6 +109,10 @@ Global
 		{AF7A8E78-137B-4508-8D49-FA7121D8A96D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF7A8E78-137B-4508-8D49-FA7121D8A96D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF7A8E78-137B-4508-8D49-FA7121D8A96D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BB2F472B-DC6F-4F46-BF99-48FC7DF95BD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BB2F472B-DC6F-4F46-BF99-48FC7DF95BD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BB2F472B-DC6F-4F46-BF99-48FC7DF95BD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -123,8 +137,10 @@ Global
 		{BB2F472B-DC6F-4F46-BF99-48FC7DF95BD9} = {F74B76A1-D67F-4D30-802F-114CB339C86D}
 		{6DEDB33A-DB01-4DE5-B771-E4A3B4DB91DF} = {F74B76A1-D67F-4D30-802F-114CB339C86D}
 		{5D9FFE9B-3BCB-4475-9C4B-EE43D53245A2} = {F74B76A1-D67F-4D30-802F-114CB339C86D}
+		{B80CCC8B-2ED1-44EE-A648-07C9A2C5C4DC} = {F74B76A1-D67F-4D30-802F-114CB339C86D}
+		{4D2B9C86-04CA-4F92-97B3-11EB0266E0EF} = {2881B9F1-AD17-466A-ACB9-A8C2F1152ACE}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = ComputationSample\ComputationSample.fsproj
+		StartupItem = ComputationSample\FSCL.Runtime.FeatureExtractionTest\FSCL.Runtime.FeatureExtractionTest.fsproj
 	EndGlobalSection
 EndGlobal

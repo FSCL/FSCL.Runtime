@@ -85,23 +85,5 @@ module Language =
     let MULTITHREAD_FALLBACK(fallback: bool, a) = 
         a
 
-    type WorkItemIdContainer(global_size: int[], local_size: int[], global_id: int[], local_id: int [], global_offset: int[]) = 
-        member this.GlobalID(dim) =
-            global_id.[dim]
-        member this.LocalID(dim) =
-            local_id.[dim]
-        member this.GlobalSize(dim) =
-            global_size.[dim]
-        member this.LocalSize(dim) =
-            local_size.[dim]
-        member this.NumGroups(dim) =
-            (int)(Math.Ceiling((float)global_size.[dim] / (float)local_size.[dim]))
-        member this.GroupID(dim) =
-            (int)(Math.Floor((float)global_id.[dim] / (float)global_size.[dim]))
-        member this.GlobalOffset(dim) =
-            global_offset.[dim]
-        member this.WorkDim() =
-            global_size.Rank
-        
 
 
