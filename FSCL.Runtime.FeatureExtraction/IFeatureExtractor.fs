@@ -51,7 +51,8 @@ type IDefaultFeatureExtractor() =
                                                       } |> List.ofSeq     
                                                              
                                     // We build a tupledArg out fot the args array
-                                    let tupledArg = ToTuple((args @ workSizeArgs @ dynDefArgs) |> List.toArray)
+                                    //let tupledArg = ToTuple((args @ workSizeArgs @ dynDefArgs) |> List.toArray)
+                                    // NO MORE, we use curried functions
 
                                     // Handling accelerated collections
                                                  (*                       
@@ -68,7 +69,12 @@ type IDefaultFeatureExtractor() =
                                     *)
 
                                     // Now we can apply the evaluator to obtain the value of the feature using actual args
-                                    let fv = evaluator.GetType().GetMethod("Invoke").Invoke(evaluator, [| tupledArg |])
+                                    let mutable fv = evaluator
+                                    for a in args do
+                                        fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
+                                    fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| workSizeArgs.[0] |])
+                                    for d in dynDefArgs do
+                                        fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| d |])
                                     //System.Console.WriteLine(fv.ToString())
                                     fv) precFeatures
         features

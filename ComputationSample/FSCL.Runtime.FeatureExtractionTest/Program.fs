@@ -26,8 +26,6 @@ let main argv =
     //let precomputedFeatures = fec.Precompute(km)
     //let features = fec.Evaluate(km, precomputedFeatures, [| a; b; c |])
     
-    // Vector Add
-    //VectorAddFeatures.TestFeatures 4096L (16L <<< 20) 300
 
     // Matrix multiplication
     //MatrixMultFeatures.TestFeatures 64L 1024L 100
@@ -39,8 +37,8 @@ let main argv =
                                               new DataSizeCounter();
                                               new WorkSizeCounter() |])
     
-    //let vectorAdd = new VectorAddTrainingSample()
-    //vectorAdd.Run(chain)
+    let vectorAdd = new VectorAddTrainingSample()
+    vectorAdd.Run(chain)
 
     //let sobelFilter = new SobelFilterTrainingSample()
     //sobelFilter.Run(chain)

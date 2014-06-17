@@ -2,6 +2,7 @@
 
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
+open System.Collections.Generic
 open System
 
 module ReflectionUtil =
@@ -101,6 +102,26 @@ module QuotationUtil =
                 None
         | _ ->
             None
+                          
+    let AddParametersToCurriedFunction(f: Expr, pars: Var list) =
+        let rec AppendParametersToCurriedFunction(expr, vs: Var list) =
+            match expr with
+            | Patterns.Lambda(v, body) ->                
+                Expr.Lambda(v, AppendParametersToCurriedFunction(body, vs))
+            | _ ->
+                match vs with
+                | a::tail ->
+                    Expr.Lambda(pars.[0], AppendParametersToCurriedFunction(expr, tail))
+                | [] ->
+                    expr                
+        match f with
+        | Patterns.Lambda(v, e) ->
+            if v.Name <> "tupledArg" then
+                Some(AppendParametersToCurriedFunction(f, pars))
+            else
+                None
+        | _ ->
+            None
 
     let ToTupledFunction(f: Expr) = 
         let rec convertToTupledInternal(tupledVar: Var, tupledIndex: int, e: Expr) =
@@ -130,6 +151,37 @@ module QuotationUtil =
                 Expr.Lambda(tupledVar, convertToTupledInternal(tupledVar, 0, e))
         | _ ->
             failwith "Cannot convert to tupled an expression that doesn't contain a function"
+
+    let ToCurriedFunction(f: Expr) = 
+        let rec replaceTupleGetWithLambda(tupledArgVar: Var, e: Expr) =
+            match e with
+            | Patterns.Let(v, value, body) ->
+                match value with
+                | Patterns.TupleGet(tve, idx) ->
+                    match tve with
+                    | Patterns.Var(tv) ->
+                        if tv = tupledArgVar then
+                            Expr.Lambda(v, replaceTupleGetWithLambda(tupledArgVar, body))
+                        else
+                            e
+                    | _ ->
+                        e
+                | _ ->
+                    e
+            | _ ->
+                e
+                   
+        match f with
+        | Patterns.Lambda(v, e) ->
+            if v.Name <> "tupledArg" then
+                // Already curried
+                f
+            else
+                let repl = replaceTupleGetWithLambda(v, e) 
+                repl
+        | _ ->
+            failwith "Cannot convert to tupled an expression that doesn't contain a function"
+
 
      
 

@@ -11,6 +11,7 @@ open QuotationUtil
 open FSCL.Language
 open FSCL.Compiler
 open FSCL.Compiler.Util
+open Microsoft.FSharp.Reflection
 
 (* EXPRESSION COUNTER *)
 type CountAction =
@@ -41,6 +42,12 @@ type ExpressionCounter() =
                 | DerivedPatterns.SpecificCall <@ get_num_groups @> (o, tl, l) ->
                     let replIndex = ReplaceInternal(l.[0])
                     Expr.Call(Expr.Var(workItemIdContainerPlaceholder), typeof<WorkItemIdContainer>.GetMethod("NumGroups"), [ replIndex ])
+                | DerivedPatterns.SpecificCall <@ get_global_id @> (o, tl, l) ->
+                    let replIndex = ReplaceInternal(l.[0])
+                    Expr.Call(Expr.Var(workItemIdContainerPlaceholder), typeof<WorkItemIdContainer>.GetMethod("GlobalID"), [ replIndex ])
+                | DerivedPatterns.SpecificCall <@ get_local_id @> (o, tl, l) ->
+                    let replIndex = ReplaceInternal(l.[0])
+                    Expr.Call(Expr.Var(workItemIdContainerPlaceholder), typeof<WorkItemIdContainer>.GetMethod("LocalID"), [ replIndex ])
                 | _ ->
                     let replList = l |> List.map(fun e -> ReplaceInternal(e))
                     if o.IsSome then
@@ -100,11 +107,12 @@ type ExpressionCounter() =
                                       dynamicDefinesPlaceholders: List<Var>) =
         let replacedBody = ExpressionCounter.ReplaceDynamicConstantDefines(
                                 ExpressionCounter.ReplaceWorkSizeFunctions(
-                                    QuotationUtil.ToTupledFunction(body), 
+                                    QuotationUtil.ToCurriedFunction(body), 
                                     workItemIdContainerPlaceholder),
                                 dynamicDefinesPlaceholders)
                
-        AddParametersToTupledFunction(replacedBody, [workItemIdContainerPlaceholder] @ (dynamicDefinesPlaceholders |> List.ofSeq))
+        let prep = AddParametersToCurriedFunction(replacedBody, [workItemIdContainerPlaceholder] @ (dynamicDefinesPlaceholders |> List.ofSeq))
+        prep
 
     // Stack function helpers
     static member private GetStackVar(var:Var, stack: VarStack) =
@@ -221,10 +229,31 @@ type ExpressionCounter() =
                             let parameters = List.zip (mi.GetParameters() |> List.ofArray) paramVars
                             // Count inside arguments
                             let l = EstimateList(arguments)
-                            // Build an evaluator for this function
-                            //let evaluator = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
-                            // Create and expression that sums the estimation for arguments to the invocation of the evaluator
-                            <@ 0.0f @>
+                            // We must be sure that variables used for arguments can be unfolded to expressions of parameters, constants an work size functions
+                            let unfoldedArguments = arguments |> List.map(fun (it:Expr) -> UnfoldExpr(it, stack))
+                            // Build an evaluator for this function as if it was a kernel
+                            let evaluatorExpr = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
+                            let evaluator = LeafExpressionConverter.EvaluateQuotation(evaluatorExpr) :?> float32 -> float32 -> WorkItemIdContainer -> float32
+                            // Get the method info to invoke the evaluator
+                            //let c = <@ evaluator(0.0f, 0.0f, new FSCL.Language.WorkItemIdContainer([||], [||],[||], [||], [||])) @>
+                            //let evaluationMethod = evaluator.GetType().GetMethod("Invoke")
+                            //Expr.Lambda
+                            //let res = evaluationMethod.Invoke(evaluator, [| (0.0f, 0.0f, new FSCL.Language.WorkItemIdContainer([||], [||],[||], [||], [||])) |])
+                            // We build a tupledArg out of the args array
+                            //let newTupleExpr = Expr.NewTuple(arguments @ [ Expr.Var(workItemIdContainerPlaceholder)]) 
+                            //let t = newTupleExpr.Type
+
+                            let mutable call = evaluatorExpr
+                            for a in unfoldedArguments do
+                                call <- Expr.Application(call, a);
+                            call <- Expr.Application(call, Expr.Var(workItemIdContainerPlaceholder))
+
+                            // We create an expression that sums the estimation for arguments to the invocation of the evaluator
+                            // The evaluation requires the values for work size functions (global_size_num, groups, etc)
+                            // We pass the placeholders to the corresponding functions
+                            let fv = call.GetFreeVars() |> Seq.toArray
+                            // Now we add this expr to the estimation of the arguments
+                            <@ %l + %%call:float32 @>
                         | _ ->      
                             EstimateList(arguments)
                     | _ ->      
