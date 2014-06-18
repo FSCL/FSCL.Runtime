@@ -74,15 +74,29 @@ module Runtime =
             // Read output buffers
             this.pool.TransferBackModifiedBuffers()
 
+            // Check the persistency of buffer pool
+            let persistency = 
+                if opts.ContainsKey(RuntimeOptions.BufferPoolPersistency) then
+                    opts.[RuntimeOptions.BufferPoolPersistency] :?> BufferPoolPersistency
+                else
+                    BufferPoolPersistency.PersistencyInsideExpression
+                                                                           
             // If has return buffer read it
             match result with
             | ReturnedValue(v) ->
-                // Dispose all buffers
-                this.pool.Dispose()
+                // Dispose all buffers if PersistencyInsideExpressions
+                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                    this.pool.ClearTrackedAndUntrackedPool()
+                else
+                    this.pool.ClearUntrackedPoolOnly()
                 v
             | _ ->
                 let v = this.pool.ReadRootBuffer()
-                this.pool.Dispose()
+                // Dispose all buffers is PersistencyInsideExpressions
+                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                    this.pool.ClearTrackedAndUntrackedPool()
+                else
+                    this.pool.ClearUntrackedPoolOnly()
                 v :> obj
                             
         member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
@@ -195,8 +209,15 @@ module Runtime =
             | _ ->              
                 this.RunExpressionMultithread(expr, opts)
        
+        member this.ForceClearPool(transferBackBuffers: bool) =
+            if transferBackBuffers then
+                // Read output buffers
+                this.pool.TransferBackModifiedBuffers()   
+            this.pool.ClearTrackedAndUntrackedPool()
+
         interface IDisposable with
             member this.Dispose() =
+                (this.pool :> IDisposable).Dispose()
                 (this.creationManager :> IDisposable).Dispose()
 
     // Global kernel runner
@@ -205,6 +226,9 @@ module Runtime =
     // Function to set custom kernel manager
     let Init(compiler, metric) =
         kernelRunner <- new Runner(compiler, metric)
+
+    let ForceClearPool(transferBackBuffers: bool) =
+        kernelRunner.ForceClearPool(transferBackBuffers)
 
     // List available devices
     let GetOpenCLPlatforms() = 

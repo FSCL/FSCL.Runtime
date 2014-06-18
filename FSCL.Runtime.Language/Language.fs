@@ -16,6 +16,14 @@ module Language =
     | PriorityToFlags
     | PriorityToShare
 
+    // BufferPoolPersistency
+    // PersistencyInsideExpression: tracked buffer are reused among the kernels executed inside the same expression
+    // but are disposed when the Run method ends
+    // PersistencyAcrossExpressions: tracked buffers are never disposed and can be reused across different expressions
+    type BufferPoolPersistency =
+    | PersistencyInsideExpression
+    | PersistencyAcrossExpressions
+
     ///
     ///<summary>
     ///The attribute to specify a device

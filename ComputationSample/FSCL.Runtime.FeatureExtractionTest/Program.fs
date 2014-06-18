@@ -15,7 +15,7 @@ open VectorAddTrainingSample
 open MatrixMultTrainingSample
 open ConvolutionTrainingSample
 open SobelFilterTrainingSample
-open ScanTrainingSample
+open PrefixSumTrainingSample
 
 [<EntryPoint>]
 let main argv = 
@@ -37,13 +37,13 @@ let main argv =
                                               new DataSizeCounter();
                                               new WorkSizeCounter() |])
     
-    let vectorAdd = new VectorAddTrainingSample()
-    vectorAdd.Run(chain)
+    //let vectorAdd = new VectorAddTrainingSample()
+    //vectorAdd.Run(chain)
 
     //let sobelFilter = new SobelFilterTrainingSample()
     //sobelFilter.Run(chain)
 
-    let scan = new ScanTrainingSample()
+    let scan = new PrefixSumTrainingSample()
     scan.Run(chain)
 
     0 // return an integer exit code

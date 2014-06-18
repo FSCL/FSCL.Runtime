@@ -6,6 +6,8 @@ module RuntimeOptions =
     [<Literal>]
     let UseCache = "UseCache"
     [<Literal>]
+    let BufferPoolPersistency = "BufferPoolPersistency"
+    [<Literal>]
     let RunningMode = "RunningMode"
     [<Literal>]
     let WorkSize = "WorkSize"

@@ -18,7 +18,7 @@ let sum(a, b) =
 [<ReflectedDefinition>]
 let VectorAdd(a: float32[], b: float32[], c: float32[]) =
     let gid = get_global_id(0)
-    c.[gid] <- sum(a.[gid], b.[gid])
+    c.[gid] <- a.[gid] + b.[gid]
 
 type VectorAddTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()

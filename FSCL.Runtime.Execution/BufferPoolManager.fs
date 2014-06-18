@@ -8,6 +8,7 @@ open FSCL.Compiler
 open FSCL
 open FSCL.Language
 open FSCL.Runtime
+open System.Diagnostics
 
 [<AllowNullLiteral>]
 type BufferPoolItem(buffer: OpenCLBuffer, 
@@ -79,7 +80,9 @@ type BufferPoolManager() =
             let prevBuffer = trackedBufferPool.[arr]
             // If not used anymore, same context and access we can use it
             assert (prevBuffer.IsAvailable)
-            if prevBuffer.Buffer.Context = context && BufferStrategies.AreMemoryFlagsCompatible(prevBuffer.Flags, mergedFlags, sharePriority) then    
+            let sameContext = prevBuffer.Buffer.Context = context
+            let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(prevBuffer.Flags, mergedFlags, sharePriority)
+            if sameContext && memFlagsCompatible then    
                 //Console.WriteLine("Buffer is reused with adapteded flags: " + prevBuffer.Flags.ToString())   
                            
                 // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
@@ -90,6 +93,10 @@ type BufferPoolManager() =
                 prevBuffer.IsAvailable <- false
                 prevBuffer.Buffer
             else
+                if sameContext then
+                    Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause memory flags are not compatible (pool buffer: " + prevBuffer.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString()) 
+                else
+                    Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause the OpenCL context is different") 
                 //Console.WriteLine("No adapted flags can be computed, create new buffer")   
                 // We must create a new buffer
                 let bufferItem = new BufferPoolItem(
@@ -104,7 +111,6 @@ type BufferPoolManager() =
                                     parameter.IsReturned)
                 // We need to copy buffer only if is has been potentially changed the one we are compying from
                 if (BufferStrategies.ShouldCopyBuffer(prevBuffer.AccessAnalysis, prevBuffer.AddressSpace, bufferItem.AccessAnalysis, addressSpace.AddressSpace)) then
-                    Console.WriteLine("Buffer is copied")    
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
                 //else
                     //Console.WriteLine("Buffer in NOT copied")   
@@ -235,8 +241,9 @@ type BufferPoolManager() =
             assert(retItem.IsAvailable)  
             //Console.WriteLine("Returned buffer is UNTRACKED")                 
             // Check if this can be used with no copy
-            if context = retBuffer.Context &&
-                BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then
+            let sameContext = context = retBuffer.Context
+            let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority)
+            if sameContext && memFlagsCompatible then
                 //Console.WriteLine("Returned buffer is promoted to TRACKED with adapteded flags: " + retItem.Flags.ToString())  
                 // Must promote this untracked item to tracked
                 retItem.IsAvailable <- false
@@ -247,6 +254,11 @@ type BufferPoolManager() =
                     rootReturnBuffer <- Some(retItem, newArr)
                 retBuffer
             else
+                if sameContext then
+                    Trace.WriteLine("FSCL Warning: tracked buffer for parameter " + parameter.Name + " cannot reuse pre-existing returned buffer cause memory flags are not compatible (returned buffer: " + retItem.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString()) 
+                else
+                    Trace.WriteLine("FSCL Warning: tracked buffer for parameter " + parameter.Name + " cannot reuse pre-existing returned buffer cause the OpenCL context is different") 
+                
                 //Console.WriteLine("No adapted flags can be computed, create new buffer")   
                 let poolItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
                 // Need to copy
@@ -302,14 +314,18 @@ type BufferPoolManager() =
             let retItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
             assert(retItem.IsAvailable)                   
             // Check if this can be used with no copy
-            let mutable avoidCopy = context = retBuffer.Context
-            if context = retBuffer.Context &&
-                BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority) then
+            let sameContext = context = retBuffer.Context
+            let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority)
+            if sameContext && memFlagsCompatible then
                 //Console.WriteLine("Buffer is reused with adapteded flags: " + retItem.Flags.ToString()) 
                 retItem.IsAvailable <- false
                 retBuffer
             else
-                //Console.WriteLine("No adapted flags can be computed, create new buffer")  
+                if sameContext then
+                    Trace.WriteLine("FSCL Warning: untracked buffer for parameter " + parameter.Name + " cannot reuse pre-existing returned buffer cause memory flags are not compatible (returned buffer: " + retItem.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString()) 
+                else
+                    Trace.WriteLine("FSCL Warning: untracked buffer for parameter " + parameter.Name + " cannot reuse pre-existing returned buffer cause the OpenCL context is different") 
+               
                 // Need to copy
                 let copy = this.CreateUntrackedBuffer(context, queue, parameter, retBuffer.Count, isRoot)
                 if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
@@ -338,7 +354,14 @@ type BufferPoolManager() =
                 arr
         else
             null
-            
+
+    member this.ForceReadBackBuffer(b: Array) =
+        if trackedBufferPool.ContainsKey(b) then
+            BufferTools.ReadBuffer(trackedBufferPool.[b].Queue, false, b, trackedBufferPool.[b].Buffer, [| b.LongLength |])
+            trackedBufferPool.[b].Queue.Finish()
+        else
+            ()
+
     member this.OperateOnBuffer(buffer: OpenCLBuffer, syncMode: TransferMode, action: Array -> Array) =
         let arr, poolItem =
             // If buffer is tracked we already have an array bound to the buffer
@@ -403,7 +426,7 @@ type BufferPoolManager() =
                     buffer.Dispose()
                     untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
 
-    member this.Dispose() =
+    member this.ClearTrackedAndUntrackedPool() =
         for item in untrackedBufferPool do
             for it in item.Value do
                 it.Key.Dispose()
@@ -412,7 +435,17 @@ type BufferPoolManager() =
             item.Value.Buffer.Dispose()
         trackedBufferPool.Clear()
         reverseTrackedBufferPool.Clear()
-        
+
+    member this.ClearUntrackedPoolOnly() =
+        for item in untrackedBufferPool do
+            for it in item.Value do
+                it.Key.Dispose()
+        untrackedBufferPool.Clear()
+
+    interface IDisposable with
+        member this.Dispose() =
+            this.ClearTrackedAndUntrackedPool()
+
     member this.RequireBufferForParameter(par: IFunctionParameter, 
                                           arg: Array option, 
                                           count: int64[],
