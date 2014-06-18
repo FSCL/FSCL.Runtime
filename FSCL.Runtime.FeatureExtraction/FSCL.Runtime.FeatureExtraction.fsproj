@@ -86,5 +86,10 @@
       <Project>{0E5212B9-8C3A-4E71-864E-114CD8256FA7}</Project>
       <Name>FSCL.Compiler.Util</Name>
     </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Name>OpenCLManagedWrapper</Name>
+      <Project>{55eb06a9-9f34-464c-880a-ca20ea631dd4}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
 </Project>

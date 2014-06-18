@@ -25,7 +25,7 @@ type VectorAddTrainingSample() =
 
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
-        dict.Add("MinVectorSize", 2048L)
+        dict.Add("MinVectorSize", 8192L)
         dict.Add("MaxVectorSize", 8L <<< 20)
         dict.Add("Iterations", 100)
         dict
@@ -87,45 +87,44 @@ type VectorAddTrainingSample() =
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do                                
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                    if dType <> DeviceType.Cpu || ((ifl &&& MemoryFlags.UsePersistentMemAMD |> int = 0) && (ofl &&& MemoryFlags.UsePersistentMemAMD |> int = 0)) then                                    
-                        let c = Array.zeroCreate<float32> (!size |> int)
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                    let c = Array.zeroCreate<float32> (!size |> int)
 
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        VectorAdd(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    a)),
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    b)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    c)))) @>   
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    VectorAdd(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                b)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)))) @>   
                         
-                        // Extract features
-                        let km = compiler.Compile(comp, opts) :?> IKernelModule
-                        let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| !size |], [| 128L |], opts)
+                    // Extract features
+                    let km = compiler.Compile(comp, opts) :?> IKernelModule
+                    let precomputedFeatures = chain.Precompute(km)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| !size |], [| 128L |], opts)
                                                      
-                        // Run once to skip compilation time
-                        comp.Run(!size, 128L)
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run(!size, 128L)
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    comp.Run(!size, 128L)
+                    if not (this.Verify(c, reference)) then
+                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                    else
+                        // Run
+                        let watch = new Stopwatch()
+                        watch.Start()
+                        for i = 0 to iterations - 1 do
+                            comp.Run(!size, 128L)
+                        watch.Stop()
+                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
+                        // Dump
+                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                        instanceResult <- instanceResult @ [ ttime ]
+                        System.Threading.Thread.Sleep(500)
                                 
             execResults <- execResults @ [ instanceResult @ [!size] @ features ]                
-            size := !size * 2L   
+            size := !size + minSize   
         execResults

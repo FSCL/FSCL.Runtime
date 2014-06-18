@@ -37,14 +37,15 @@ let main argv =
                                               new DataSizeCounter();
                                               new WorkSizeCounter() |])
     
-    //let vectorAdd = new VectorAddTrainingSample()
-    //vectorAdd.Run(chain)
+    let samples = [|
+                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample
+                  |]
 
-    //let sobelFilter = new SobelFilterTrainingSample()
-    //sobelFilter.Run(chain)
-
-    let scan = new PrefixSumTrainingSample()
-    scan.Run(chain)
+    for sample in samples do
+        sample.Run(chain)
 
     0 // return an integer exit code
 

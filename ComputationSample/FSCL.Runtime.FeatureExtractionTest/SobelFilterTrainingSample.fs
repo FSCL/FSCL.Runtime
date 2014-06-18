@@ -72,6 +72,34 @@ let SobelFilter2D(inputImage: uchar4[,],
         Gy <- i00 - i20  + float4(2.0f) * i01 - float4(2.0f) * i21 + i02 - i22
 
         outputImage.[y, x] <- (float4.hypot(Gx, Gy)/float4(2.0f)).ToUChar4()
+                
+[<ReflectedDefinition>]
+let SobelFilter2DNoBorder(inputImage: uchar4[,],
+                          outputImage: uchar4[,]) =
+    let x = get_global_id(0)
+    let y = get_global_id(1)
+
+    let width = get_global_size(0)
+    let height = get_global_size(1)
+
+    let mutable Gx = float4(0.0f)
+    let mutable Gy = Gx
+
+    // Read each texel component and calculate the filtered value using neighbouring texel components 
+    let i00 = (inputImage.[y, x]).ToFloat4()
+    let i10 = (inputImage.[y, x + 1]).ToFloat4()
+    let i20 = (inputImage.[y, x + 2]).ToFloat4()
+    let i01 = (inputImage.[y + 1, x]).ToFloat4()
+    let i11 = (inputImage.[y + 1, x + 1]).ToFloat4()
+    let i21 = (inputImage.[y + 1, x + 2]).ToFloat4()
+    let i02 = (inputImage.[y + 2, x]).ToFloat4()
+    let i12 = (inputImage.[y + 2, x + 1]).ToFloat4()
+    let i22 = (inputImage.[y + 2, x + 2]).ToFloat4()
+
+    Gx <- i00 + float4(2.0f) * i10 + i20 - i02  - float4(2.0f) * i12 - i22
+    Gy <- i00 - i20  + float4(2.0f) * i01 - float4(2.0f) * i21 + i02 - i22
+
+    outputImage.[y, x] <- (float4.hypot(Gx, Gy)/float4(2.0f)).ToUChar4()
 
 type SobelFilterTrainingSample() =
    inherit IDefaultFeatureExtractionTrainingSample()
@@ -148,6 +176,32 @@ type SobelFilterTrainingSample() =
 
                 output.[row, col] <- ((gx.pown(2) + gy.pown(2)).sqrt() / 2.0f).ToUChar4()
         box output
+        
+    member this.CreateVerifiedOutputNoBorder(o: obj) =
+        let input = o :?> uchar4[,]
+        let output = Array2D.zeroCreate<uchar4> (input.GetLength(0) - 2) (input.GetLength(1) - 2)
+
+        for row = 0 to (input.GetLength(0)) - 2 do
+            for col = 0 to (input.GetLength(1)) - 2 do
+                let gx = input.[row, col].ToFloat4() +
+                         ((2 |> byte) * input.[row, col + 1]).ToFloat4() +
+                         input.[row, col + 2].ToFloat4() -
+                         (input.[row + 2, col].ToFloat4() +
+                          ((2 |> byte) * input.[row + 2, col + 1]).ToFloat4() +
+                          input.[row + 2, col + 2].ToFloat4())
+
+                let gy = input.[row, col].ToFloat4() -
+                          input.[row, col + 2].ToFloat4() +
+                          ((2 |> byte) * input.[row + 1, col]).ToFloat4() -
+                          ((2 |> byte) * input.[row + 1, col + 2]).ToFloat4() +
+                          input.[row + 2, col].ToFloat4() -
+                          input.[row + 2, col + 2].ToFloat4()
+
+                let gxc = [| gx.x; gx.y; gx.z; gx.w |]
+                let gyc = [| gy.x; gy.y; gy.z; gy.w |]
+
+                output.[row, col] <- ((gx.pown(2) + gy.pown(2)).sqrt() / 2.0f).ToUChar4()
+        box output
 
     override this.ResultColumnIDs 
         with get() =   
@@ -180,56 +234,57 @@ type SobelFilterTrainingSample() =
         let size = ref minSize
         while !size <= maxSize do
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
+            let outputSize = (!size |> int)
+            let inputSize = outputSize + 2
                         
             // Create input
-            let input = Array2D.init<uchar4> (!size |> int) (!size |> int) (fun r c -> uchar4(rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte))
-            for i = 0 to (!size |> int) - 1 do
+            let input = Array2D.init<uchar4> inputSize inputSize (fun r c -> uchar4(rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte))
+            for i = 0 to inputSize - 1 do
                 input.[0, i] <- uchar4(1 |> byte)
 
             // Compute reference for verification
-            let reference = this.CreateVerifiedOutput((input))
-           
+            let reference = this.CreateVerifiedOutputNoBorder((input))
+
             // Iterate on devices
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                    if dIndex >= 1 && (dType <> DeviceType.Cpu || ((ifl &&& MemoryFlags.UsePersistentMemAMD |> int = 0) && (ofl &&& MemoryFlags.UsePersistentMemAMD |> int = 0))) then                                    
-                        let output = Array2D.zeroCreate<uchar4> (!size |> int) (!size |> int)
+                    let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
 
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        SobelFilter2D(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    input)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    output)))) @>   
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    SobelFilter2DNoBorder(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                input)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                output)))) @>   
                         
-                        // Extract features
-                        let km = compiler.Compile(comp, opts) :?> IKernelModule
-                        let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ input; output ], [| !size; !size |], [| 16L; 16L |], opts)
+                    // Extract features
+                    let km = compiler.Compile(comp, opts) :?> IKernelModule
+                    let precomputedFeatures = chain.Precompute(km)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ input; output ], [| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |], opts)
                                                      
-                        // Run once to skip compilation time
-                        comp.Run([| !size; !size |], [| 16L; 16L |])
-                        if not (this.Verify(output, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run([| !size; !size |], [| 16L; 16L |])
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    comp.Run([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                    if not (this.Verify(output, reference)) then
+                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                    else
+                        // Run
+                        let watch = new Stopwatch()
+                        watch.Start()
+                        for i = 0 to iterations - 1 do
+                            comp.Run([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                        watch.Stop()
+                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
+                        // Dump
+                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                        instanceResult <- instanceResult @ [ ttime ]
+                        System.Threading.Thread.Sleep(500)
                                 
-            execResults <- execResults @ [ instanceResult @ [!size; !size] @ features ]                
+            execResults <- execResults @ [ instanceResult @ [inputSize; !size] @ features ]                
             size := !size * 2L   
         execResults 
