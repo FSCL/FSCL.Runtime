@@ -1,5 +1,6 @@
 ﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
 
+open FSCL
 open FSCL.Compiler
 open FSCL.Runtime.Scheduling
 open System.Collections.Generic
@@ -32,15 +33,19 @@ type DataSizeCounter() =
 
             let analysis = item.AccessAnalysis
             let space = item.Meta.Get<AddressSpaceAttribute>().AddressSpace
+            let transferMode = item.Meta.Get<TransferModeAttribute>().Mode
             let isTransferredToDevice = item.DataType.IsArray &&
                                         analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
                                         space <> AddressSpace.Private &&
-                                        space <> AddressSpace.Local
+                                        space <> AddressSpace.Local &&
+                                        ((transferMode &&& TransferMode.NoTransfer) |> int = 0)
+
             let isTransferredFromDevice = item.DataType.IsArray &&
                                           analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
                                           space <> AddressSpace.Local &&
                                           space <> AddressSpace.Private &&
-                                          space <> AddressSpace.Constant
+                                          space <> AddressSpace.Constant &&
+                                          ((transferMode &&& TransferMode.NoTransferBack) |> int = 0)
             if isTransferredToDevice then
                 globalHostToDevP <- globalHostToDevP @ [ i ]
             if isTransferredFromDevice then
