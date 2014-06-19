@@ -38,10 +38,11 @@ let main argv =
                                               new WorkSizeCounter() |])
     
     let samples = [|
-                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample
+                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample
                   |]
 
     for sample in samples do

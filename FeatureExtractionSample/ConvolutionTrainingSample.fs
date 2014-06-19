@@ -13,7 +13,7 @@ open FSCL.Language
 open System.Diagnostics
 
 [<ReflectedDefinition; DynamicConstantDefine>]
-let mutable FILTER_WIDTH = 3
+let FILTER_WIDTH = 3
 
 [<ReflectedDefinition>]
 let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
