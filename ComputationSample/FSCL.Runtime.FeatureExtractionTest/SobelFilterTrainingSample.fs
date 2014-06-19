@@ -107,7 +107,7 @@ type SobelFilterTrainingSample() =
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinMatrixSize", 64L)
-        dict.Add("MaxMatrixSize", 2048L)
+        dict.Add("MaxMatrixSize", 4096L)
         dict.Add("Iterations", 100)
         dict
         
@@ -181,8 +181,8 @@ type SobelFilterTrainingSample() =
         let input = o :?> uchar4[,]
         let output = Array2D.zeroCreate<uchar4> (input.GetLength(0) - 2) (input.GetLength(1) - 2)
 
-        for row = 0 to (input.GetLength(0)) - 2 do
-            for col = 0 to (input.GetLength(1)) - 2 do
+        for row = 0 to (input.GetLength(0)) - 3 do
+            for col = 0 to (input.GetLength(1)) - 3 do
                 let gx = input.[row, col].ToFloat4() +
                          ((2 |> byte) * input.[row, col + 1]).ToFloat4() +
                          input.[row, col + 2].ToFloat4() -

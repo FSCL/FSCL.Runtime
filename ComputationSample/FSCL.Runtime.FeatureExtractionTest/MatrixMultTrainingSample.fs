@@ -53,7 +53,7 @@ let MatMul(matA: float32[,], matB: float32[,], matC: float32[,]) =
         // Load the matrices from global memory
         // to local memory; each thread loads
         // one element of each matrix
-        As.[ty, tx] <- matA.[by * BLOCK_SIZE, aCol]
+        As.[ty, tx] <- matA.[by * BLOCK_SIZE + ty, aCol]
         Bs.[ty, tx] <- matB.[bRow, bCol]
  
         // Synchronize to make sure the matrices 
@@ -196,10 +196,10 @@ type MatrixMultSimpleTrainingSample() =
                     // Extract features
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |], opts)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |], opts)
 
                     // Run once to skip compilation time
-                    comp.Run([| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+                    comp.Run([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
                     if not (this.Verify(c, reference)) then
                         Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                     else                        
@@ -207,7 +207,7 @@ type MatrixMultSimpleTrainingSample() =
                         let watch = new Stopwatch()
                         watch.Start()
                         for i = 0 to iterations - 1 do
-                            comp.Run([| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+                            comp.Run([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
                         watch.Stop()
                         let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                     
@@ -275,10 +275,10 @@ type MatrixMultAdvancedTrainingSample() =
 
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |], opts)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c ], [| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |], opts)
 
                     // Run once to skip compilation time
-                    comp.Run([| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+                    comp.Run([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
                     if not (this.Verify(c, reference)) then
                         Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                     else                        
@@ -286,7 +286,7 @@ type MatrixMultAdvancedTrainingSample() =
                         let watch = new Stopwatch()
                         watch.Start()
                         for i = 0 to iterations - 1 do
-                            comp.Run([| rows; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
+                            comp.Run([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])
                         watch.Stop()
                         let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                     
