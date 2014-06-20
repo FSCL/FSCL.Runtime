@@ -111,7 +111,7 @@ module QuotationUtil =
             | _ ->
                 match vs with
                 | a::tail ->
-                    Expr.Lambda(pars.[0], AppendParametersToCurriedFunction(expr, tail))
+                    Expr.Lambda(a, AppendParametersToCurriedFunction(expr, tail))
                 | [] ->
                     expr                
         match f with

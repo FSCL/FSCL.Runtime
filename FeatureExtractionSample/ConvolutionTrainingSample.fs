@@ -118,7 +118,7 @@ type ConvolutionTrainingSample() =
         let mutable execResults: obj list list = []
                 
         for filterSize in minFilterSize .. 2L .. maxFilterSize do
-            opts.[RuntimeOptions.ConstantDefines] <- [ ("FILTER_WIDTH", box filterSize) ]
+            opts.[RuntimeOptions.ConstantDefines] <- [ ("FILTER_WIDTH", box (filterSize |> int)) ]
             Console.WriteLine("     Filter Size: " + String.Format("{0,5:#####}", filterSize) + "x" + String.Format("{0,5:#####}", filterSize))
 
             let mutable matSize = minSize
@@ -128,7 +128,7 @@ type ConvolutionTrainingSample() =
                 let inputSize = matSize + (filterSize |> int64) - 1L                          
                 let a = Array.init (inputSize * inputSize |> int) (fun it -> ((it |> int64) / inputSize) |> float32)
                 let filter = Array.create (filterSize * filterSize |> int) 2.0f  
-                let reference = this.CreateVerifiedOutput((a, filter, filterSize |> int, inputSize |> int)) :?> float32[]
+                let reference = this.CreateVerifiedOutput((a, filter, inputSize |> int, filterSize |> int)) :?> float32[]
 
                 let mutable features: obj list = []
                 let mutable instanceResult: obj list = []

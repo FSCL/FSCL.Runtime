@@ -28,121 +28,121 @@ type ArithmeticOperationCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq   
         // Count ops
-        let acount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (~-) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (~+) @> (e, t, a)  ->
-                                                    let fa = continuation(a.[0])
-                                                    let sa = continuation(a.[1])
-                                                    Value(<@ 1.0f + %fa + %sa @>)
-                                                |  Patterns.Call(o, mi, a) ->
-                                                    if mi.Name.EndsWith("pasum") then
+        let acount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (-) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (*) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (/) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (%) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (~-) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (~+) @> (e, t, a)  ->
                                                         let fa = continuation(a.[0])
                                                         let sa = continuation(a.[1])
                                                         Value(<@ 1.0f + %fa + %sa @>)
-                                                    else                                            
-                                                        Continue
-                                                | _ ->
-                                                    Continue),
-                                             false)
+                                                    |  Patterns.Call(o, mi, a) ->
+                                                        if mi.Name.EndsWith("pasum") then
+                                                            let fa = continuation(a.[0])
+                                                            let sa = continuation(a.[1])
+                                                            Value(<@ 1.0f + %fa + %sa @>)
+                                                        else                                            
+                                                            Continue
+                                                    | _ ->
+                                                        Continue),
+                                                 false)
 
-        let lcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ not @> (e, t, a) ->
-                                                    let fa = continuation(a.[0])
-                                                    let sa = continuation(a.[1])
-                                                    Value(<@ 1.0f + %fa + %sa @>)
-                                                | _ ->
-                                                    Continue),
-                                             false)
+        let lcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (||) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ not @> (e, t, a) ->
+                                                        let fa = continuation(a.[0])
+                                                        let sa = continuation(a.[1])
+                                                        Value(<@ 1.0f + %fa + %sa @>)
+                                                    | _ ->
+                                                        Continue),
+                                                 false)
                                                        
-        let bcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) ->
-                                                    let fa = continuation(a.[0])
-                                                    let sa = continuation(a.[1])
-                                                    Value(<@ 1.0f + %fa + %sa @>)
-                                                | _ ->
-                                                    Continue),
-                                             false)        
-        
-        let ccount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) 
-                                                | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) ->
-                                                    let fa = continuation(a.[0])
-                                                    let sa = continuation(a.[1])
-                                                    Value(<@ 1.0f + %fa + %sa @>)
-                                                | _ ->
-                                                    Continue),
-                                             false)        
-        
-        let pcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ ( ** ) @> (e, t, a) ->
-                                                    let fa = continuation(a.[0])
-                                                    let sa = continuation(a.[1])
-                                                    Value(<@ 1.0f + %fa + %sa @>)
-                                                | Patterns.Call(o, mi, a) ->
-                                                    if mi.DeclaringType.GetCustomAttribute<VectorTypeAttribute>() <> null && mi.Name = "pown" then
+        let bcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (|||) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (<<<) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (>>>) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (^^^) @> (e, t, a) ->
                                                         let fa = continuation(a.[0])
                                                         let sa = continuation(a.[1])
                                                         Value(<@ 1.0f + %fa + %sa @>)
-                                                    else                                            
-                                                        Continue
-                                                | _ ->
-                                                    Continue),
-                                             false)  
-
-        let scount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | DerivedPatterns.SpecificCall <@ System.Math.Sqrt @> (e, t, a) ->
-                                                    let fa = continuation(a.[0])
-                                                    Value(<@ 1.0f + %fa @>)
-                                                | _ ->
-                                                    Continue),
-                                             false)    
-
-        let hcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
-                                             (fun (e, parameters, continuation) ->
-                                                match e with
-                                                | Patterns.Call(o, mi, a) ->
-                                                    if mi.DeclaringType.GetCustomAttribute<VectorTypeAttribute>() <> null && mi.Name = "hypot" then
+                                                    | _ ->
+                                                        Continue),
+                                                 false)        
+        
+        let ccount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (=) @> (e, t, a) 
+                                                    | DerivedPatterns.SpecificCall <@ (<>) @> (e, t, a) ->
                                                         let fa = continuation(a.[0])
                                                         let sa = continuation(a.[1])
                                                         Value(<@ 1.0f + %fa + %sa @>)
-                                                    else                                            
-                                                        Continue
-                                                | _ ->
-                                                    Continue),
-                                             false)       
+                                                    | _ ->
+                                                        Continue),
+                                                 false)        
+        
+        let pcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ ( ** ) @> (e, t, a) ->
+                                                        let fa = continuation(a.[0])
+                                                        let sa = continuation(a.[1])
+                                                        Value(<@ 1.0f + %fa + %sa @>)
+                                                    | Patterns.Call(o, mi, a) ->
+                                                        if mi.DeclaringType.GetCustomAttribute<VectorTypeAttribute>() <> null && mi.Name = "pown" then
+                                                            let fa = continuation(a.[0])
+                                                            let sa = continuation(a.[1])
+                                                            Value(<@ 1.0f + %fa + %sa @>)
+                                                        else                                            
+                                                            Continue
+                                                    | _ ->
+                                                        Continue),
+                                                 false)  
+
+        let scount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | DerivedPatterns.SpecificCall <@ System.Math.Sqrt @> (e, t, a) ->
+                                                        let fa = continuation(a.[0])
+                                                        Value(<@ 1.0f + %fa @>)
+                                                    | _ ->
+                                                        Continue),
+                                                 false)    
+
+        let hcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e, parameters, continuation) ->
+                                                    match e with
+                                                    | Patterns.Call(o, mi, a) ->
+                                                        if mi.DeclaringType.GetCustomAttribute<VectorTypeAttribute>() <> null && mi.Name = "hypot" then
+                                                            let fa = continuation(a.[0])
+                                                            let sa = continuation(a.[1])
+                                                            Value(<@ 1.0f + %fa + %sa @>)
+                                                        else                                            
+                                                            Continue
+                                                    | _ ->
+                                                        Continue),
+                                                 false)       
                                               
-        ([ box acount; box lcount; box bcount; box ccount; box pcount; box scount; box hcount ], ExpressionCounter.DynamicDefinePlaceholders |> List.ofSeq) :> obj
+        ([ box acount; box lcount; box bcount; box ccount; box pcount; box scount; box hcount ], ph |> List.ofSeq) :> obj

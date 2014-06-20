@@ -23,18 +23,18 @@ type BranchCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let count = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                            parameters,
-                                            (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
-                                                match e with
-                                                | Patterns.IfThenElse(cond, ifb, elseb) ->
-                                                    let ifc = continuation(ifb)
-                                                    let elsec = continuation(elseb)
-                                                    Value(<@ 1.0f + (0.5f * %ifc) + (0.5f * %elsec) @>)
-                                                | _ ->
-                                                    Continue),
-                                            false)
+        let count, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                parameters,
+                                                (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
+                                                    match e with
+                                                    | Patterns.IfThenElse(cond, ifb, elseb) ->
+                                                        let ifc = continuation(ifb)
+                                                        let elsec = continuation(elseb)
+                                                        Value(<@ 1.0f + (0.5f * %ifc) + (0.5f * %elsec) @>)
+                                                    | _ ->
+                                                        Continue),
+                                                false)
         // Build lambda expr 
-        ([box count], (ExpressionCounter.DynamicDefinePlaceholders |> List.ofSeq)) :> obj
+        ([box count], (ph |> List.ofSeq)) :> obj
 
                 

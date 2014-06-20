@@ -24,8 +24,6 @@ type CountError(msg: string) =
     inherit System.Exception(msg)
 
 type ExpressionCounter() = 
-    static member DynamicDefinePlaceholders = new List<Var>()
-
     static member private ReplaceWorkSizeFunctions(expr: Expr, workItemIdContainerPlaceholder: Quotations.Var) =
         let rec ReplaceInternal(expr: Expr) =
             match expr with 
@@ -232,7 +230,7 @@ type ExpressionCounter() =
                             // We must be sure that variables used for arguments can be unfolded to expressions of parameters, constants an work size functions
                             let unfoldedArguments = arguments |> List.map(fun (it:Expr) -> UnfoldExpr(it, stack))
                             // Build an evaluator for this function as if it was a kernel
-                            let evaluatorExpr = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
+                            let evaluatorExpr, placeholders = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
                             let evaluator = LeafExpressionConverter.EvaluateQuotation(evaluatorExpr) :?> float32 -> float32 -> WorkItemIdContainer -> float32
                             // Get the method info to invoke the evaluator
                             //let c = <@ evaluator(0.0f, 0.0f, new FSCL.Language.WorkItemIdContainer([||], [||],[||], [||], [||])) @>
@@ -427,11 +425,12 @@ type ExpressionCounter() =
         // Create a lambda to evaluate instruction count
         let stack = new VarStack()
         let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
+        let dynamicDefinePlaceholders = new List<Var>()
 
-        let prepBody = ExpressionCounter.PrepareBody(body, workItemIdContainerPlaceholder, ExpressionCounter.DynamicDefinePlaceholders);
-        let precExpr = ExpressionCounter.Estimate(prepBody.Value, parameters, action, stack, workItemIdContainerPlaceholder, ExpressionCounter.DynamicDefinePlaceholders |> List.ofSeq, considerLoopIncr)
+        let prepBody = ExpressionCounter.PrepareBody(body, workItemIdContainerPlaceholder, dynamicDefinePlaceholders);
+        let precExpr = ExpressionCounter.Estimate(prepBody.Value, parameters, action, stack, workItemIdContainerPlaceholder, dynamicDefinePlaceholders |> List.ofSeq, considerLoopIncr)
         let cleanCountExpr = ExpressionCounter.CleanInstructionCount(precExpr)
-        ExpressionCounter.CloseCountExpression(prepBody.Value, cleanCountExpr)
+        (ExpressionCounter.CloseCountExpression(prepBody.Value, cleanCountExpr), dynamicDefinePlaceholders)
             
     static member ContinueCount (parameters: (ParameterInfo * Var)[])
                                 (action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction) 
