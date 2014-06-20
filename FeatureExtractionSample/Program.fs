@@ -40,9 +40,9 @@ let main argv =
     let samples = [|
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample
+                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample
                   |]
 
     for sample in samples do

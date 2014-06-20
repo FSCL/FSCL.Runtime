@@ -66,7 +66,7 @@ type ConvolutionTrainingSample() =
         dict.Add("MinMatrixSize", 64L)
         dict.Add("MaxMatrixSize", 2048L)
         dict.Add("MinFilterSize", 3L)
-        dict.Add("MaxFilterSize", 31L)
+        dict.Add("MaxFilterSize", 19L)
         dict.Add("Iterations", 100)
         dict
         
