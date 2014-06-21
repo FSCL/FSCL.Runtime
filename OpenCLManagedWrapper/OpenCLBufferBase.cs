@@ -65,6 +65,11 @@ namespace OpenCL
             }
         }
 
+        public long GetLongLength(int r)
+        {
+            return this.Count[r];
+        }
+
         public long[] Count {
 			get;
 			set;
