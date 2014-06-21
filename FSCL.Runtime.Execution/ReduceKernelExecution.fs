@@ -23,8 +23,11 @@ type ReduceKernelExecutionProcessor() =
 
     override this.Run((node, isRoot), s, opts) =
         let isAccelerateReduce = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
-                                 node.KernelData.Kernel.CustomInfo.ContainsKey("ReduceFunction")
-        if (isAccelerateReduce) then
+                                 (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.reduce"
+                                 
+        let isAccelerateSum = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
+                                 (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.sum"
+        if (isAccelerateReduce || isAccelerateSum) then
             let dev = node.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>().Type
             if dev = DeviceType.Cpu then
                 this.OneStageReduce((node, isRoot), s, opts)
