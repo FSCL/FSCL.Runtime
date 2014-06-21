@@ -41,13 +41,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "BufferPoolSample", "BufferP
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ComputationSample", "ComputationSample\ComputationSample.fsproj", "{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}"
 EndProject
-<<<<<<< HEAD
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AccelerateCollectionSample", "AccelerateCollectionSample\AccelerateCollectionSample.fsproj", "{8C16845C-0C88-43EF-8846-4CCF561E4CA0}"
+EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.FeatureExtraction", "FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj", "{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FeatureExtractionSample", "FeatureExtractionSample\FeatureExtractionSample.fsproj", "{C7906474-A269-4A86-80DF-806371288760}"
-=======
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AccelerateCollectionSample", "AccelerateCollectionSample\AccelerateCollectionSample.fsproj", "{8C16845C-0C88-43EF-8846-4CCF561E4CA0}"
->>>>>>> master
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -115,7 +113,10 @@ Global
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|Any CPU.Build.0 = Release|Any CPU
-<<<<<<< HEAD
+		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -124,12 +125,6 @@ Global
 		{C7906474-A269-4A86-80DF-806371288760}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.Build.0 = Release|Any CPU
-=======
-		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8C16845C-0C88-43EF-8846-4CCF561E4CA0}.Release|Any CPU.Build.0 = Release|Any CPU
->>>>>>> master
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -144,10 +139,7 @@ Global
 		{3BD75582-1A72-4022-9FE7-483573DEA9BA} = {186B7C90-9341-4F9D-9172-B8EAD4E159F2}
 		{F61A85A5-DFB9-4034-84A3-880333D96941} = {A2EDD610-D281-4B04-8EC7-EBEA58F57418}
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8} = {A2EDD610-D281-4B04-8EC7-EBEA58F57418}
-<<<<<<< HEAD
-		{C7906474-A269-4A86-80DF-806371288760} = {A2EDD610-D281-4B04-8EC7-EBEA58F57418}
-=======
 		{8C16845C-0C88-43EF-8846-4CCF561E4CA0} = {A2EDD610-D281-4B04-8EC7-EBEA58F57418}
->>>>>>> master
+		{C7906474-A269-4A86-80DF-806371288760} = {A2EDD610-D281-4B04-8EC7-EBEA58F57418}
 	EndGlobalSection
 EndGlobal
