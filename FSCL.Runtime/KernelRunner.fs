@@ -43,35 +43,40 @@ module Runtime =
             [|  typeof<FlowGraphBuildingStep>;
                 typeof<ReduceKernelExecutionProcessor> |]
              
-        val private pool: BufferPoolManager
+        val private globalPool: BufferPoolManager
         val private creationManager: KernelCreationManager
-       
+        val mutable private isRunning: bool
+
         new(comp, metr) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
-                pool = new BufferPoolManager()
+                isRunning = false
+                globalPool = new BufferPoolManager()
                 creationManager = new KernelCreationManager(comp, metr)
             }
     
         new(comp, metr, file: string) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
-                pool = new BufferPoolManager()
+                isRunning = false
+                globalPool = new BufferPoolManager()
                 creationManager = new KernelCreationManager(comp, metr)
             }
 
         new(comp, metr, conf: PipelineConfiguration) =
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
-                pool = new BufferPoolManager()
+                isRunning = false
+                globalPool = new BufferPoolManager()
                 creationManager = new KernelCreationManager(comp, metr)
             }
                                                     
-        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =            
-            let result = this.Run((input, this.creationManager, this.pool), opts) :?> ExecutionOutput
+        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =  
+            let result = this.Run((input, this.creationManager, this.globalPool), opts) :?> ExecutionOutput
 
             // Read output buffers
-            this.pool.TransferBackModifiedBuffers()
+            if not isSubRunning then
+                this.globalPool.TransferBackModifiedBuffers()
 
             // Check the persistency of buffer pool
             let persistency = 
@@ -83,22 +88,26 @@ module Runtime =
             // If has return buffer read it
             match result with
             | ReturnedValue(v) ->
-                // Dispose all buffers if PersistencyInsideExpressions
-                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                    this.pool.ClearTrackedAndUntrackedPool()
-                else
-                    this.pool.ClearUntrackedPoolOnly()
+                // Clear pool only if this is not a subrunning (a running in a sequential function)
+                if not isSubRunning then
+                    // Dispose all buffers if PersistencyInsideExpressions
+                    if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                        this.globalPool.ClearTrackedAndUntrackedPool()
+                    else
+                        this.globalPool.ClearUntrackedPoolOnly()
                 v
             | _ ->
-                let v = this.pool.ReadRootBuffer()
-                // Dispose all buffers is PersistencyInsideExpressions
-                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                    this.pool.ClearTrackedAndUntrackedPool()
-                else
-                    this.pool.ClearUntrackedPoolOnly()
+                let v = this.globalPool.ReadRootBuffer()
+                // Clear pool only if this is not a subrunning (a running in a sequential function)
+                if not isSubRunning then
+                    // Dispose all buffers is PersistencyInsideExpressions
+                    if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                        this.globalPool.ClearTrackedAndUntrackedPool()
+                    else
+                        this.globalPool.ClearUntrackedPoolOnly()
                 v :> obj
                             
-        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
+        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =    
             raise (KernelSetupException("Multithreading support under development"))
             (*                                               
             // Normalize dimensions of workspace
@@ -186,6 +195,10 @@ module Runtime =
                                   mode: RunningMode, 
                                   fallback: bool,
                                   opt: Dictionary<string, obj>) =
+            
+            let isSubRunning = this.isRunning
+            this.isRunning <- true
+
             // Copy options
             let opts = new Dictionary<string, obj>()
             for item in opt do
@@ -200,23 +213,27 @@ module Runtime =
                 opts.Add(RuntimeOptions.MultithreadFallback, fallback)                      
                       
             // If global or local size empty theyshould be embedded in kernel expression 
-            match mode with
-            | RunningMode.OpenCL ->                
-                this.RunExpressionOpenCL(expr, opts)
-            | RunningMode.Multithread ->
-                this.RunExpressionMultithread(expr, opts)
-            | _ ->              
-                this.RunExpressionMultithread(expr, opts)
+            let result = match mode with
+                        | RunningMode.OpenCL ->                
+                            this.RunExpressionOpenCL(expr, opts, isSubRunning)
+                        | RunningMode.Multithread ->
+                            this.RunExpressionMultithread(expr, opts, isSubRunning)
+                        | _ ->              
+                            this.RunExpressionMultithread(expr, opts, isSubRunning)
+
+            if not isSubRunning then
+                this.isRunning <- false
+            result
        
         member this.ForceClearPool(transferBackBuffers: bool) =
             if transferBackBuffers then
                 // Read output buffers
-                this.pool.TransferBackModifiedBuffers()   
-            this.pool.ClearTrackedAndUntrackedPool()
+                this.globalPool.TransferBackModifiedBuffers()   
+            this.globalPool.ClearTrackedAndUntrackedPool()
 
         interface IDisposable with
             member this.Dispose() =
-                (this.pool :> IDisposable).Dispose()
+                (this.globalPool :> IDisposable).Dispose()
                 (this.creationManager :> IDisposable).Dispose()
 
     // Global kernel runner

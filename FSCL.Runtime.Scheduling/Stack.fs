@@ -1,15 +1,15 @@
 ﻿namespace FSCL.Runtime.Scheduling
 
-module Stack =
-    type 'a stack =
+module VarStack =
+    type VarStack =
         | EmptyStack
-        | StackNode of 'a * 'a stack
- 
-    let hd = function
+        | StackNode of (Quotations.Var * Quotations.Expr) * VarStack
+         
+    let head = function
         | EmptyStack -> failwith "Empty stack"
         | StackNode(hd, tl) -> hd
  
-    let tl = function
+    let tail = function
         | EmptyStack -> failwith "Emtpy stack"
         | StackNode(hd, tl) -> tl
         
@@ -32,20 +32,30 @@ module Stack =
         | EmptyStack -> StackNode(y, EmptyStack)
         | StackNode(hd, tl) -> StackNode(y, StackNode(hd, tl))
  
-    let rec map f = function
-        | EmptyStack -> EmptyStack
-        | StackNode(hd, tl) -> StackNode(f hd, map f tl)
- 
-    let rec rev s =
-        let rec loop acc = function
-            | EmptyStack -> acc
-            | StackNode(hd, tl) -> loop (StackNode(hd, acc)) tl
-        loop EmptyStack s
- 
     let rec contains x = function
         | EmptyStack -> false
-        | StackNode(hd, tl) -> hd = x || contains x tl
+        | StackNode((v, value), tl) -> v = x || contains x tl
  
-    let rec fold f seed = function
-        | EmptyStack -> seed
-        | StackNode(hd, tl) -> fold f (f seed hd) tl
+    let rec find x = function
+        | EmptyStack -> None
+        | StackNode((v, value), tl) -> 
+            if v = x then
+                Some(value)
+            else
+                find x tl
+                
+    let rec set x newValue = function
+        | EmptyStack -> EmptyStack
+        | StackNode((v, value), tl) -> 
+            if v = x then
+                StackNode((v, newValue), tl)
+            else
+                StackNode((v, value), set x newValue tl)
+
+    let rec findAndTail x = function
+        | EmptyStack -> None, EmptyStack
+        | StackNode((v, value), tl) -> 
+            if v = x then
+                Some(value), tl
+            else
+                findAndTail x tl

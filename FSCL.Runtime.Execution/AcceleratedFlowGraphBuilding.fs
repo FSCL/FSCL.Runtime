@@ -18,7 +18,7 @@ open FSCL.Compiler.AcceleratedCollections
                 "FSCL_FLOW_GRAPH_BUILDING_STEP",
                 Before = [| "FSCL_FLOW_GRAPH_DEFAULT_PROCESSOR" |])>]
 type AcceleratedFlowGraphBuildingProcessor() =      
-    inherit CompilerStepProcessor<KernelCreationResult, FlowGraphNode option>()
+    inherit CompilerStepProcessor<ComputationCreationResult, FlowGraphNode option>()
         
     member private this.LiftArgumentsAndKernelCalls(e: Expr,
                                                     args: Dictionary<string, obj>,
@@ -85,87 +85,27 @@ type AcceleratedFlowGraphBuildingProcessor() =
             intSizes.Add(evaluated :?> System.Int64)
         intSizes |> Seq.toArray
 
-    override this.Run(input, s, opts) =
+    override this.Run(data, s, opts) =
         let step = s :?> FlowGraphBuildingStep
 
-        // Check if this is an accelerated collections kernel
-        if input.KernelData.Kernel :? AcceleratedKernelInfo then
-            let info = input.KernelData.Kernel :?> AcceleratedKernelInfo
+        match data with 
+        | ComputationCreationResult.Kernel(input) ->
+            // Check if this is an accelerated collections kernel
+            if input.KernelData.Kernel :? AcceleratedKernelInfo then
+                let info = input.KernelData.Kernel :?> AcceleratedKernelInfo
 
-            // Create flow graph node
-            let node = new FlowGraphNode(input.DeviceData, input.KernelData, input.CompiledKernelData)
+                // Create flow graph node
+                let node = new KernelFlowGraphNode(input.DeviceData, input.KernelData, input.CompiledKernelData)
             
-            // Build node input
-            let parameters = input.KernelData.Kernel.Parameters
-            match info.CollectionFunctionName with
-            | "Array.map"
-            | "Array.mapi" ->
-                // Params: input, output, input_size, output_size
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                let processedParam = 
-                    step.Process(input.CallArgs.[1])
-                match processedParam with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               KernelOutput(precNode, 0))
-                | _ ->                    
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               ActualArgument(input.CallArgs.[1]))
-                FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                                            // Same size of input
-                                                                            // This can be an array or a buffer (if the output of another kernel)
-                                                                            ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
-                FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
-
-                // Create input for next step
-                Some(node)
-
-            | "Array.map2"
-            | "Array.mapi2" ->
-                // Params: input1, input2, output, input1_size, input2_size, output_size
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                let processedParam1 = 
-                    step.Process(input.CallArgs.[1])
-                match processedParam1 with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               KernelOutput(precNode, 0))
-                | _ ->                    
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               ActualArgument(input.CallArgs.[1]))                                               
-                let processedParam2 = 
-                    step.Process(input.CallArgs.[2])
-                match processedParam2 with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[1].Name,
-                                               KernelOutput(precNode, 0))
-                | _ ->                    
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[1].Name,
-                                               ActualArgument(input.CallArgs.[2]))
-                FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                                            // Same size of input
-                                                                            // This can be an array or a buffer (if the output of another kernel)
-                                                                            ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
-                FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, SizeArgument)
-                
-                // Create input for next step
-                Some(node)
-
-            | "Array.reduce"            
-            | "Array.sum"  ->
-                // Params: input, local, output, input_size, local_size, output_size
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                if info.CollectionFunctionName = "Array.sum" then
-                    let processedParam = step.Process(input.CallArgs.[0])
+                // Build node input
+                let parameters = input.KernelData.Kernel.Parameters
+                match info.CollectionFunctionName with
+                | "Array.map"
+                | "Array.mapi" ->
+                    // Params: input, output, input_size, output_size
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    let processedParam = 
+                        step.Process(input.CallArgs.[1])
                     match processedParam with
                     | Some(precNode) ->
                         FlowGraphUtil.SetNodeInput(node,
@@ -174,63 +114,127 @@ type AcceleratedFlowGraphBuildingProcessor() =
                     | _ ->                    
                         FlowGraphUtil.SetNodeInput(node,
                                                    parameters.[0].Name,
-                                                   ActualArgument(input.CallArgs.[0]))  
-                else
-                    let processedParam = step.Process(input.CallArgs.[1])
-                    match processedParam with
-                    | Some(precNode) ->
-                        FlowGraphUtil.SetNodeInput(node,
-                                                   parameters.[0].Name,
-                                                   KernelOutput(precNode, 0))
-                    | _ ->                    
-                        FlowGraphUtil.SetNodeInput(node,
-                                                   parameters.[0].Name,
-                                                   ActualArgument(input.CallArgs.[1]))  
-                // If cpu then this is block_size otherwise it's a local array   
-                let devType = input.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>()  
-                if devType.Type = DeviceType.Cpu then                     
-                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, IntrinsicArgument)
-                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, IntrinsicArgument)
+                                                   ActualArgument(input.CallArgs.[1]))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                                // Same size of input
+                                                                                // This can be an array or a buffer (if the output of another kernel)
+                                                                                ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, SizeArgument)
                     FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
-                    FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
-                else                                
-                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) -> localSize))
+
+                    // Create input for next step
+                    Some(node :> FlowGraphNode)
+
+                | "Array.map2"
+                | "Array.mapi2" ->
+                    // Params: input1, input2, output, input1_size, input2_size, output_size
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    let processedParam1 = 
+                        step.Process(input.CallArgs.[1])
+                    match processedParam1 with
+                    | Some(precNode) ->
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[0].Name,
+                                                   KernelOutput(precNode, 0))
+                    | _ ->                    
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[0].Name,
+                                                   ActualArgument(input.CallArgs.[1]))                                               
+                    let processedParam2 = 
+                        step.Process(input.CallArgs.[2])
+                    match processedParam2 with
+                    | Some(precNode) ->
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[1].Name,
+                                                   KernelOutput(precNode, 0))
+                    | _ ->                    
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[1].Name,
+                                                   ActualArgument(input.CallArgs.[2]))
                     FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                                                                    // Size is number of groups
-                                                                                                    [| globalSize.[0] / localSize.[0] |]))
+                                                                                // Same size of input
+                                                                                // This can be an array or a buffer (if the output of another kernel)
+                                                                                ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
                     FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
                     FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
                     FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, SizeArgument)
+                
+                    // Create input for next step
+                    Some(node :> FlowGraphNode)
 
-                // Create input for next step
-                Some(node)
+                | "Array.reduce"            
+                | "Array.sum"  ->
+                    // Params: input, local, output, input_size, local_size, output_size
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    if info.CollectionFunctionName = "Array.sum" then
+                        let processedParam = step.Process(input.CallArgs.[0])
+                        match processedParam with
+                        | Some(precNode) ->
+                            FlowGraphUtil.SetNodeInput(node,
+                                                       parameters.[0].Name,
+                                                       KernelOutput(precNode, 0))
+                        | _ ->                    
+                            FlowGraphUtil.SetNodeInput(node,
+                                                       parameters.[0].Name,
+                                                       ActualArgument(input.CallArgs.[0]))  
+                    else
+                        let processedParam = step.Process(input.CallArgs.[1])
+                        match processedParam with
+                        | Some(precNode) ->
+                            FlowGraphUtil.SetNodeInput(node,
+                                                       parameters.[0].Name,
+                                                       KernelOutput(precNode, 0))
+                        | _ ->                    
+                            FlowGraphUtil.SetNodeInput(node,
+                                                       parameters.[0].Name,
+                                                       ActualArgument(input.CallArgs.[1]))  
+                    // If cpu then this is block_size otherwise it's a local array   
+                    let devType = input.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>()  
+                    if devType.Type = DeviceType.Cpu then                     
+                        FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, IntrinsicArgument)
+                        FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, IntrinsicArgument)
+                        FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
+                        FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
+                    else                                
+                        FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) -> localSize))
+                        FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                                                        // Size is number of groups
+                                                                                                        [| globalSize.[0] / localSize.[0] |]))
+                        FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
+                        FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, SizeArgument)
+                        FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, SizeArgument)
+
+                    // Create input for next step
+                    Some(node :> FlowGraphNode)
             
-            | "Array.rev" ->
-                // Params: input, output, input_size, output_size
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                let processedParam = 
-                    step.Process(input.CallArgs.[0])
-                match processedParam with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               KernelOutput(precNode, 0))
-                | _ ->                    
-                    FlowGraphUtil.SetNodeInput(node,
-                                               parameters.[0].Name,
-                                               ActualArgument(input.CallArgs.[0]))
-                FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                                            // Same size of input
-                                                                            // This can be an array or a buffer (if the output of another kernel)
-                                                                            ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
-                FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, SizeArgument)
-                FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
+                | "Array.rev" ->
+                    // Params: input, output, input_size, output_size
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    let processedParam = 
+                        step.Process(input.CallArgs.[0])
+                    match processedParam with
+                    | Some(precNode) ->
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[0].Name,
+                                                   KernelOutput(precNode, 0))
+                    | _ ->                    
+                        FlowGraphUtil.SetNodeInput(node,
+                                                   parameters.[0].Name,
+                                                   ActualArgument(input.CallArgs.[0]))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                                // Same size of input
+                                                                                // This can be an array or a buffer (if the output of another kernel)
+                                                                                ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
+                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, SizeArgument)
+                    FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, SizeArgument)
 
-                // Create input for next step
-                Some(node)
-            | _ ->
+                    // Create input for next step
+                    Some(node :> FlowGraphNode)
+                | _ ->
+                    None
+            else
                 None
-        else
+        | _ ->
             None
 
                   

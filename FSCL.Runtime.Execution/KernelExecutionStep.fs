@@ -28,7 +28,7 @@ type KernelExecutionStep(tm: TypeManager,
             output <- processors.[index].Execute((input, isRoot), this, opts) :?> ExecutionOutput option
             index <- index + 1
         if output.IsNone then
-            raise (KernelExecutionException("The runtime is not able to determine the way to execute kernel " + input.KernelData.Kernel.ID.ToString()))
+            raise (KernelExecutionException("The runtime is not able to determine the way to execute the node " + input.ToString()))
         output.Value
         
     override this.Run((input, pool), opt) =

@@ -29,6 +29,7 @@ type IDefaultFeatureExtractor() =
         let featureNames = this.FeatureNameList
         let features = List.mapi(fun i (evaluablePrecomputedFeature:obj) ->
                                     // Then we evaluate the expr to get a function
+                                    //let prc = (evaluablePrecomputedFeature :?> Expr).GetFreeVars()
                                     let evaluator = LeafExpressionConverter.EvaluateQuotation(evaluablePrecomputedFeature :?> Expr)
                                     // Add work size function values to original arguments
                                     let workSizeArgs = [ new WorkItemIdContainer(
@@ -38,7 +39,15 @@ type IDefaultFeatureExtractor() =
                                                                 (localSize |> Array.map(fun i -> 0)),                                                                
                                                                 (globalSize |> Array.map(fun i -> 0))) :> obj ]
                                     // Add dynamic defines additional arguments
-                                   
+                                   (*
+                                    <@ 
+                                        let mutable tripCount = 0.0f 
+                                        let mutable offset = 2
+                                        while offset > 0 do 
+                                            offset <- offset >>> 2
+                                            tripCount <- tripCount + 1.0f
+                                        tripCount
+                                    @> *)
                                     let constantsDefines = if opts.ContainsKey(RuntimeOptions.ConstantDefines) then
                                                                 Some(opts.[RuntimeOptions.ConstantDefines] :?> (string * obj) list)
                                                            else

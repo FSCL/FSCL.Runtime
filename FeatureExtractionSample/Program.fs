@@ -16,6 +16,7 @@ open MatrixMultTrainingSample
 open ConvolutionTrainingSample
 open SobelFilterTrainingSample
 open PrefixSumTrainingSample
+open ReductionTrainingSample
 
 [<EntryPoint>]
 let main argv = 
@@ -40,9 +41,12 @@ let main argv =
     let samples = [|
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample
+                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample
+                        //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample
                   |]
 
     for sample in samples do

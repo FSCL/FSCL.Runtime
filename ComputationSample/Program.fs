@@ -98,6 +98,12 @@ let MatrixMultAdvanced(matA: float32[,], matB: float32[,], matC: float32[,]) =
 let sumCurried a b =
     a + b
 
+let SimpleSequentialComp(a:float32[], b:float32[]) =
+    let c = Array.zeroCreate<float32> (a.Length/2)
+    for i = 0 to a.Length / 2 - 1 do
+        c.[i] <- a.[i] + b.[i]
+    c
+
 let FirstDeviceSupportMultiDimensionalWorkItems() =
     let device = OpenCLPlatform.Platforms.[0].Devices.[0]
     if device.MaxWorkItemDimensions > 1L then
@@ -108,7 +114,7 @@ let FirstDeviceSupportMultiDimensionalWorkItems() =
 [<EntryPoint>]
 let main argv =
     let timer = new Stopwatch()
-    let size = 1 <<< 20
+    let size = 1 <<< 10
     let lsize = size |> int64
     // Create buffers
     let a = Array.create size 2.0f
@@ -335,7 +341,7 @@ let main argv =
         if FirstDeviceSupportMultiDimensionalWorkItems() then
             // Expression of multiple kernels
             Console.WriteLine("")
-            Console.WriteLine("# Testing expressions made of multiple kernels (matrix multiplication followed by a sum) on the first device")
+            Console.WriteLine("# Testing expression made of multiple kernels (matrix multiplication followed by a sum) on the first device")
             timer.Start()
             let r = <@ WORKSIZE([| matSizel |], [| 8L |],
                         MatrixAdd(
@@ -355,6 +361,47 @@ let main argv =
                 Console.WriteLine("  Multikernel returned a wrong result!")
             else
                 Console.WriteLine("  First multikernel execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+        // Sequential computation
+        Console.WriteLine("")
+        Console.WriteLine("# Testing expressions containing a sequential (not reflected) function call")
+        timer.Restart()
+        let r = <@ SimpleSequentialComp(a, b) @>.Run()
+        timer.Stop()
+        Console.WriteLine("  Sequential function execution time: " + timer.ElapsedMilliseconds.ToString() + "ms")
+        
+        // Composition of collection functions and custom kernel
+        Console.WriteLine("")
+        Console.WriteLine("# Testing expressions containing a collection functions, custom kernels and sequential computations")
+        timer.Restart()
+        let r = <@ Array.reduce sumCurried 
+                                (SimpleSequentialComp ((Array.map2 sumCurried a b), 
+                                                        VectorAddReturn(a, b))) @>.Run(a.LongLength, 128L)
+        timer.Stop()
+        Console.WriteLine("  Expression execution time: " + timer.ElapsedMilliseconds.ToString() + "ms")
+        timer.Restart()
+        let r = <@ Array.reduce sumCurried 
+                                (SimpleSequentialComp ((Array.map2 sumCurried a b), 
+                                                        VectorAddReturn(a, b))) @>.Run(a.LongLength, 128L)
+        timer.Stop()
+        Console.WriteLine("  Expression execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+        
+        
+        // Composition of collection functions and custom kernel
+        Console.WriteLine("")
+        Console.WriteLine("# Testing expression with sub-executor")
+        // This is a wrapper for a multi-kernel computation
+        let MapReduce (a:float32[]) (b:float32[]) =
+            <@ Array.reduce sumCurried (Array.map2 sumCurried a b) @>.Run(a.LongLength, 128L)
+
+        timer.Restart()
+        let r = <@ MapReduce (VectorAddReturn(a, b)) b @>.Run(a.LongLength, 128L)
+        timer.Stop()
+        Console.WriteLine("  Expression with sub-executor execution time: " + timer.ElapsedMilliseconds.ToString() + "ms")
+        timer.Restart()
+        let r = <@ MapReduce (VectorAddReturn(a, b)) b @>.Run(a.LongLength, 128L)
+        timer.Stop()
+        Console.WriteLine("  Expression with sub-executor execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
 
     Console.WriteLine("Press Enter to exit...")
     Console.Read() |> ignore

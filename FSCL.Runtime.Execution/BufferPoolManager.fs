@@ -23,7 +23,7 @@ type BufferPoolItem(buffer: OpenCLBuffer,
     member val AccessAnalysis = analysis with get
     member val WriteMode = wMode with get
     member val ReadMode = rMode with get 
-    member val TransferMode = transfer with get
+    member val TransferMode = transfer with get, set
     member val AddressSpace = space with get
     member val IsReturned = isReturn with get
     member val Flags = flags with get
@@ -32,15 +32,27 @@ type BufferPoolItem(buffer: OpenCLBuffer,
     member val IsAvailable = false with get, set
     member val Queue = queue with get
                
+// To create a new buffer pool manager from a previous one, so to reuse buffers created in a preceding expression
 [<AllowNullLiteral>]
-type BufferPoolManager() =
+type BufferPoolManager(oldPool: BufferPoolManager) =
     let mutable noObjID = 0
 
-    let trackedBufferPool = Dictionary<Array, BufferPoolItem>()
-    let untrackedBufferPool = Dictionary<OpenCLContext, Dictionary<OpenCLBuffer, BufferPoolItem>>()
+    let trackedBufferPool = if oldPool <> null then oldPool.GetTrackedBufferPool() else Dictionary<Array, BufferPoolItem>()
+    let untrackedBufferPool = if oldPool <> null then oldPool.GetUntrackedBufferPool() else Dictionary<OpenCLContext, Dictionary<OpenCLBuffer, BufferPoolItem>>()
     let mutable rootReturnBuffer = None
-    let reverseTrackedBufferPool = Dictionary<OpenCLBuffer, Array>()
+    let reverseTrackedBufferPool = if oldPool <> null then oldPool.GetReverseTrackedBufferPool() else Dictionary<OpenCLBuffer, Array>()
     
+    new() =
+        new BufferPoolManager(null)        
+    
+    // To get buffers from an old pool item and merge them into a new one
+    member internal this.GetTrackedBufferPool() =
+        trackedBufferPool
+     member internal this.GetUntrackedBufferPool() =
+        untrackedBufferPool
+     member internal this.GetReverseTrackedBufferPool() =
+        reverseTrackedBufferPool
+
     // Tracking buffer
     // This is the buffer is amtching an array argument
     member this.CreateTrackedBuffer(context: OpenCLContext,
@@ -79,12 +91,18 @@ type BufferPoolManager() =
             // We are requested to create a buffer matching an object (parameter value) already known
             let prevBuffer = trackedBufferPool.[arr]
             // If not used anymore, same context and access we can use it
-            assert (prevBuffer.IsAvailable)
+            //assert (prevBuffer.IsAvailable)
             let sameContext = prevBuffer.Buffer.Context = context
             let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(prevBuffer.Flags, mergedFlags, sharePriority)
             if sameContext && memFlagsCompatible then    
                 //Console.WriteLine("Buffer is reused with adapteded flags: " + prevBuffer.Flags.ToString())   
                            
+                // Update transfer mode
+                if (prevBuffer.TransferMode &&& TransferMode.NoTransfer |> int > 0) && (transferMode.Mode &&& TransferMode.NoTransfer |> int = 0) then
+                    prevBuffer.TransferMode <- prevBuffer.TransferMode &&& ~~~TransferMode.NoTransfer
+                if (prevBuffer.TransferMode &&& TransferMode.NoTransferBack |> int > 0) && (transferMode.Mode &&& TransferMode.NoTransferBack |> int = 0) then
+                    prevBuffer.TransferMode <- prevBuffer.TransferMode &&& ~~~TransferMode.NoTransferBack
+                
                 // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
                 if parameter.IsReturned && isRoot then
                     rootReturnBuffer <- Some(prevBuffer, arr)
@@ -94,7 +112,7 @@ type BufferPoolManager() =
                 prevBuffer.Buffer
             else
                 if sameContext then
-                    Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause memory flags are not compatible (pool buffer: " + prevBuffer.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString()) 
+                    Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause memory flags are not compatible (pool buffer: " + prevBuffer.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString() + ")") 
                 else
                     Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause the OpenCL context is different") 
                 //Console.WriteLine("No adapted flags can be computed, create new buffer")   
@@ -123,6 +141,7 @@ type BufferPoolManager() =
                 reverseTrackedBufferPool.Remove(prevBuffer.Buffer) |> ignore
                 prevBuffer.Buffer.Dispose()
                 trackedBufferPool.[arr] <- bufferItem          
+                reverseTrackedBufferPool.Add(bufferItem.Buffer, arr)
                 bufferItem.Buffer
         else
             //Console.WriteLine("No buffer found, create it")   
@@ -355,12 +374,40 @@ type BufferPoolManager() =
         else
             null
 
-    member this.ForceReadBackBuffer(b: Array) =
-        if trackedBufferPool.ContainsKey(b) then
-            BufferTools.ReadBuffer(trackedBufferPool.[b].Queue, false, b, trackedBufferPool.[b].Buffer, [| b.LongLength |])
-            trackedBufferPool.[b].Queue.Finish()
+    member this.BeginOperateOnBuffer(b: OpenCLBuffer) =
+        if reverseTrackedBufferPool.ContainsKey(b) then
+            let array = reverseTrackedBufferPool.[b]
+            let poolItem = trackedBufferPool.[array]
+            // Check if we need to read back
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+                BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, array, poolItem.Buffer)                
+            array
+        else if untrackedBufferPool.ContainsKey(b.Context) && untrackedBufferPool.[b.Context].ContainsKey(b) then
+            let poolItem = untrackedBufferPool.[b.Context].[b]
+            let elementCount = b.Count
+            let elemType = b.ElementType
+            let array = Array.CreateInstance(elemType, elementCount)
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+                BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, array, poolItem.Buffer)    
+            // If we need to operate on an untracked buffer the buffer must be promoted to tracke buffer
+            untrackedBufferPool.[b.Context].Remove(b) |> ignore
+            trackedBufferPool.Add(array, poolItem)
+            reverseTrackedBufferPool.Add(b, array)           
+            array
         else
-            ()
+            null      
+    
+     member this.EndOperateOnBuffer(array: Array) =
+        if trackedBufferPool.ContainsKey(array) then
+            let poolItem = trackedBufferPool.[array]
+            // Check if array ref changed
+            // ...
+
+            // Check if we need to write
+            if BufferStrategies.ShouldWriteBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+                BufferTools.WriteBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.Buffer, array)   
+        else           
+            raise (new KernelExecutionException("Cannot find the buffer on which the runtime operated"))
 
     member this.OperateOnBuffer(buffer: OpenCLBuffer, syncMode: TransferMode, action: Array -> Array) =
         let arr, poolItem =
@@ -508,7 +555,11 @@ type BufferPoolManager() =
                         let buff = this.CreateTrackedBufferFromReturn(b, None, storeArray, context, queue, par, isRoot, sharePriority)            
                         buff
                     | ReturnedValue(o) ->
-                        raise (KernelSetupException("Only root kernel can return a value object (ReturnedValue(o))!"))
+                        if o.GetType().IsArray then
+                            // Create a tracked buffer as if the array was not coming from any preceding kernel
+                            this.CreateTrackedBuffer(context, queue, par, o :?> Array, isRoot, sharePriority)
+                        else
+                            raise (KernelSetupException("Only root kernel can return a value object that is not an array!"))
                 else
                     //Console.WriteLine("The parameter is NOT returned to the host")
                     // Kernel is not root or it's root bu this par is not returned (no visibility by the host)
@@ -522,7 +573,11 @@ type BufferPoolManager() =
                         let buff = this.CreateUntrackedBufferFromReturn(b, None, context, queue, par, isRoot, sharePriority)            
                         buff
                     | ReturnedValue(o) ->
-                        raise (KernelSetupException("Only root kernel can return a value object (ReturnedValue(o))!"))
+                        if o.GetType().IsArray then
+                            // Create a tracked buffer as if the array was not coming from any preceding kernel
+                            this.CreateTrackedBuffer(context, queue, par, o :?> Array, isRoot, sharePriority)
+                        else
+                            raise (KernelSetupException("Only root kernel can return a value object that is not an array!"))
 
         //Console.WriteLine("----------------------------------------------\n")
         bf

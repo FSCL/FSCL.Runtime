@@ -11,12 +11,16 @@ open FSCL.Language
 type KernelCreationResult(callArgs: Expr list,
                           deviceData: RuntimeDevice,
                           kernelData: RuntimeKernel,
-                          targetData: RuntimeCompiledKernel) =
+                          runtimeKernelData: RuntimeCompiledKernel) =
 
     member val CallArgs = callArgs with get
     member val DeviceData = deviceData with get
     member val KernelData = kernelData with get
-    member val CompiledKernelData = targetData with get
+    member val CompiledKernelData = runtimeKernelData with get
+    
+type ComputationCreationResult =
+| Kernel of KernelCreationResult
+| RegularFunction of (Expr option * MethodInfo * Expr list)
 
 type ExecutionOutput =     
     | ReturnedTrackedBuffer of OpenCLBuffer * Array

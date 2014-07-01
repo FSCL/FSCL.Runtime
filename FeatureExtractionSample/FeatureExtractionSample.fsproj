@@ -58,6 +58,7 @@
     <Compile Include="MatrixMultTrainingSample.fs" />
     <Compile Include="SobelFilterTrainingSample.fs" />
     <Compile Include="ConvolutionTrainingSample.fs" />
+    <Compile Include="ReductionTrainingSample.fs" />
     <Compile Include="PrefixSumTrainingSample.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

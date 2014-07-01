@@ -54,6 +54,7 @@
     <Compile Include="Stack.fs" />
     <Compile Include="Tools.fs" />
     <Compile Include="QuotationUtil.fs" />
+    <Compile Include="QuotationEvaluation.fs" />
     <Compile Include="ExpressionCounter.fs" />
     <Compile Include="MemoryTransfer.Tools.fs" />
     <Compile Include="MemoryTransfer.Test.fs" />

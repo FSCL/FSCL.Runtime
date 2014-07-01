@@ -21,19 +21,24 @@ open Microsoft.FSharp.Quotations
 type ReduceKernelExecutionProcessor() =      
     inherit CompilerStepProcessor<FlowGraphNode * bool, ExecutionOutput option>()
 
-    override this.Run((node, isRoot), s, opts) =
-        let isAccelerateReduce = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
-                                 (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.reduce"
+    override this.Run((fnode, isRoot), s, opts) =
+        match fnode with
+        | :? KernelFlowGraphNode ->
+            let node = fnode :?> KernelFlowGraphNode
+            let isAccelerateReduce = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
+                                     (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.reduce"
                                  
-        let isAccelerateSum = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
-                                 (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.sum"
-        if (isAccelerateReduce || isAccelerateSum) then
-            let dev = node.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>().Type
-            if dev = DeviceType.Cpu then
-                this.OneStageReduce((node, isRoot), s, opts)
+            let isAccelerateSum = (node.KernelData.Kernel :? AcceleratedKernelInfo) && 
+                                     (node.KernelData.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.sum"
+            if (isAccelerateReduce || isAccelerateSum) then
+                let dev = node.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>().Type
+                if dev = DeviceType.Cpu then
+                    this.OneStageReduce((node, isRoot), s, opts)
+                else
+                    this.TwoStageReduce((node, isRoot), s, opts)
             else
-                this.TwoStageReduce((node, isRoot), s, opts)
-        else
+                None
+        | _ ->
             None
 
     // Reduce for CPU
@@ -88,21 +93,24 @@ type ReduceKernelExecutionProcessor() =
             compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
             // Set size parameter
             compiledData.Kernel.SetValueArgument(argIndex + 3, ArrayUtil.GetArrayLength(o))
-        | KernelOutput(node, a) ->
-            let ib = 
+        | KernelOutput(n, a) ->
+            let lengths = 
                 match prevExecutionResult with
                 | ReturnedUntrackedBuffer(b)
                 | ReturnedTrackedBuffer(b, _) ->
-                    b
-                | _ ->
-                    raise (new KernelSetupException("Explicit return value  is possible only for root kernels"))
+                    b.Count
+                | ReturnedValue(o) ->
+                    if o.GetType().IsArray then
+                        ArrayUtil.GetArrayLengths(o)
+                    else
+                        [||]
 
             // Copy the output buffer of the input kernel
-            inputBuffer <- pool.RequireBufferForParameter(par, None, ib.Count, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
+            inputBuffer <- pool.RequireBufferForParameter(par, None, lengths, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)   
             // Set size parameter                
-            compiledData.Kernel.SetValueArgument(argIndex + 3, ib.Count.[0] |> int)                               
+            compiledData.Kernel.SetValueArgument(argIndex + 3, lengths.[0] |> int)                               
         | _ ->
             raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
 
@@ -139,7 +147,9 @@ type ReduceKernelExecutionProcessor() =
                                     result := arr.GetValue(0)
                                     for i = 1 to arr.Length - 1 do
                                         // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                                        result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
+                                        let mi = (reduceFunction :?> MethodInfo)
+                                        let args = [| !result; arr.GetValue(i) |]
+                                        result := mi.Invoke(null, args)
                                 | _ ->
                                     // WARNING:
                                     // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
@@ -215,22 +225,25 @@ type ReduceKernelExecutionProcessor() =
             compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
             // Set size parameter
             compiledData.Kernel.SetValueArgument(argIndex + 3, ArrayUtil.GetArrayLength(o))
-        | KernelOutput(node, a) ->
-            let ib = 
+        | KernelOutput(n, a) ->
+            let lengths = 
                 match prevExecutionResult with
                 | ReturnedUntrackedBuffer(b)
                 | ReturnedTrackedBuffer(b, _) ->
-                    b
-                | _ ->
-                    raise (new KernelSetupException("Explicit return value  is possible only for root kernels"))
+                    b.Count
+                | ReturnedValue(o) ->
+                    if o.GetType().IsArray then
+                        ArrayUtil.GetArrayLengths(o)
+                    else
+                        [||]
 
             // WE SHOULD AVOID COPY!!!
             // Copy the output buffer of the input kernel
-            inputBuffer <- pool.RequireBufferForParameter(par, None, ib.Count, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
+            inputBuffer <- pool.RequireBufferForParameter(par, None, lengths, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
             // Set kernel arg
             compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)   
             // Set size parameter                
-            compiledData.Kernel.SetValueArgument(argIndex + 3, ib.Count.[0] |> int)                               
+            compiledData.Kernel.SetValueArgument(argIndex + 3, lengths.[0] |> int)                               
         | _ ->
             raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
 

@@ -15,7 +15,8 @@ open FSCL.Runtime.Scheduling.Metric
 open System
 open System.Reflection
 open FSCL.Runtime.CompilerSteps
-    
+open Microsoft.FSharp.Linq.RuntimeHelpers
+
 [<AllowNullLiteral>]
 type KernelCreationManager(compiler: Compiler, 
                            metric: SchedulingMetric option) =  
@@ -118,7 +119,28 @@ type KernelCreationManager(compiler: Compiler,
         let mutable parsedModule = this.Compiler.Compile(info, options) :?> IKernelModule  
 
         if parsedModule = null then
-            None
+            // Regular function, we create a regular function result 
+            match info with
+            | Patterns.Call(o, mi, args) ->
+                Some(ComputationCreationResult.RegularFunction(o, mi, args))
+            | Patterns.Application(expr, v) ->
+                // Extract a call from application
+                let rec extractMethodInfo (e:Expr, args: Expr list) =
+                    match e with
+                    | Patterns.Application(expr, a) ->
+                        // Check if a if a NewTuple (curried args)
+                        match a with
+                        | Patterns.NewTuple(elements) ->
+                            extractMethodInfo (expr, args @ elements)
+                        | _ ->
+                            extractMethodInfo (expr, args @ [ a ])                            
+                    | Patterns.Value(v) ->                        
+                        let func = FSharpValue.GetTupleField(v, 0)
+                        let argsTypes = args |> List.map(fun i -> i.Type) |> List.toArray
+                        ComputationCreationResult.RegularFunction(Some(<@ func @> :> Expr), func.GetType().GetMethod("Invoke", argsTypes), args)    
+                Some(extractMethodInfo(expr, [v]))
+            | _ ->
+                None
         else
             // Valid kernel
             // Extract running mode and fallback
@@ -146,7 +168,7 @@ type KernelCreationManager(compiler: Compiler,
                                                
                     // Compiler backend and store
                     let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, device.Platform, device.Device, opts) 
-                    Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode), ckData))                    
+                    Some(ComputationCreationResult.Kernel(KernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode), ckData)))                    
                 // Else execute entire compiler pipeline
                 | None ->
                     parsedModule <- this.Compiler.Compile(parsedModule, opts) :?> IKernelModule
@@ -160,7 +182,7 @@ type KernelCreationManager(compiler: Compiler,
                     let runtimeKernel = new RuntimeKernel(parsedModule.Kernel, parsedModule.Code.Value)
                     this.GlobalCache.OpenCLKernels.[parsedModule.Kernel.ID].Add(parsedModule.Kernel.Meta, runtimeKernel)
                     let devData, ckData = this.OpenCLBackendAndStore(runtimeKernel, device.Platform, device.Device, opts)                     
-                    Some(KernelCreationResult(parsedModule.CallArgs.Value, devData, runtimeKernel, ckData)) 
+                    Some(ComputationCreationResult.Kernel(KernelCreationResult(parsedModule.CallArgs.Value, devData, runtimeKernel, ckData)))
             // Multithread running mode
             else
                 None

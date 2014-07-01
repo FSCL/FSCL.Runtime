@@ -16,15 +16,7 @@ type FlowGraphNodeInput =
 | SizeArgument
 | IntrinsicArgument
 
-and [<AllowNullLiteral>] FlowGraphNode(deviceData: RuntimeDevice, 
-                                       kernelData: RuntimeKernel,
-                                       runtimeData: RuntimeCompiledKernel) =            
-    
-    member val DeviceData = deviceData with get
-    member val KernelData = kernelData with get
-    member val CompiledKernelData = runtimeData with get
-
-
+and [<AllowNullLiteral>] FlowGraphNode() =
     member val internal Input = new Dictionary<string, FlowGraphNodeInput>() with get
     member val internal Output = (null, new Dictionary<int, string>()) with get, set
       
@@ -42,6 +34,24 @@ and [<AllowNullLiteral>] FlowGraphNode(deviceData: RuntimeDevice,
     member this.IsEndPoint 
         with get() =
             fst(this.Output) = null
+
+[<AllowNullLiteral>]
+type KernelFlowGraphNode(deviceData: RuntimeDevice, 
+                         kernelData: RuntimeKernel,
+                         runtimeData: RuntimeCompiledKernel) =
+    inherit FlowGraphNode()
+
+    member val DeviceData = deviceData with get
+    member val KernelData = kernelData with get
+    member val CompiledKernelData = runtimeData with get
+    
+[<AllowNullLiteral>]
+type RegularFunctionFlowGraphNode(o: Expr option, mi: MethodInfo, args: Expr list) =
+    inherit FlowGraphNode()
+
+    member val Object = o with get
+    member val MethodInfo = mi with get
+    member val Arguments = args with get
 
 [<AllowNullLiteral>]
 type FlowGraphUtil() =

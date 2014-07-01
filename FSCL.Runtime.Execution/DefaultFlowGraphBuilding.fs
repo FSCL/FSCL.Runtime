@@ -16,7 +16,7 @@ do()
 
 [<StepProcessor("FSCL_FLOW_GRAPH_DEFAULT_PROCESSOR", "FSCL_FLOW_GRAPH_BUILDING_STEP")>]
 type DefaultFlowGraphBuildingProcessor() =      
-    inherit CompilerStepProcessor<KernelCreationResult, FlowGraphNode option>()
+    inherit CompilerStepProcessor<ComputationCreationResult, FlowGraphNode option>()
         
     member private this.LiftArgumentsAndKernelCalls(e: Expr,
                                                     args: Dictionary<string, obj>,
@@ -86,24 +86,76 @@ type DefaultFlowGraphBuildingProcessor() =
                 intSizes.Add(evaluated :?> int64)
         intSizes |> Seq.toArray
 
-    override this.Run(input, s, opts) =
+    override this.Run(data, s, opts) =
         let step = s :?> FlowGraphBuildingStep
 
-        // Create flow graph node
-        let node = new FlowGraphNode(input.DeviceData, input.KernelData, input.CompiledKernelData)
+        match data with
+        | ComputationCreationResult.Kernel(input) ->
+            // Create flow graph node
+            let node = new KernelFlowGraphNode(input.DeviceData, input.KernelData, input.CompiledKernelData)
 
-        // Set node input
-        let parameters = input.KernelData.Kernel.Parameters
-        for i = 0 to parameters.Count - 1 do
-            let p = parameters.[i]
-            if p.DataType.IsArray then
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                let processedParam = 
+            // Set node input
+            let parameters = input.KernelData.Kernel.Parameters
+            for i = 0 to parameters.Count - 1 do
+                let p = parameters.[i]
+                if p.DataType.IsArray then
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    let processedParam = 
+                        match p.ParameterType with
+                        | NormalParameter ->
+                            step.Process(input.CallArgs.[i])
+                        | _ ->
+                            None
+
+                    match processedParam with
+                    | Some(precNode) ->
+                        FlowGraphUtil.SetNodeInput(node,
+                                                    p.Name,
+                                                    KernelOutput(precNode, 0))
+                    | None ->
+                        match p.ParameterType with
+                            | NormalParameter ->
+                                FlowGraphUtil.SetNodeInput(node, 
+                                                            p.Name, 
+                                                            ActualArgument(input.CallArgs.[i]))
+                            | DynamicParameter(allocArgs) ->
+                                FlowGraphUtil.SetNodeInput(node, 
+                                                            p.Name, 
+                                                            BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                this.EvaluateBufferAllocationSize(p.DataType, allocArgs, args, localSize, globalSize)))
+                            (*
+                            | GeneratedParameterWithKnownSize(name, eval) ->
+                                FlowGraphUtil.SetNodeInput(node, 
+                                                            p.Name, 
+                                                            BufferAllocationSize(fun(args, localSize, globalSize) ->
+                                                                eval(args.[name] :?> Array)))           
+                                                                *)
+                            | _ ->
+                                raise (new KernelFlowGraphException("Cannot build flow graph input for parameter " + p.Name))                     
+                else
                     match p.ParameterType with
                     | NormalParameter ->
-                        step.Process(input.CallArgs.[i])
+                        FlowGraphUtil.SetNodeInput(node, p.Name, ActualArgument(input.CallArgs.[i]))
+                    | SizeParameter ->
+                        FlowGraphUtil.SetNodeInput(node, p.Name, SizeArgument)
                     | _ ->
-                        None
+                        ()
+            
+
+            // Create input for next step
+            Some(node :> FlowGraphNode)
+
+        | ComputationCreationResult.RegularFunction(o, mi, args) ->
+            // Create flow graph node
+            let node = new RegularFunctionFlowGraphNode(o, mi, args)
+
+            // Set node input
+            let parameters = mi.GetParameters()
+            for i = 0 to parameters.Length - 1 do
+                let p = parameters.[i]
+                // Check if output of a kernel
+                let processedParam = 
+                    step.Process(args.[i])
 
                 match processedParam with
                 | Some(precNode) ->
@@ -111,36 +163,11 @@ type DefaultFlowGraphBuildingProcessor() =
                                                 p.Name,
                                                 KernelOutput(precNode, 0))
                 | None ->
-                    match p.ParameterType with
-                        | NormalParameter ->
-                            FlowGraphUtil.SetNodeInput(node, 
-                                                        p.Name, 
-                                                        ActualArgument(input.CallArgs.[i]))
-                        | DynamicParameter(allocArgs) ->
-                            FlowGraphUtil.SetNodeInput(node, 
-                                                        p.Name, 
-                                                        BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                            this.EvaluateBufferAllocationSize(p.DataType, allocArgs, args, localSize, globalSize)))
-                        (*
-                        | GeneratedParameterWithKnownSize(name, eval) ->
-                            FlowGraphUtil.SetNodeInput(node, 
-                                                        p.Name, 
-                                                        BufferAllocationSize(fun(args, localSize, globalSize) ->
-                                                            eval(args.[name] :?> Array)))           
-                                                            *)
-                        | _ ->
-                            raise (new KernelFlowGraphException("Cannot build flow graph input for parameter " + p.Name))                     
-            else
-                match p.ParameterType with
-                | NormalParameter ->
-                    FlowGraphUtil.SetNodeInput(node, p.Name, ActualArgument(input.CallArgs.[i]))
-                | SizeParameter ->
-                    FlowGraphUtil.SetNodeInput(node, p.Name, SizeArgument)
-                | _ ->
-                    ()
-            
+                    FlowGraphUtil.SetNodeInput(node, 
+                                               p.Name, 
+                                               ActualArgument(args.[i]))
 
-        // Create input for next step
-        Some(node)
+            // Create input for next step
+            Some(node :> FlowGraphNode)
 
                   
