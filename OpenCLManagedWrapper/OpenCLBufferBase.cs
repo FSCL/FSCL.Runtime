@@ -54,6 +54,8 @@ namespace OpenCL
         /// <value> The number of elements in the <see cref="OpenCLBufferBase{T}"/>. </value>
         /// 
         public Type ElementType { get; private set; }
+
+        // Declare the same methods/properties of Array types
         public long TotalCount
         {
             get
@@ -69,12 +71,30 @@ namespace OpenCL
         {
             return this.Count[r];
         }
+        public int GetLength(int r)
+        {
+            return (int)this.Count[r];
+        }
 
         public long[] Count {
 			get;
 			set;
         }
 
+        public int Length
+        {
+            get
+            {
+                return (int)this.TotalCount;
+            }
+        }
+        public long LongLength
+        {
+            get
+            {
+                return this.TotalCount;
+            }
+        }
         public int Rank
         {
             get

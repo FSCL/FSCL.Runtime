@@ -37,15 +37,19 @@ type DefaultFlowGraphBuildingProcessor() =
                 Expr.Value(globalSize.Rank)
             else
                 if o.IsSome then
-                    let evaluatedIstance = this.LiftArgumentsAndKernelCalls(o.Value, args, localSize, globalSize);
-                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments;
-                    Expr.Call(
-                        evaluatedIstance,
-                        m, 
-                        liftedArgs)
+                    let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, localSize, globalSize)
+                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                    // Check if we need to tranform array method to openclbuffer method
+                    if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
+                        Expr.Call(evaluatedInstance, evaluatedInstance.Type.GetMethod(m.Name), liftedArgs)
+                    else
+                        Expr.Call(
+                            evaluatedInstance,
+                            m, 
+                            liftedArgs)
                 else
-                    Expr.Call(
-                        m, List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments)
+                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                    Expr.Call(m, liftedArgs) 
                     (*
                 if m.DeclaringType <> null && m.DeclaringType.Name = "Array" && m.Name = "GetLength" then
                     match arguments.[0] with
@@ -63,13 +67,27 @@ type DefaultFlowGraphBuildingProcessor() =
                 let t = args.[v.Name].GetType()
                 Expr.Value(args.[v.Name], t)
             else
-                e                
+                e                         
+        // Array.Rank, Array.Length, Array.LongLength       
+        | Patterns.PropertyGet(o, pi, arguments) ->
+            if o.IsSome then
+                let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, localSize, globalSize)
+                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                // Check if we need to tranform array property to openclbuffer property
+                if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
+                    Expr.PropertyGet(evaluatedInstance, evaluatedInstance.Type.GetProperty(pi.Name), liftedArgs)
+                else
+                    Expr.PropertyGet(evaluatedInstance, pi, liftedArgs)
+            else
+                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                Expr.PropertyGet(pi, liftedArgs)                
         | ExprShape.ShapeVar(v) ->
             e
         | ExprShape.ShapeLambda(l, b) ->
             failwith "Error in substituting parameters"
         | ExprShape.ShapeCombination(c, argsList) ->
-            ExprShape.RebuildShapeCombination(c, List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) argsList)
+            let ev = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) argsList
+            ExprShape.RebuildShapeCombination(c, ev)
 
     member private this.EvaluateBufferAllocationSize(t: Type,
                                                      sizes: Expr array,

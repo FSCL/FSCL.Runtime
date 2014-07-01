@@ -15,7 +15,26 @@ let Distance (p1 : int2) (p2:int2) =
     let d = p1 - p2
     let d2 = d * d
     sqrt(float32 (d2.x + d2.y))    
+    
+        
+[<ReflectedDefinition>]
+let MatrixxVector (m:float32[,]) (v:float32[]) =
+    let result = Array.zeroCreate<float32> (m.GetLength(0))
 
+    let myId = get_global_id(0)
+    let mutable sum = 0.0f
+    for k = 0 to m.GetLength(1) - 1 do
+        sum <- sum + m.[myId, k] * v.[k]
+    result.[myId] <- sum
+
+    result
+
+[<ReflectedDefinition>]
+let VectorAdd (a:float32[]) (b:float32[]) =
+    let c = Array.zeroCreate<float32> a.Length
+    let myId = get_global_id(0)
+    c.[myId] <- a.[myId] + b.[myId]
+    c
 [<EntryPoint>]
 let main argv = 
     let array = Array.create 1024 2.0f
@@ -96,6 +115,12 @@ let main argv =
     else
         Console.WriteLine("ERROR!")
         
+
+    let m = Array2D.create 64 64 10.0f
+    let v1 = Array.create 64 2.0f
+    let v2 = Array.create 64 1280.0f
+    let r = <@ VectorAdd (MatrixxVector m v1) v2 @>.Run(64L, 64L)
+
     Console.WriteLine("Press enter to exit...")
     Console.Read() |> ignore
     0
