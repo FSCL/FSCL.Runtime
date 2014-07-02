@@ -138,7 +138,7 @@ type ReduceKernelExecutionProcessor() =
         // Operate final reduce on cpu
         let result = ref null
         pool.OperateOnBuffer(outputBuffer, 
-                             (if isRoot then TransferMode.NoTransferBack else TransferMode.TransferIfNeeded),
+                             (if isRoot then TransferMode.NoTransfer else TransferMode.TransferIfNeeded),
                              fun arr ->
                                 // Do final iteration on CPU
                                 let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
@@ -304,7 +304,7 @@ type ReduceKernelExecutionProcessor() =
         let result = ref null 
         let finalReduceOnCPU = currentDataSize > 1L
         pool.OperateOnBuffer(outputBuffer, 
-                                (if isRoot then TransferMode.NoTransferBack else TransferMode.TransferIfNeeded),
+                                (if isRoot then TransferMode.NoTransfer else TransferMode.TransferIfNeeded),
                                 fun arr ->
                                     if finalReduceOnCPU then
                                         // Do final iteration on CPU

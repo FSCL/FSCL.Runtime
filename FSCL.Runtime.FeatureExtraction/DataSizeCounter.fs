@@ -33,19 +33,20 @@ type DataSizeCounter() =
 
             let analysis = item.AccessAnalysis
             let space = item.Meta.Get<AddressSpaceAttribute>().AddressSpace
-            let transferMode = item.Meta.Get<TransferModeAttribute>().Mode
+            let htdtransferMode = item.Meta.Get<TransferModeAttribute>().HostToDeviceMode
+            let dthtransferMode = item.Meta.Get<TransferModeAttribute>().DeviceToHostMode
             let isTransferredToDevice = item.DataType.IsArray &&
                                         analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
                                         space <> AddressSpace.Private &&
                                         space <> AddressSpace.Local &&
-                                        ((transferMode &&& TransferMode.NoTransfer) |> int = 0)
+                                        (htdtransferMode <> TransferMode.NoTransfer)
 
             let isTransferredFromDevice = item.DataType.IsArray &&
                                           analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
                                           space <> AddressSpace.Local &&
                                           space <> AddressSpace.Private &&
                                           space <> AddressSpace.Constant &&
-                                          ((transferMode &&& TransferMode.NoTransferBack) |> int = 0)
+                                          (dthtransferMode <> TransferMode.NoTransfer)
             if isTransferredToDevice then
                 globalHostToDevP <- globalHostToDevP @ [ i ]
             if isTransferredFromDevice then

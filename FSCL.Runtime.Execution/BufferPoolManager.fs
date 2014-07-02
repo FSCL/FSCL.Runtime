@@ -16,14 +16,16 @@ type BufferPoolItem(buffer: OpenCLBuffer,
                     analysis: AccessAnalysisResult,
                     flags: MemoryFlags,
                     space: AddressSpace, 
-                    transfer: TransferMode, 
+                    hostToDeviceTransfer: TransferMode, 
+                    deviceToHostTransfer: TransferMode, 
                     rMode: BufferReadMode, 
                     wMode: BufferWriteMode, 
                     isReturn: bool) =
     member val AccessAnalysis = analysis with get
     member val WriteMode = wMode with get
     member val ReadMode = rMode with get 
-    member val TransferMode = transfer with get, set
+    member val HostToDeviceTransferMode = hostToDeviceTransfer with get, set
+    member val DeviceToHostTransferMode = deviceToHostTransfer with get, set
     member val AddressSpace = space with get
     member val IsReturned = isReturn with get
     member val Flags = flags with get
@@ -75,7 +77,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                                 parameter.AccessAnalysis,
                                                 rMode.Mode,
                                                 wMode.Mode,
-                                                transferMode.Mode,
+                                                transferMode.HostToDeviceMode,
+                                                transferMode.DeviceToHostMode,
                                                 memoryFlags.Flags, 
                                                 isRoot, 
                                                 parameter.IsReturned,
@@ -98,10 +101,10 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 //Console.WriteLine("Buffer is reused with adapteded flags: " + prevBuffer.Flags.ToString())   
                            
                 // Update transfer mode
-                if (prevBuffer.TransferMode &&& TransferMode.NoTransfer |> int > 0) && (transferMode.Mode &&& TransferMode.NoTransfer |> int = 0) then
-                    prevBuffer.TransferMode <- prevBuffer.TransferMode &&& ~~~TransferMode.NoTransfer
-                if (prevBuffer.TransferMode &&& TransferMode.NoTransferBack |> int > 0) && (transferMode.Mode &&& TransferMode.NoTransferBack |> int = 0) then
-                    prevBuffer.TransferMode <- prevBuffer.TransferMode &&& ~~~TransferMode.NoTransferBack
+                if (prevBuffer.HostToDeviceTransferMode &&& TransferMode.NoTransfer |> int > 0) && (transferMode.HostToDeviceMode &&& TransferMode.NoTransfer |> int = 0) then
+                    prevBuffer.HostToDeviceTransferMode <- prevBuffer.HostToDeviceTransferMode &&& ~~~TransferMode.NoTransfer
+                if (prevBuffer.DeviceToHostTransferMode &&& TransferMode.NoTransfer |> int > 0) && (transferMode.DeviceToHostMode &&& TransferMode.NoTransfer |> int = 0) then
+                    prevBuffer.DeviceToHostTransferMode <- prevBuffer.DeviceToHostTransferMode &&& ~~~TransferMode.NoTransfer
                 
                 // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
                 if parameter.IsReturned && isRoot then
@@ -123,7 +126,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     parameter.AccessAnalysis,
                                     mergedFlags, 
                                     addressSpace.AddressSpace, 
-                                    transferMode.Mode,
+                                    transferMode.HostToDeviceMode,
+                                    transferMode.DeviceToHostMode,
                                     readMode,
                                     writeMode,
                                     parameter.IsReturned)
@@ -152,11 +156,12 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     parameter.AccessAnalysis,
                                     mergedFlags,
                                     addressSpace.AddressSpace, 
-                                    transferMode.Mode,                                     
+                                    transferMode.HostToDeviceMode,
+                                    transferMode.DeviceToHostMode,                    
                                     readMode,
                                     writeMode,
                                     parameter.IsReturned)            
-            if BufferStrategies.ShouldInitBuffer(bufferItem.AccessAnalysis, bufferItem.Buffer.Flags, addressSpace.AddressSpace, transferMode.Mode) then
+            if BufferStrategies.ShouldInitBuffer(bufferItem.AccessAnalysis, bufferItem.Buffer.Flags, addressSpace.AddressSpace, transferMode.HostToDeviceMode) then
                 BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, arr)    
             //else
                 //Console.WriteLine("Buffer is NOT initialised")                           
@@ -189,7 +194,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                 parameter.AccessAnalysis,
                                 rMode.Mode,
                                 wMode.Mode,
-                                transferMode.Mode,
+                                transferMode.HostToDeviceMode,
+                                transferMode.DeviceToHostMode,
                                 memoryFlags.Flags, 
                                 isRoot, 
                                 parameter.IsReturned,
@@ -210,7 +216,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                             parameter.AccessAnalysis,
                             mergedFlags,
                             addressSpace.AddressSpace, 
-                            transferMode.Mode,
+                            transferMode.HostToDeviceMode,
+                            transferMode.DeviceToHostMode,
                             readMode,
                             writeMode,
                             parameter.IsReturned)
@@ -239,7 +246,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                 parameter.AccessAnalysis,
                                 rMode.Mode,
                                 wMode.Mode,
-                                transferMode.Mode,
+                                transferMode.HostToDeviceMode,
+                                transferMode.DeviceToHostMode,
                                 memoryFlags.Flags, 
                                 isRoot, 
                                 parameter.IsReturned,
@@ -312,7 +320,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     parameter.AccessAnalysis,
                                     rMode.Mode,
                                     wMode.Mode,
-                                    transferMode.Mode,
+                                    transferMode.HostToDeviceMode,
+                                    transferMode.DeviceToHostMode,
                                     memoryFlags.Flags, 
                                     isRoot, 
                                     parameter.IsReturned,
@@ -358,14 +367,14 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key, poolItem.Buffer)                
                 
     member this.ReadRootBuffer() =
         // Read back root return buffer
         if rootReturnBuffer.IsSome then
             let buff, arr = rootReturnBuffer.Value
-            if (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.Buffer.Flags, buff.AddressSpace, buff.TransferMode)) then
+            if (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.Buffer.Flags, buff.AddressSpace, buff.DeviceToHostTransferMode)) then
                 // If it's using UseHostPointer then arr already contains the result
                 BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, arr, buff.Buffer)
                 arr
@@ -379,7 +388,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             let array = reverseTrackedBufferPool.[b]
             let poolItem = trackedBufferPool.[array]
             // Check if we need to read back
-            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, array, poolItem.Buffer)                
             array
         else if untrackedBufferPool.ContainsKey(b.Context) && untrackedBufferPool.[b.Context].ContainsKey(b) then
@@ -387,7 +396,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             let elementCount = b.Count
             let elemType = b.ElementType
             let array = Array.CreateInstance(elemType, elementCount)
-            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, array, poolItem.Buffer)    
             // If we need to operate on an untracked buffer the buffer must be promoted to tracke buffer
             untrackedBufferPool.[b.Context].Remove(b) |> ignore
@@ -404,7 +413,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             // ...
 
             // Check if we need to write
-            if BufferStrategies.ShouldWriteBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.TransferMode) then
+            if BufferStrategies.ShouldWriteBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.HostToDeviceTransferMode) then
                 BufferTools.WriteBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.Buffer, array)   
         else           
             raise (new KernelExecutionException("Cannot find the buffer on which the runtime operated"))
@@ -430,7 +439,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         let newArr = action(arr)
   
         // Write back arr to buffer
-        if (syncMode &&& TransferMode.NoTransferBack |> int = 0) then
+        if syncMode <> TransferMode.NoTransfer then
             BufferTools.WriteBuffer(poolItem.Queue, poolItem.WriteMode = BufferWriteMode.MapBuffer, poolItem.Buffer, newArr) 
         
         // Check if arr changed (new array)

@@ -35,6 +35,23 @@ let VectorAdd (a:float32[]) (b:float32[]) =
     let myId = get_global_id(0)
     c.[myId] <- a.[myId] + b.[myId]
     c
+    
+[<ReflectedDefinition>]
+let Reduction ([<MemoryFlags(MemoryFlags.ReadWrite)>]input:float32[]) ([<MemoryFlags(MemoryFlags.ReadWrite)>]output:float32[]) =
+    let myId = get_global_id(0)
+    if (myId * 2 < input.Length) then
+        output.[myId] <- input.[myId] + input.[myId + 1]
+
+let ReductionExecutor (input:float32[]) =
+    let output = Array.zeroCreate<float32> (input.Length / 2)
+    let mutable currentOutputSize = output.Length
+    let mutable currentInput = input
+    while (currentOutputSize > 1) do
+        <@ Reduction currentInput output @>.Run(output.LongLength, if currentOutputSize > 16 then 16L else 1L)
+        currentOutputSize <- currentOutputSize / 2
+        currentInput <- output
+    output.[0]
+    
 [<EntryPoint>]
 let main argv = 
     let array = Array.create 1024 2.0f
@@ -116,10 +133,8 @@ let main argv =
         Console.WriteLine("ERROR!")
         
 
-    let m = Array2D.create 64 64 10.0f
-    let v1 = Array.create 64 2.0f
-    let v2 = Array.create 64 1280.0f
-    let r = <@ VectorAdd (MatrixxVector m v1) v2 @>.Run(64L, 64L)
+    let v2 = Array.create 64 1.0f
+    let r = <@ ReductionExecutor v2 @>.Run()
 
     Console.WriteLine("Press enter to exit...")
     Console.Read() |> ignore

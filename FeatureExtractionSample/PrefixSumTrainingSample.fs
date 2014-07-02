@@ -268,9 +268,9 @@ type PrefixSumTrainingSample() =
 
         let rm = BufferReadMode.MapBuffer
         let wm = BufferWriteMode.MapBuffer
-        let ifl = MemoryFlags.UseHostPointer
-        let ofl = MemoryFlags.UseHostPointer
-        let blockFlags = MemoryFlags.ReadWrite
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
+        let blockFlags = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
 
         let mutable execResults: obj list list = []
                 
@@ -313,23 +313,18 @@ type PrefixSumTrainingSample() =
                             let lSize = (localSize |> int) / 2
                             // We transfer input the first time, but we never transfer back
                             let inputTransferMode = if i = 0 then 
-                                                        TransferMode.NoTransferBack 
+                                                        TransferMode.ForceTransfer 
                                                     else 
-                                                        TransferMode.NoTransfer ||| TransferMode.NoTransfer
-                            let inputFlags = if i = 0 then
-                                                ifl
-                                             else
-                                                MemoryFlags.Auto
+                                                        TransferMode.NoTransfer
                             // The block sums should neve be transferred back
-                            let blockTransferMode = TransferMode.NoTransfer ||| TransferMode.NoTransferBack 
                             let scan = <@ DEVICE(pIndex, dIndex,
                                             ExclusivePrefixScan(  
-                                                TRANSFER_MODE(inputTransferMode,                                                      
+                                                TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,                                                      
                                                     BUFFER_READ_MODE(rm, 
-                                                        MEMORY_FLAGS(inputFlags, 
+                                                        MEMORY_FLAGS(ifl, 
                                                             passInput))),
                                                 local,
-                                                TRANSFER_MODE(blockTransferMode,
+                                                TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(blockFlags, 
                                                             clBufferBlockSums.[i]))),
@@ -365,18 +360,17 @@ type PrefixSumTrainingSample() =
 
                             // We should transfer back the output only the last iteration
                             let outputTransferMode = if i > 0 then 
-                                                        TransferMode.NoTransferBack 
+                                                        TransferMode.NoTransfer 
                                                      else 
-                                                        TransferMode.TransferIfNeeded
+                                                        TransferMode.ForceTransfer
                             // The block sums should never be transferred (they are already on device cause the preceding kernel)
-                            let blockTransferMode = TransferMode.NoTransfer ||| TransferMode.NoTransferBack 
                             let unifa = <@ DEVICE(pIndex, dIndex,
                                             UniformAdd(
-                                                TRANSFER_MODE(outputTransferMode,
+                                                TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode, 
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(ofl, 
                                                             passOutput))),
-                                                TRANSFER_MODE(blockTransferMode,
+                                                TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                     BUFFER_READ_MODE(rm, 
                                                         MEMORY_FLAGS(ifl, 
                                                             clBufferBlockSums.[i]))),
@@ -431,29 +425,44 @@ type PrefixSumTrainingSample() =
                                     let lSize = (localSize |> int) / 2
                                     // We transfer input the first time, but we never transfer back
                                     let inputTransferMode = if i = 0 then 
-                                                                TransferMode.NoTransferBack 
+                                                                TransferMode.ForceTransfer 
                                                             else 
-                                                                TransferMode.NoTransfer ||| TransferMode.NoTransfer
-                                    let inputFlags = if i = 0 then
-                                                        ifl
-                                                     else
-                                                        MemoryFlags.Auto
+                                                                TransferMode.NoTransfer
                                     // The block sums should neve be transferred back
-                                    let blockTransferMode = TransferMode.NoTransfer ||| TransferMode.NoTransferBack 
                                     let scan = <@ DEVICE(pIndex, dIndex,
                                                     ExclusivePrefixScan(  
-                                                        TRANSFER_MODE(inputTransferMode,                                                      
+                                                        TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,                                                      
                                                             BUFFER_READ_MODE(rm, 
-                                                                MEMORY_FLAGS(inputFlags, 
+                                                                MEMORY_FLAGS(ifl, 
                                                                     passInput))),
                                                         local,
-                                                        TRANSFER_MODE(blockTransferMode,
+                                                        TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(blockFlags, 
                                                                     clBufferBlockSums.[i]))),
                                                         blockSumsSizes.[i])) @>
+                                    // Extract features (compilation will be done only first time)
+                                    let km = compiler.Compile(scan, opts) :?> IKernelModule
+                                    let precomputedFeatures = chain.Precompute(km)
+                                    let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passInput; local; clBufferBlockSums.[i]; blockSumsSizes.[i] ], [| globalSize |> int64 |], [| lSize |> int64 |], opts)
+                                    if features.IsEmpty then
+                                        features <- additFeatures
+                                    else
+                                        features <- List.map2(fun (a:obj) (b:obj) -> 
+                                                                match a with
+                                                                | :? int ->
+                                                                    box((a :?> int) + (b :?> int))
+                                                                | :? int64 ->
+                                                                    box((a :?> int64) + (b :?> int64))
+                                                                | :? float32 ->
+                                                                    box((a :?> float32) + (b :?> float32))
+                                                                | _ ->
+                                                                    box((a :?> float) + (b :?> float))) features additFeatures
+                                    // Run
+
                                     scan.Run(globalSize |> int64, lSize |> int64, opts)
-                                    passInput <- clBufferBlockSums.[i]                                
+                                    passInput <- clBufferBlockSums.[i]
+                        
                                 // Uniform addition
                                 let mutable i = pass - 2
                                 for i = pass - 2 downto 0 do
@@ -463,18 +472,17 @@ type PrefixSumTrainingSample() =
 
                                     // We should transfer back the output only the last iteration
                                     let outputTransferMode = if i > 0 then 
-                                                                TransferMode.NoTransferBack 
+                                                                TransferMode.NoTransfer 
                                                              else 
-                                                                TransferMode.TransferIfNeeded
+                                                                TransferMode.ForceTransfer
                                     // The block sums should never be transferred (they are already on device cause the preceding kernel)
-                                    let blockTransferMode = TransferMode.NoTransfer ||| TransferMode.NoTransferBack 
                                     let unifa = <@ DEVICE(pIndex, dIndex,
                                                     UniformAdd(
-                                                        TRANSFER_MODE(outputTransferMode,
+                                                        TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode, 
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(ofl, 
                                                                     passOutput))),
-                                                        TRANSFER_MODE(blockTransferMode,
+                                                        TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                             BUFFER_READ_MODE(rm, 
                                                                 MEMORY_FLAGS(ifl, 
                                                                     clBufferBlockSums.[i]))),

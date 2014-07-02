@@ -135,9 +135,7 @@ type SimpleReductionTrainingSample() =
                                 if firstIteration then
                                     TransferMode.TransferIfNeeded
                                 else
-                                    TransferMode.NoTransfer ||| TransferMode.NoTransferBack
-                            let outputTransferMode =
-                                TransferMode.NoTransfer ||| TransferMode.NoTransferBack     
+                                    TransferMode.NoTransfer     
                             let input = 
                                 if firstIteration then
                                     a
@@ -149,11 +147,11 @@ type SimpleReductionTrainingSample() =
 
                             let comp = <@ DEVICE(pIndex, dIndex,
                                             SimpleReduction(
-                                                TRANSFER_MODE(inputTransferMode,
+                                                TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
                                                     BUFFER_READ_MODE(rm, 
                                                         MEMORY_FLAGS(fl, 
                                                             input))),
-                                                TRANSFER_MODE(outputTransferMode,
+                                                TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(fl, 
                                                             c))),
@@ -189,11 +187,11 @@ type SimpleReductionTrainingSample() =
                             
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         SimpleReduction(
-                                            TRANSFER_MODE(TransferMode.NoTransfer,
+                                            TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
                                                 BUFFER_READ_MODE(rm, 
                                                     MEMORY_FLAGS(fl, 
                                                         c))),
-                                            TRANSFER_MODE(TransferMode.NoTransfer,
+                                            TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
                                                 BUFFER_WRITE_MODE(wm, 
                                                     MEMORY_FLAGS(fl, 
                                                         c))),
@@ -234,16 +232,14 @@ type SimpleReductionTrainingSample() =
                                 let mutable currentBlockSize = blockSize
                                 if currentOutputSize = 0L then
                                     currentOutputSize <- 1L
-
+                           
                                 let mutable firstIteration = true
                                 while currentOutputSize > 1L do
                                     let inputTransferMode =
                                         if firstIteration then
                                             TransferMode.TransferIfNeeded
                                         else
-                                            TransferMode.NoTransfer ||| TransferMode.NoTransferBack
-                                    let outputTransferMode =
-                                        TransferMode.NoTransfer ||| TransferMode.NoTransferBack     
+                                            TransferMode.NoTransfer     
                                     let input = 
                                         if firstIteration then
                                             a
@@ -255,16 +251,16 @@ type SimpleReductionTrainingSample() =
 
                                     let comp = <@ DEVICE(pIndex, dIndex,
                                                     SimpleReduction(
-                                                        TRANSFER_MODE(inputTransferMode,
+                                                        TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
                                                             BUFFER_READ_MODE(rm, 
                                                                 MEMORY_FLAGS(fl, 
                                                                     input))),
-                                                        TRANSFER_MODE(outputTransferMode,
+                                                        TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(fl, 
                                                                     c))),
                                                         currentBlockSize |> int)) @>   
-                                                            
+                           
                                     // Run           
                                     comp.Run(globalSize, localSize, opts)
 
@@ -277,15 +273,16 @@ type SimpleReductionTrainingSample() =
                             
                                 let comp = <@ DEVICE(pIndex, dIndex,
                                                 SimpleReduction(
-                                                    TRANSFER_MODE(TransferMode.NoTransfer,
+                                                    TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
                                                         BUFFER_READ_MODE(rm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 c))),
-                                                    TRANSFER_MODE(TransferMode.NoTransfer,
+                                                    TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
                                                         BUFFER_WRITE_MODE(wm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 c))),
                                                     currentBlockSize |> int)) @>   
+                                // Run final iteration
                                 comp.Run(1L, 1L, opts)
 
                                 Runtime.ForceClearPool(false)
@@ -371,13 +368,13 @@ type AdvancedReductionTrainingSample() =
                             if firstIteration then
                                 TransferMode.TransferIfNeeded
                             else
-                                TransferMode.NoTransfer ||| TransferMode.NoTransferBack
+                                TransferMode.NoTransfer
                         let outputTransferMode =
                             if currentGlobalSize = currentLocalSize then
                                 // Last iteration, read back
                                 TransferMode.NoTransfer 
                             else
-                                TransferMode.NoTransfer ||| TransferMode.NoTransferBack     
+                               TransferMode.TransferIfNeeded     
                         let input = 
                             if firstIteration then
                                 a
@@ -386,12 +383,12 @@ type AdvancedReductionTrainingSample() =
                                        
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         AdvancedReduction(
-                                            TRANSFER_MODE(inputTransferMode,
+                                            TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
                                                 BUFFER_READ_MODE(rm, 
                                                     MEMORY_FLAGS(fl, 
                                                         input))),
                                             localArray,
-                                            TRANSFER_MODE(outputTransferMode,
+                                            TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
                                                 BUFFER_WRITE_MODE(wm, 
                                                     MEMORY_FLAGS(fl, 
                                                         c))),
@@ -450,13 +447,13 @@ type AdvancedReductionTrainingSample() =
                                     if firstIteration then
                                         TransferMode.TransferIfNeeded
                                     else
-                                        TransferMode.NoTransfer ||| TransferMode.NoTransferBack
+                                        TransferMode.NoTransfer
                                 let outputTransferMode =
                                     if currentGlobalSize = currentLocalSize then
                                         // Last iteration, read back
                                         TransferMode.NoTransfer 
                                     else
-                                        TransferMode.NoTransfer ||| TransferMode.NoTransferBack  
+                                       TransferMode.TransferIfNeeded     
                                 let input = 
                                     if firstIteration then
                                         a
@@ -465,16 +462,16 @@ type AdvancedReductionTrainingSample() =
                                        
                                 let comp = <@ DEVICE(pIndex, dIndex,
                                                 AdvancedReduction(
-                                                    TRANSFER_MODE(inputTransferMode,
+                                                    TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
                                                         BUFFER_READ_MODE(rm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 input))),
                                                     localArray,
-                                                    TRANSFER_MODE(outputTransferMode,
+                                                    TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
                                                         BUFFER_WRITE_MODE(wm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 c))),
-                                                    currentDataSize)) @>  
+                                                    currentDataSize)) @>   
 
                                 // Run           
                                 comp.Run(currentGlobalSize |> int64, currentLocalSize |> int64, opts)

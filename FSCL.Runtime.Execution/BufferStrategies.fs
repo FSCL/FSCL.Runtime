@@ -51,7 +51,8 @@ type BufferStrategies() =
                                                      accessMode: AccessAnalysisResult, 
                                                      readMode: BufferReadMode, 
                                                      writeMode: BufferWriteMode, 
-                                                     transferMode: TransferMode,
+                                                     htdTransferMode: TransferMode,
+                                                     dthTransferMode: TransferMode,
                                                      flags: MemoryFlags, 
                                                      isRoot: bool, 
                                                      isReturn: bool,
@@ -90,7 +91,7 @@ type BufferStrategies() =
         //     This is because the host will need to access a T[] after completion, but mapping in managed
         //     environment requires a copy from IntPtr to T[]. It's better for the managed env to allocate T[] and
         //     pass the IntPtr, so there is no need to copy back.
-        if (transferMode &&& TransferMode.NoTransferBack |> int = 0) &&
+        if (dthTransferMode <> TransferMode.NoTransfer) &&
            (MemoryFlagsUtil.WithNoAccessFlags(optFlags) |> int = 0) &&
            MemoryFlagsUtil.CanKernelWrite(optFlags) then
             // Programmer did not prevent transferring back this buffer
@@ -126,9 +127,14 @@ type BufferStrategies() =
         space <> AddressSpace.Local
 
     static member ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        BufferStrategies.ShouldWriteBuffer(analysis, flags, space, transferMode) &&
+        (space <> AddressSpace.Private &&
+         space <> AddressSpace.Local &&
         (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-        ((transferMode &&& TransferMode.NoTransfer) |> int = 0)
+        (transferMode = TransferMode.ForceTransfer)) ||
+        
+        (BufferStrategies.ShouldWriteBuffer(analysis, flags, space, transferMode) &&
+        (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
+        (transferMode <> TransferMode.NoTransfer))
       
     static member ShouldReadBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
@@ -138,8 +144,13 @@ type BufferStrategies() =
         (flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0
       
     static member ShouldReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        BufferStrategies.ShouldReadBuffer(analysis, flags, space, transferMode) &&
-        ((transferMode &&& TransferMode.NoTransferBack) |> int = 0)   
+        (space <> AddressSpace.Local &&
+         space <> AddressSpace.Private &&
+         ((flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
+         (transferMode = TransferMode.ForceTransfer)) ||
+
+        (BufferStrategies.ShouldReadBuffer(analysis, flags, space, transferMode) &&
+         (transferMode <> TransferMode.NoTransfer))   
         
     static member ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
                                    toAnalysis: AccessAnalysisResult, toSpace: AddressSpace) =
