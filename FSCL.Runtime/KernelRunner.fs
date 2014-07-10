@@ -214,12 +214,12 @@ module Runtime =
                       
             // If global or local size empty theyshould be embedded in kernel expression 
             let result = match mode with
-                        | RunningMode.OpenCL ->                
-                            this.RunExpressionOpenCL(expr, opts, isSubRunning)
-                        | RunningMode.Multithread ->
-                            this.RunExpressionMultithread(expr, opts, isSubRunning)
-                        | _ ->              
-                            this.RunExpressionMultithread(expr, opts, isSubRunning)
+                         | RunningMode.OpenCL ->                
+                             this.RunExpressionOpenCL(expr, opts, isSubRunning)
+                         | RunningMode.Multithread ->
+                             this.RunExpressionMultithread(expr, opts, isSubRunning)
+                         | _ ->              
+                             this.RunExpressionMultithread(expr, opts, isSubRunning)
 
             if not isSubRunning then
                 this.isRunning <- false

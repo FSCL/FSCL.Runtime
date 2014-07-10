@@ -129,12 +129,12 @@ type BufferStrategies() =
     static member ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         (space <> AddressSpace.Private &&
          space <> AddressSpace.Local &&
-        (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-        (transferMode = TransferMode.ForceTransfer)) ||
+         (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
+         (transferMode = TransferMode.ForceTransfer)) ||
         
         (BufferStrategies.ShouldWriteBuffer(analysis, flags, space, transferMode) &&
-        (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-        (transferMode <> TransferMode.NoTransfer))
+         (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
+         (transferMode <> TransferMode.NoTransfer))
       
     static member ShouldReadBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&

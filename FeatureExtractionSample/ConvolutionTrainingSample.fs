@@ -16,7 +16,7 @@ open System.Diagnostics
 let FILTER_WIDTH = 3
 
 [<ReflectedDefinition>]
-let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
+let Convolution4(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
     let nWidth = get_global_size(0)
     let xOut = get_global_id(0) 
     let yOut = get_global_id(1)
@@ -37,26 +37,59 @@ let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilt
             c <- cidx + 4
             c4 <- c4 + 1L
         let cMod = FILTER_WIDTH - c
-        if cMod = 1 then 
-            let idxF = idxFtmp + c
-            let idxIn = idxIntmp + c
-            sum4.x <- sum4.x + pFilter.[idxF]*pInput.[idxIn]
-        else if cMod = 2 then
-            //Use float4 here to further optimize the kernel 
-            let idxF = idxFtmp + c
-            let idxIn = idxIntmp + c
-            sum4.x <- sum4.x + pFilter.[idxF]* pInput.[idxIn]
-            sum4.y <- sum4.y + pFilter.[idxF+1]*pInput.[idxIn+1]
-        else if cMod = 3 then
-            //Use float4 here to further optimize the kernel 
-            let idxF = idxFtmp + c
-            let idxIn = idxIntmp + c
-            sum4.x <- sum4.x + pFilter.[idxF]*pInput.[idxIn]
-            sum4.y <- sum4.y + pFilter.[idxF+1]*pInput.[idxIn+1]
-            sum4.z <- sum4.z + pFilter.[idxF+2]*pInput.[idxIn+2]
+        let idxF = idxFtmp + c
+        let idxIn = idxIntmp + c
+        (*
+        if true then
+            if cMod > 0 then // 0.75
+                sum4.x <- sum4.x + pFilter.[idxF]*pInput.[idxIn]
+        if true then
+            if cMod > 1 then // 0.50
+                //Use float4 here to further optimize the kernel 
+                sum4.y <- sum4.y + pFilter.[idxF+1]*pInput.[idxIn+1]
+        if true then
+            if cMod > 2 then // 0.25
+                //Use float4 here to further optimize the kernel 
+                sum4.z <- sum4.z + pFilter.[idxF+2]*pInput.[idxIn+2]
+            *)
+        if true then
+            if cMod = 1 then // 0.25
+                sum4.x <- sum4.x + pFilter.[idxF]*pInput.[idxIn]
+        if true then
+            if cMod = 2 then // 0.25
+                //Use float4 here to further optimize the kernel 
+                sum4.x <- sum4.x + pFilter.[idxF]* pInput.[idxIn]
+                sum4.y <- sum4.y + pFilter.[idxF+1]*pInput.[idxIn+1]
+        if true then
+            if cMod = 3 then // 0.25
+                //Use float4 here to further optimize the kernel 
+                sum4.x <- sum4.x + pFilter.[idxF]*pInput.[idxIn]
+                sum4.y <- sum4.y + pFilter.[idxF+1]*pInput.[idxIn+1]
+                sum4.z <- sum4.z + pFilter.[idxF+2]*pInput.[idxIn+2]
 
     let idxOut = yOut * nWidth + xOut
     pOutput.[idxOut] <- sum4.x + sum4.y + sum4.z + sum4.w
+    
+[<ReflectedDefinition>]
+let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
+    let nWidth = get_global_size(0)
+    let xOut = get_global_id(0) 
+    let yOut = get_global_id(1)
+    
+    let xInTopLeft = xOut
+    let yInTopLeft = yOut
+    let mutable sum = 0.0f 
+    for r = 0 to FILTER_WIDTH - 1 do
+        let idxFtmp = r * FILTER_WIDTH
+        let yIn = yInTopLeft + r
+        let idxIntmp = yIn * nInWidth + xInTopLeft
+        for cidx in 0 .. FILTER_WIDTH - 1 do
+            let filterValue = pFilter.[idxFtmp + cidx]
+            let inValue = pInput.[idxIntmp + cidx]
+            sum <- sum + inValue * filterValue
+
+    let idxOut = yOut * nWidth + xOut
+    pOutput.[idxOut] <- sum
 
 type ConvolutionTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()

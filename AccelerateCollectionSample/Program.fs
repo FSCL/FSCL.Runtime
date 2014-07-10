@@ -57,7 +57,7 @@ let main argv =
     let array = Array.create 1024 2.0f
     let array2 = Array.create 1024 3.0f
     let array3 = Array.init 1024 (fun i -> i |> float32)
-
+            
     // Array map
     Console.Write("1) Testing Array.map...")
     let result = <@ Array.map (fun a -> a + 1.0f) array @>.Run(array.LongLength, 128L);
@@ -121,7 +121,7 @@ let main argv =
         Console.WriteLine("OK!")
     else
         Console.WriteLine("ERROR!")
-
+        
     // Other example
     Console.Write("9) Testing another kernel expression with collection functions...")
     let points = Array.init 1024 (fun i -> int2(i, i * 2))
@@ -131,10 +131,6 @@ let main argv =
         Console.WriteLine("OK!")
     else
         Console.WriteLine("ERROR!")
-        
-
-    let v2 = Array.create 64 1.0f
-    let r = <@ ReductionExecutor v2 @>.Run()
 
     Console.WriteLine("Press enter to exit...")
     Console.Read() |> ignore

@@ -418,7 +418,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         else           
             raise (new KernelExecutionException("Cannot find the buffer on which the runtime operated"))
 
-    member this.OperateOnBuffer(buffer: OpenCLBuffer, syncMode: TransferMode, action: Array -> Array) =
+    member this.OperateOnBuffer(buffer: OpenCLBuffer, opMode: AccessMode, action: Array -> Array) =
         let arr, poolItem =
             // If buffer is tracked we already have an array bound to the buffer
             if reverseTrackedBufferPool.ContainsKey(buffer) then
@@ -431,7 +431,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 arr, poolItem
 
         // Check if buffer can/is modified to see if must be read into the array before action
-        if (syncMode &&& TransferMode.NoTransfer |> int = 0) && (poolItem.Flags &&& MemoryFlags.UseHostPointer |> int = 0) then 
+        if (poolItem.Flags &&& MemoryFlags.UseHostPointer |> int = 0) && (opMode <> AccessMode.WriteOnly) then 
              // Read buffer
              BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, arr, poolItem.Buffer) 
     
@@ -439,7 +439,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         let newArr = action(arr)
   
         // Write back arr to buffer
-        if syncMode <> TransferMode.NoTransfer then
+        if (poolItem.Flags &&& MemoryFlags.UseHostPointer |> int = 0) && (opMode <> AccessMode.ReadOnly) then
             BufferTools.WriteBuffer(poolItem.Queue, poolItem.WriteMode = BufferWriteMode.MapBuffer, poolItem.Buffer, newArr) 
         
         // Check if arr changed (new array)

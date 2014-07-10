@@ -33,16 +33,16 @@ type ReduceKernelExecutionProcessor() =
             if (isAccelerateReduce || isAccelerateSum) then
                 let dev = node.KernelData.Kernel.Meta.KernelMeta.Get<DeviceTypeAttribute>().Type
                 if dev = DeviceType.Cpu then
-                    this.OneStageReduce((node, isRoot), s, opts)
+                    this.StageReduceCpu((node, isRoot), s, opts)
                 else
-                    this.TwoStageReduce((node, isRoot), s, opts)
+                    this.StageReduceGpu((node, isRoot), s, opts)
             else
                 None
         | _ ->
             None
 
     // Reduce for CPU
-    member private this.OneStageReduce((node, isRoot), s, opts) =
+    member private this.StageReduceCpu((node, isRoot), s, opts) =
         let step = s :?> KernelExecutionStep
         let pool = step.BufferPoolManager
 
@@ -129,16 +129,18 @@ type ReduceKernelExecutionProcessor() =
 
         argIndex <- argIndex + 1
         // Third parameter: block
-        let blockSize = Math.Ceiling((double)inputBuffer.TotalCount / (double)globalSize.[0]) |> int
+        // Get number of cores and use it for global size, local size = 1
+        let cores = node.DeviceData.Device.MaxOpenCLUnits
+        let blockSize = Math.Ceiling((double)inputBuffer.TotalCount / (double)cores) |> int
         compiledData.Kernel.SetValueArgument(argIndex, blockSize) 
 
         // Execute
-        deviceData.Queue.Execute(compiledData.Kernel, [| 0L |], globalSize, localSize, null)                
+        deviceData.Queue.Execute(compiledData.Kernel, [| 0L |], globalSize, [| 1L |], null)                
          
         // Operate final reduce on cpu
         let result = ref null
         pool.OperateOnBuffer(outputBuffer, 
-                             (if isRoot then TransferMode.NoTransfer else TransferMode.TransferIfNeeded),
+                             (if isRoot then AccessMode.ReadOnly else AccessMode.ReadWrite),
                              fun arr ->
                                 // Do final iteration on CPU
                                 let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
@@ -175,7 +177,7 @@ type ReduceKernelExecutionProcessor() =
             pool.EndUsingBuffer(outputBuffer)
             Some(ReturnedValue(!result))
 
-    member private this.TwoStageReduce((node, isRoot), s, opts) =
+    member private this.StageReduceGpu((node, isRoot), s, opts) =
         let step = s :?> KernelExecutionStep
         let pool = step.BufferPoolManager
         //new KernelExecutionOutput()
@@ -304,7 +306,7 @@ type ReduceKernelExecutionProcessor() =
         let result = ref null 
         let finalReduceOnCPU = currentDataSize > 1L
         pool.OperateOnBuffer(outputBuffer, 
-                                (if isRoot then TransferMode.NoTransfer else TransferMode.TransferIfNeeded),
+                             (if isRoot then AccessMode.ReadOnly else AccessMode.ReadWrite),
                                 fun arr ->
                                     if finalReduceOnCPU then
                                         // Do final iteration on CPU
