@@ -12,8 +12,8 @@ open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
 
-[<ReflectedDefinition>]
-let Transpose(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[]) =
+[<ReflectedDefinition; Device(0,1)>]
+let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[]) =
     let wiWidth  = get_global_size(0)
     let gix_t = get_group_id(0)
     let giy_t = get_group_id(1)
@@ -61,7 +61,7 @@ let Transpose(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Loc
     output.[index_out+(wiWidth*3)] <- float4(v0.w, v1.w, v2.w, v3.w)
     
 [<ReflectedDefinition>]
-let TransposeSimple(output: float32[], input: float32[], [<AddressSpace(AddressSpace.Local)>] block: float32[], width: int, height: int) =
+let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.Local)>] block: float32[], width: int, height: int) =
     let mutable xIndex = get_global_id(0)
     let mutable yIndex = get_global_id(1)
     let BLOCK_DIM = 16
@@ -129,8 +129,8 @@ type TransposeTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadWrite 
-        let ofl = MemoryFlags.ReadWrite 
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
 
         let mutable execResults: obj list list = []
         let blockSize = 16L
@@ -160,7 +160,7 @@ type TransposeTrainingSample() =
                     let c = Array.zeroCreate<float32> (cols * rows |> int)
 
                     let comp = <@ DEVICE(pIndex, dIndex,
-                                    TransposeSimple(
+                                    Transpose(
                                         BUFFER_WRITE_MODE(wm, 
                                             MEMORY_FLAGS(ofl, 
                                                 c)),
@@ -174,7 +174,7 @@ type TransposeTrainingSample() =
                     // Extract features
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block ], [| rows; cols |], [| blockSize; blockSize |], opts)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols; rows ], [| rows; cols |], [| blockSize; blockSize |], opts)
                                                                                                           
                     // Run once to skip compilation time
                     comp.Run([| rows; cols |], [| blockSize; blockSize |])
@@ -200,14 +200,6 @@ type TransposeTrainingSample() =
 
 type TransposeFloat4TrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
-    let float4tofloat(a:float4[]) =
-        let o = Array.zeroCreate<float32> (a.Length * 4)
-        for i in 0 .. a.Length - 1 do
-            o.[i * 4] <- a.[i].x
-            o.[i * 4 + 1] <- a.[i].y
-            o.[i * 4 + 2] <- a.[i].z
-            o.[i * 4 + 3] <- a.[i].w
-        o
         
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
@@ -217,8 +209,8 @@ type TransposeFloat4TrainingSample() =
         dict
         
     override this.Verify(output: obj, reference: obj) =
-        let o = output :?> float4[]
-        let r = reference :?> float4[]
+        let o = output :?> float32[]
+        let r = reference :?> float32[]
         let mutable i = 0
         let mutable eq = true
         while eq && i < o.Length do
@@ -229,20 +221,12 @@ type TransposeFloat4TrainingSample() =
         eq
     
     override this.CreateVerifiedOutput(o: obj) =
-        let a,w = o :?> float4[] * int
-        let result = Array.zeroCreate<float4> a.Length
-        for rowOff in 0 .. 4 .. a.Length / w - 1 do
-            for i = rowOff * w to (rowOff * w) + w - 1 do
-                let a00 = a.[i]
-                let a01 = a.[i + w]
-                let a02 = a.[i + w * 2]
-                let a03 = a.[i + w * 3]
-                let outC = i / (w * 4)
-                let outR = (i % w) * 4
-                result.[(outR * w) + outC] <- float4(a00.x, a01.x, a02.x, a03.x)
-                result.[((outR + 1)* w) + outC] <- float4(a00.y, a01.y, a02.y, a03.y)
-                result.[((outR + 2)* w) + outC] <- float4(a00.z, a01.z, a02.z, a03.z)
-                result.[((outR + 3)* w) + outC] <- float4(a00.w, a01.w, a02.w, a03.w)
+        let a,w = o :?> float32[] * int
+        let result = Array.zeroCreate<float32> a.Length
+        for i = 0 to a.Length - 1 do
+            let r = i / w
+            let c = i % w
+            result.[c * w + r] <- a.[r * w + c]
         box result
 
     override this.ResultColumnIDs 
@@ -267,8 +251,8 @@ type TransposeFloat4TrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly 
-        let ofl = MemoryFlags.WriteOnly 
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
 
         let mutable execResults: obj list list = []
         let blockSize = 16L
@@ -283,7 +267,7 @@ type TransposeFloat4TrainingSample() =
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
-            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols * 4L))
+            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array.init (rows * cols |> int) (fun i -> 
                                                         let r = (i |> int64) / cols
@@ -293,43 +277,45 @@ type TransposeFloat4TrainingSample() =
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
-                for dIndex, dName, dType in pDevs do                                
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                    let c = Array.zeroCreate<float32> (cols * rows |> int)
+                
+                for dIndex, dName, dType in pDevs do    
+                    if dIndex > 0 then                            
+                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                        let c = Array.zeroCreate<float32> (cols * rows |> int)
 
-                    let comp = <@ DEVICE(pIndex, dIndex,
-                                    Transpose(
-                                        BUFFER_WRITE_MODE(wm, 
-                                            MEMORY_FLAGS(ofl, 
-                                                AsFloat4(c))),
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                AsFloat4(a))),
-                                        AsFloat4(block))) @>   
-                        
-                    // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                   // let precomputedFeatures = chain.Precompute(km)
-                    //features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block ], [| rows / elementsPerThread; cols |], [| blockSize; blockSize |], opts)
-                                                                                                          
-                    // Run once to skip compilation time
-                    comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float4[]
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                    else
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                
-                        // Dump
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
-                                
-            execResults <- execResults @ [ instanceResult @ [ rows; cols * 4L ] @ features ]     
+                        let comp = <@ DEVICE(pIndex, dIndex,
+                                        TransposeFloat4(
+                                            BUFFER_WRITE_MODE(wm, 
+                                                MEMORY_FLAGS(ofl, 
+                                                    AsFloat4(c))),
+                                            BUFFER_READ_MODE(rm, 
+                                                MEMORY_FLAGS(ifl, 
+                                                    AsFloat4(a))),
+                                            AsFloat4(block))) @>   
+                            
+                        // Extract features
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols |], [| blockSize; blockSize |], opts)
+                                                                                                              
+                        // Run once to skip compilation time
+                        comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                        let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                    
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            instanceResult <- instanceResult @ [ ttime ]
+                            System.Threading.Thread.Sleep(500)
+                                    
+            execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
         execResults

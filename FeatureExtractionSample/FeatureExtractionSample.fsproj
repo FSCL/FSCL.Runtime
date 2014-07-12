@@ -4,8 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>c7906474-a269-4a86-80df-806371288760</ProjectGuid>
+    <ProjectGuid>C7906474-A269-4A86-80DF-806371288760</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>FeatureExtractionSample</RootNamespace>
     <AssemblyName>FeatureExtractionSample</AssemblyName>
@@ -65,9 +64,6 @@
     <None Include="Script1.fsx" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -76,39 +72,35 @@
     <Reference Include="System.Xml.Linq" />
     <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler.Core\FSCL.Compiler.Core.fsproj">
       <Name>FSCL.Compiler.Core</Name>
-      <Project>{d052e6ca-4c6c-4792-aceb-4d2633ceb37b}</Project>
-      <Private>True</Private>
+      <Project>D052E6CA-4C6C-4792-ACEB-4D2633CEB37B</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler.Language\FSCL.Compiler.Language.fsproj">
       <Name>FSCL.Compiler.Language</Name>
-      <Project>{9b069191-a1b7-42ba-90ab-d4c8778476ed}</Project>
-      <Private>True</Private>
+      <Project>9B069191-A1B7-42BA-90AB-D4C8778476ED</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Compiler\FSCL.Compiler\FSCL.Compiler.fsproj">
       <Name>FSCL.Compiler</Name>
-      <Project>{52b857c3-c0d3-4280-b094-20fce4bad4b9}</Project>
-      <Private>True</Private>
+      <Project>52B857C3-C0D3-4280-B094-20FCE4BAD4B9</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
-      <Project>{061550db-589c-4dbc-94ef-6df4ec751b71}</Project>
-      <Private>True</Private>
+      <Project>061550DB-589C-4DBC-94EF-6DF4EC751B71</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj">
       <Name>FSCL.Runtime.FeatureExtraction</Name>
-      <Project>{cbcee72c-fc8c-49f1-8e9d-f6ead2b213df}</Project>
-      <Private>True</Private>
+      <Project>CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
-      <Project>{9692f3d3-7408-46f4-8429-b4e77d128849}</Project>
-      <Private>True</Private>
+      <Project>9692F3D3-7408-46F4-8429-B4E77D128849</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime\FSCL.Runtime.fsproj">
       <Name>FSCL.Runtime</Name>
-      <Project>{0972daf2-5aaf-4d52-b0c6-4b51f00be03c}</Project>
-      <Private>True</Private>
+      <Project>0972DAF2-5AAF-4D52-B0C6-4B51F00BE03C</Project>
     </ProjectReference>
+    <Reference Include="FSharp.Core">
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
