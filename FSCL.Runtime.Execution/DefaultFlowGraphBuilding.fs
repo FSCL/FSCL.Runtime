@@ -120,8 +120,16 @@ type DefaultFlowGraphBuildingProcessor() =
                     // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
                     let processedParam = 
                         match p.ParameterType with
-                        | NormalParameter ->
-                            step.Process(input.CallArgs.[i])
+                        | NormalParameter ->                            
+                            match input.CallArgs.[i] with
+                            | Patterns.Call(o, mi, a) ->
+                                if mi.GetCustomAttribute<FSCL.VectorTypeArrayReinterpretAttribute>() <> null then
+                                    // Reinterpretation of non-vector array 
+                                    None
+                                else
+                                    step.Process(input.CallArgs.[i])
+                            | _ ->
+                                None                            
                         | _ ->
                             None
 

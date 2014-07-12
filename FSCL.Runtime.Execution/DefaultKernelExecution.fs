@@ -10,6 +10,7 @@ open System.Collections.Generic
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open OpenCL
+open Microsoft.FSharp.Quotations
 
 [<assembly:DefaultComponentAssembly>]
 do()
@@ -95,7 +96,16 @@ type DefaultKerernelExecutionProcessor() =
 
                     | ActualArgument(expr) ->
                         // Input from an actual argument
-                        let o = LeafExpressionConverter.EvaluateQuotation(expr)
+                        let o = 
+                            match expr with
+                            | Patterns.Call(o, mi, a) ->
+                                if mi.GetCustomAttribute<FSCL.VectorTypeArrayReinterpretAttribute>() <> null then
+                                    // Reinterpretation of non-vector array 
+                                    LeafExpressionConverter.EvaluateQuotation(a.[0])
+                                else
+                                    LeafExpressionConverter.EvaluateQuotation(expr)
+                            | _ ->
+                                LeafExpressionConverter.EvaluateQuotation(expr)
                         // Create buffer if needed (no local address space)
                         let addressSpace = par.Meta.Get<AddressSpaceAttribute>()
                         if addressSpace.AddressSpace = AddressSpace.Local then
@@ -186,10 +196,9 @@ type DefaultKerernelExecutionProcessor() =
 
             // Cool, we processed the input and now all the arguments have been set
             // Run kernel
-            let offset = Array.zeroCreate<int64>(workSize.GlobalSize.Length)
             // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
             // We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
-            node.DeviceData.Queue.Execute(node.CompiledKernelData.Kernel, offset, workSize.GlobalSize, workSize.LocalSize, null)
+            node.DeviceData.Queue.Execute(node.CompiledKernelData.Kernel, null, workSize.GlobalSize, workSize.LocalSize, null)
             node.DeviceData.Queue.Finish()
 
             // Dispose buffers
