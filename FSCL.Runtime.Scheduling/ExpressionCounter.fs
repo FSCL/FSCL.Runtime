@@ -131,12 +131,12 @@ type ExpressionCounter() =
             | _ ->
                 match expr with        
                 | Patterns.Let (v, value, body) ->
-                    let maybeOpRange: (Expr<float32> * VarStack) option = CheckOpRange(expr, stack)
+                    let maybeOpRange: (Expr<float32> * VarStack) option = EstimateLoopWithOpRange(expr, stack)
                     if maybeOpRange.IsSome then
                         maybeOpRange.Value
                     else
                         let first, newStack = EstimateInternal(value, stack)
-                        let second, newStack = EstimateInternal(body, push newStack (v, value))
+                        let second, newStack = EstimateInternal(body, push newStack (v, value, false))
                         <@ %first + %second @>, pop newStack
 
                 | Patterns.VarSet (v, e) ->
@@ -155,7 +155,7 @@ type ExpressionCounter() =
                     // Check that startv is an expression of constants and fers to parameters
                     let es, _ = EstimateInternal(starte, stack)
                     let ee, _ = EstimateInternal(ende, stack)
-                    let newStack = push stack (v, starte)
+                    let newStack = push stack (v, starte, false)
                     let subexpr, subStack = EstimateInternal(body, newStack)
 
                     let unfoldStart = UnfoldExpr(starte, stack)
@@ -174,10 +174,8 @@ type ExpressionCounter() =
                     <@ %ev1 + %ev2 @>, newStack
 
                 | Patterns.WhileLoop(guard, body) ->
-                    let estimator = BuildWhileLoopEstimator(guard, body, stack)
-                    let ev1, newStack = EstimateInternal(guard, stack)
-                    <@ do (%%estimator: unit)
-                       %ev1: float32 @>, newStack
+                    let estimator = EstimateSimpleWhileLoop(guard, body, stack)
+                    estimator, stack
 
                 | Patterns.Call(o, mi, arguments) ->
                     // Check if this is a call to a reflected function
@@ -236,7 +234,7 @@ type ExpressionCounter() =
                     result := <@ %(fst !result) + %v @>, newStack
                 !result
                     
-        and CheckOpRange(expr: Expr, stack: VarStack) =
+        and EstimateLoopWithOpRange(expr: Expr, stack: VarStack) =
             match expr with
             | Patterns.Let (inputSequence, value, body) ->
                 match value with 
@@ -246,7 +244,7 @@ type ExpressionCounter() =
                         let starte, stepe, ende = a.[0], a.[1], a.[2]
                         match body with
                         | Patterns.Let(enumerator, value, body) ->
-                            let newStack = push stack (enumerator, value)
+                            let newStack = push stack (enumerator, value, false)
                             match body with
                             | Patterns.TryFinally (trye, fine) ->
                                 match trye with
@@ -256,7 +254,7 @@ type ExpressionCounter() =
                                             match value with
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
-                                                let newStack = push newStack (v, starte)
+                                                let newStack = push newStack (v, starte, false)
                                                 let es, esStack = EstimateInternal(starte, stack)
                                                 let se, seStack = EstimateInternal(stepe, stack)
                                                 let ee, eeStack = EstimateInternal(ende, stack)
@@ -305,7 +303,7 @@ type ExpressionCounter() =
                 if isParameterReference || isWorkSizeFunctionReference || isDynamicDefineReference then
                    expr
                 else
-                    let varValue, stackTail = findAndTail v stack
+                    let varValue, stackTail = findAndTail v true stack
                     if varValue.IsSome then
                         UnfoldExpr(varValue.Value, stackTail)
                     else
@@ -355,8 +353,130 @@ type ExpressionCounter() =
                 else
                     true
 
-        and BuildWhileLoopEstimator(guard:Expr, body:Expr, stack: VarStack) =
-            
+        and EstimateSimpleWhileLoop(guard:Expr, body:Expr, stack: VarStack) =
+            let rec findVarUpdate(v: Var, e: Expr) =
+                match e with
+                | Patterns.VarSet(ov, assExpr) ->
+                    if ov = v then
+                        let otherUpdate:(Expr * Expr) option = findVarUpdate(v, assExpr)
+                        if otherUpdate.IsNone then
+                            // Check the form v <- v OP expr
+                            match assExpr with
+                            | DerivedPatterns.SpecificCall <@ (+) @> (o, t, arguments) 
+                            | DerivedPatterns.SpecificCall <@ (-) @> (o, t, arguments) 
+                            | DerivedPatterns.SpecificCall <@ (*) @> (o, t, arguments) 
+                            | DerivedPatterns.SpecificCall <@ (/) @> (o, t, arguments) 
+                            | DerivedPatterns.SpecificCall <@ (>>>) @> (o, t, arguments) 
+                            | DerivedPatterns.SpecificCall <@ (<<<) @> (o, t, arguments) ->
+                                match arguments.[0] with
+                                | Patterns.Var(ov) ->
+                                    if ov = v then
+                                        // Ok, now make sure expr can be unfold to parameters and constants
+                                        let unfoldUpdate = UnfoldExpr(arguments.[1], stack)
+                                        Some(assExpr, unfoldUpdate)
+                                    else
+                                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                                | _ ->
+                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                            | _ ->
+                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                        else
+                            raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once"))
+                    else
+                        findVarUpdate(v, assExpr)       
+                | Patterns.ForIntegerRangeLoop(_, starte, ende, body) ->
+                    let update = findVarUpdate(v, body)
+                    if update.IsSome then
+                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                    else
+                        None  
+                | Patterns.WhileLoop(_, body) ->
+                    let update = findVarUpdate(v, body)
+                    if update.IsSome then
+                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                    else
+                        None  
+                | Patterns.IfThenElse(_, ifb, elseb) ->
+                    let update1 = findVarUpdate(v, ifb)
+                    let update2 = findVarUpdate(v, elseb)
+                    if update1.IsSome || update2.IsSome then
+                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                    else
+                        None                        
+                | ExprShape.ShapeVar(ov) ->
+                    None
+                | ExprShape.ShapeLambda(ov, e) ->
+                    findVarUpdate(v, e)
+                | ExprShape.ShapeCombination(o, a) ->
+                    if a.Length > 0 then
+                        a |> List.map (fun i -> findVarUpdate(v, i)) |> List.reduce (fun a b -> match a, b with
+                                                                                                            | None, None ->
+                                                                                                                None
+                                                                                                            | a, None ->
+                                                                                                                a
+                                                                                                            | None, a ->
+                                                                                                                a
+                                                                                                            | Some(a), Some(b) -> 
+                                                                                                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once")))
+                    else
+                        None
+                                        
+            // Check if guard is Expr.Var OP Expr            
+            match guard with            
+            | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a)  
+            | DerivedPatterns.SpecificCall <@ (<) @> (e, t, a)  
+            | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) 
+            | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) ->
+                match a.[0] with
+                | Patterns.Var(guardVar) ->
+                    // Verify that guardVar has not mutated from the binding
+                    let bindingValue, _ = findAndTail guardVar true stack
+                    if bindingValue.IsSome then
+                        // Unfold the guard expr
+                        let unfoldCond = UnfoldExpr(a.[1], stack)
+                        // Search in the body the ONLY update in the form v <- v +-*/>>><<< expr
+                        let update = findVarUpdate(guardVar, body)
+                        match update with
+                        | Some(updateOp, updateExpr) ->
+                            // Count interesting things in body
+                            let bodyCount, _ = EstimateInternal(body, stack)
+                            // Determine the rounding
+                            let increment = 
+                                match guard with            
+                                | DerivedPatterns.SpecificCall <@ (>=) @> (e, t, a) 
+                                | DerivedPatterns.SpecificCall <@ (<=) @> (e, t, a) ->
+                                    1.0
+                                | _ ->
+                                    0.0
+                            // Build estimator
+                            let estimator =
+                                match updateOp with
+                                | DerivedPatterns.SpecificCall <@ (+) @> (o, t, arguments) ->
+                                    <@ ((((%%unfoldCond |> float32) - (%%bindingValue.Value |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) * %bodyCount @>
+                                | DerivedPatterns.SpecificCall <@ (-) @> (o, t, arguments) ->
+                                    <@ ((((%%bindingValue.Value |> float32) - (%%unfoldCond |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) * %bodyCount @>
+                                | DerivedPatterns.SpecificCall <@ (*) @> (o, t, arguments) ->
+                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) - Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) + increment) |> float32) * %bodyCount @> 
+                                | DerivedPatterns.SpecificCall <@ (/) @> (o, t, arguments)-> 
+                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) - Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) + increment)  |> float32) * %bodyCount @> 
+                                | DerivedPatterns.SpecificCall <@ (>>>) @> (o, t, arguments) ->
+                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) * %bodyCount @>  
+                                | DerivedPatterns.SpecificCall <@ (<<<) @> (o, t, arguments) ->
+                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) * %bodyCount @> 
+                                | _ ->
+                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                            estimator
+                        | _ ->                            
+                            raise (new ExpressionCounterError("Cannot find the variable update of a while loop"))                                
+                    else
+                        raise (new ExpressionCounterError("Cannot determine the original value of a while loop iteration variable"))                                                                
+                | _ ->
+                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+            | _ ->
+                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+                    
+
+            (*            
             // Determine the free variables in guard
             let freeVars = ReplaceFunctionBody(functionBody, guard).Value.GetFreeVars() |> List.ofSeq
             // For each free variable check that they can be unfold to paramters/constants, etc
@@ -385,7 +505,8 @@ type ExpressionCounter() =
                                      Expr.WhileLoop(guard, Expr.Value(()))))
                 e
             else
-                Expr.Value(0.0f)    
+                Expr.Value(0.0f)   
+                *) 
 
         EstimateInternal(functionBody, stack)            
             

@@ -1,6 +1,9 @@
-﻿namespace FSCL.Runtime.Scheduling.Metric
+﻿namespace FSCL.Runtime.Scheduling
 
 open System 
+
+type ExpressionCounterError(msg: string) =
+    inherit Exception(msg)
 
 type MetricEvaluationError(msg: string) =
     inherit Exception(msg)

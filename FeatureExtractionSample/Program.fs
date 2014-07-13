@@ -33,12 +33,12 @@ let main argv =
     //MatrixMultFeatures.TestFeatures 64L 1024L 100
 
     // Convolution
-    let chain = new FeatureExtractionChain([| //new BranchCounter();
+    let chain = new FeatureExtractionChain([| new BranchCounter();
                                               new MemoryAccessCounter();
-                                              //new ArithmeticOperationCounter();
-                                              //new DataSizeCounter();
-                                              //new WorkSizeCounter() 
-                                              |])
+                                              new ArithmeticOperationCounter();
+                                              new DataSizeCounter();
+                                              new WorkSizeCounter() 
+                                           |])
     
     let samples = [|
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
@@ -46,10 +46,10 @@ let main argv =
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample
+                        new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample
-                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 

@@ -3,7 +3,7 @@
 module VarStack =
     type VarStack =
         | EmptyStack
-        | StackNode of (Quotations.Var * Quotations.Expr) * VarStack
+        | StackNode of (Quotations.Var * Quotations.Expr * bool) * VarStack
          
     let head = function
         | EmptyStack -> failwith "Empty stack"
@@ -34,11 +34,11 @@ module VarStack =
  
     let rec contains x = function
         | EmptyStack -> false
-        | StackNode((v, value), tl) -> v = x || contains x tl
+        | StackNode((v, value, _), tl) -> v = x || contains x tl
  
     let rec find x = function
         | EmptyStack -> None
-        | StackNode((v, value), tl) -> 
+        | StackNode((v, value, _), tl) -> 
             if v = x then
                 Some(value)
             else
@@ -46,16 +46,23 @@ module VarStack =
                 
     let rec set x newValue = function
         | EmptyStack -> EmptyStack
-        | StackNode((v, value), tl) -> 
+        | StackNode((v, value, b), tl) -> 
             if v = x then
-                StackNode((v, newValue), tl)
+                StackNode((v, newValue, true), tl)
             else
-                StackNode((v, value), set x newValue tl)
+                StackNode((v, value, b), set x newValue tl)
 
-    let rec findAndTail x = function
+    let rec findAndTail x restrictNonMutated = function
         | EmptyStack -> None, EmptyStack
-        | StackNode((v, value), tl) -> 
+        | StackNode((v, value, b), tl) -> 
             if v = x then
-                Some(value), tl
+                if not (restrictNonMutated && b) then
+                    Some(value), tl
+                else
+                    failwith "Cannot tail the stack cause traceback is passing through a mutated variable"
             else
-                findAndTail x tl
+                if not (restrictNonMutated && b) then
+                    findAndTail x restrictNonMutated tl 
+                else
+                    failwith "Cannot tail the stack cause traceback is passing through a mutated variable"
+                    
