@@ -46,11 +46,11 @@ let main argv =
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample
-                        //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample
+                        new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 
     for sample in samples do

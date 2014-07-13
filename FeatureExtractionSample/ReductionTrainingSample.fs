@@ -18,11 +18,11 @@ let placeholderComp a b =
     a + b
 
 [<ReflectedDefinition>]
-let SimpleReduction(g_idata:int[], g_odata:int[], block: int) =
+let SimpleReduction(g_idata:int[], g_odata:int[], block: int, inputSize: int) =
     let mutable global_index = get_global_id(0) * block
     let mutable upper_bound = (get_global_id(0) + 1) * block
-    if upper_bound > g_idata.Length then
-        upper_bound <- g_idata.Length
+    if upper_bound > inputSize then
+        upper_bound <- inputSize
 
     // We don't know which is the neutral value for placeholderComp so we need to
     // initialize it with an element of the input array
@@ -101,8 +101,8 @@ type SimpleReductionTrainingSample() =
         opts.Add(RuntimeOptions.BufferSharePriority, BufferSharePriority.PriorityToShare)        
         let rnd = System.Random()
 
-        let rm = BufferReadMode.MapBuffer
-        let wm = BufferWriteMode.MapBuffer
+        let rm = BufferReadMode.EnqueueReadBuffer
+        let wm = BufferWriteMode.EnqueueWriteBuffer
         let fl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
 
         let mutable execResults: obj list list = []
@@ -122,8 +122,9 @@ type SimpleReductionTrainingSample() =
                 for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                     for dIndex, dName, dType in pDevs do                                
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                        let c = Array.zeroCreate<int> (!size / blockSize |> int)
+                        let c = Array.zeroCreate<int> (!size |> int)
 
+                        let mutable currentInputSize = !size
                         let mutable currentOutputSize = !size / blockSize
                         let mutable currentBlockSize = blockSize
                         if currentOutputSize = 0L then
@@ -155,12 +156,13 @@ type SimpleReductionTrainingSample() =
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(fl, 
                                                             c))),
-                                                currentBlockSize |> int)) @>   
+                                                currentBlockSize |> int,
+                                                currentInputSize |> int)) @>   
                         
                             // Extract features
                             let km = compiler.Compile(comp, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
-                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; c ; currentBlockSize |> int], [| globalSize |], [| localSize |], opts)
+                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; c ; currentBlockSize |> int; currentInputSize |> int], [| globalSize |], [| localSize |], opts)
                             if features.IsEmpty then
                                 features <- additFeatures
                             else
@@ -179,6 +181,7 @@ type SimpleReductionTrainingSample() =
                             comp.Run(globalSize, localSize, opts)
 
                             let prevOutputSize = currentOutputSize
+                            currentInputSize <- prevOutputSize
                             currentOutputSize <- currentOutputSize / currentBlockSize    
                             if currentOutputSize = 0L then
                                 currentBlockSize <- prevOutputSize
@@ -195,11 +198,12 @@ type SimpleReductionTrainingSample() =
                                                 BUFFER_WRITE_MODE(wm, 
                                                     MEMORY_FLAGS(fl, 
                                                         c))),
-                                            currentBlockSize |> int)) @>   
+                                            currentBlockSize |> int,
+                                            currentInputSize |> int)) @>   
                         // Extract features
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        let additFeatures = chain.Evaluate(km, precomputedFeatures, [ c; c; currentBlockSize |> int], [| 1L |], [| 1L |], opts)
+                        let additFeatures = chain.Evaluate(km, precomputedFeatures, [ c; c; currentBlockSize |> int; currentInputSize |> int], [| 1L |], [| 1L |], opts)
                         if features.IsEmpty then
                             features <- additFeatures
                         else
@@ -220,14 +224,15 @@ type SimpleReductionTrainingSample() =
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                         else
                             // Force clear buffer pool, otherwise successive iterations reuse buffers
-                            Runtime.ForceClearPool(false)
+                            //Runtime.ForceClearPool(false)
 
-                            let c = Array.zeroCreate<int> (!size / blockSize |> int)
+                            let c = Array.zeroCreate<int> (!size |> int)
 
                             // Run                                                  
                             let watch = new Stopwatch()
                             watch.Start()
                             for i = 0 to iterations - 1 do
+                                let mutable currentInputSize = !size
                                 let mutable currentOutputSize = !size / blockSize
                                 let mutable currentBlockSize = blockSize
                                 if currentOutputSize = 0L then
@@ -259,12 +264,14 @@ type SimpleReductionTrainingSample() =
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(fl, 
                                                                     c))),
-                                                        currentBlockSize |> int)) @>   
+                                                        currentBlockSize |> int,
+                                                        currentInputSize |> int)) @>   
                            
                                     // Run           
                                     comp.Run(globalSize, localSize, opts)
 
                                     let prevOutputSize = currentOutputSize
+                                    currentInputSize <- prevOutputSize
                                     currentOutputSize <- currentOutputSize / currentBlockSize    
                                     if currentOutputSize = 0L then
                                         currentBlockSize <- prevOutputSize
@@ -281,11 +288,12 @@ type SimpleReductionTrainingSample() =
                                                         BUFFER_WRITE_MODE(wm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 c))),
-                                                    currentBlockSize |> int)) @>   
+                                                    currentBlockSize |> int,
+                                                    currentInputSize |> int)) @>   
                                 // Run final iteration
                                 comp.Run(1L, 1L, opts)
 
-                                Runtime.ForceClearPool(false)
+                                //Runtime.ForceClearPool(false)
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 

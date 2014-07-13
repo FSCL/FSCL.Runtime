@@ -48,9 +48,8 @@ namespace OpenCL
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
+            Dispose(true);           
             GC.SuppressFinalize(this);
-            GC.KeepAlive(this);
         }
 
         #endregion
@@ -73,7 +72,7 @@ namespace OpenCL
         /// </summary>
         ~OpenCLResource()
         {
-            //Trace.WriteLine(ToString() + " leaked!", "Warning");
+            Trace.WriteLine(ToString() + " leaked!", "Warning");
             Dispose(false);
         }
 
