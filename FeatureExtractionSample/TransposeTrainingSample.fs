@@ -90,125 +90,6 @@ type TransposeTrainingSample() =
         dict
         
     override this.Verify(output: obj, reference: obj) =
-        let o = output :?> float4[]
-        let r = reference :?> float4[]
-        let mutable i = 0
-        let mutable eq = true
-        while eq && i < o.Length do
-            if o.[i] <> r.[i] then  
-                eq <- false
-            else
-                i <- i + 1
-        eq
-    
-    override this.CreateVerifiedOutput(o: obj) =
-        let a,w = o :?> float32[] * int
-        let result = Array.zeroCreate<float32> a.Length
-        
-        box result
-
-    override this.ResultColumnIDs 
-        with get() =   
-            let ids = new List<String>()         
-            for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
-                for dIndex, dName, dType in pDevs do  
-                    ids.Add(dName + " Completion Time (ms)")
-            ids.Add("Matrix Width (elements)")
-            ids.Add("Matrix Height (elements)")
-            ids |> List.ofSeq
-    
-    override this.RunInternal(chain, conf) = 
-        let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
-        let minSize = Int64.Parse(configuration.["MinMatrixSize"])
-        let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
-        let iterations = Int32.Parse(configuration.["Iterations"])
-
-        let compiler = new Compiler()
-        let opts = new Dictionary<string, obj>()        
-        let rnd = System.Random()
-
-        let rm = BufferReadMode.EnqueueReadBuffer
-        let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-
-        let mutable execResults: obj list list = []
-        let blockSize = 16L
-        let elementsPerThread = 4L
-                
-        let sizes = (seq {
-                            let s = ref minSize
-                            while !s <= maxSize do
-                                yield (!s, !s)
-                                //yield (!s, !s * 2L)
-                                s := !s + minSize
-                        }) |> Array.ofSeq
-
-        for rows, cols in sizes do
-            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols * 4L))
-                                          
-            let a = Array.init (rows * cols |> int) (fun i -> 
-                                                        let r = (i |> int64) / cols
-                                                        r |> float32)                                    
-            let block = Array.zeroCreate<float32> (blockSize * (blockSize + 1L) |> int)
-            //let rf = float4tofloat(reference)
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
-            for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
-                for dIndex, dName, dType in pDevs do                                
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                    let c = Array.zeroCreate<float32> (cols * rows |> int)
-
-                    let comp = <@ DEVICE(pIndex, dIndex,
-                                    Transpose(
-                                        BUFFER_WRITE_MODE(wm, 
-                                            MEMORY_FLAGS(ofl, 
-                                                c)),
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                a)),
-                                        block,
-                                        cols |> int,
-                                        rows |> int)) @>   
-                        
-                    // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols; rows ], [| rows; cols |], [| blockSize; blockSize |], opts)
-                                                                                                          
-                    // Run once to skip compilation time
-                    comp.Run([| rows; cols |], [| blockSize; blockSize |])
-                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float4[]
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                    else
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run([| rows / elementsPerThread; cols |], [| blockSize; blockSize |])
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                
-                        // Dump
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
-                                
-            execResults <- execResults @ [ instanceResult @ [ rows; cols * 4L ] @ features ]     
-        execResults
-
-type TransposeFloat4TrainingSample() =    
-    inherit IDefaultFeatureExtractionTrainingSample()
-        
-    override this.DefaultConfigurationDictionary() =
-        let dict = new Dictionary<string, obj>()
-        dict.Add("MinMatrixSize", 64L)
-        dict.Add("MaxMatrixSize", 2048L)
-        dict.Add("Iterations", 100)
-        dict
-        
-    override this.Verify(output: obj, reference: obj) =
         let o = output :?> float32[]
         let r = reference :?> float32[]
         let mutable i = 0
@@ -272,50 +153,133 @@ type TransposeFloat4TrainingSample() =
             let a = Array.init (rows * cols |> int) (fun i -> 
                                                         let r = (i |> int64) / cols
                                                         r |> float32)                                    
+            let block = Array.zeroCreate<float32> (blockSize * (blockSize + 1L) |> int)
+            //let rf = float4tofloat(reference)
+            let mutable features: obj list = []
+            let mutable instanceResult: obj list = []
+            for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
+                for dIndex, dName, dType in pDevs do                                
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                    let c = Array.zeroCreate<float32> (cols * rows |> int)
+
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    Transpose(
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        block,
+                                        cols |> int,
+                                        rows |> int)) @>   
+                        
+                    // Extract features
+                    let km = compiler.Compile(comp, opts) :?> IKernelModule
+                    let precomputedFeatures = chain.Precompute(km)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int ], [| rows; cols |], [| blockSize; blockSize |], opts)
+                                                                                                          
+                    // Run once to skip compilation time
+                    comp.Run([| rows; cols |], [| blockSize; blockSize |])
+                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                    if not (this.Verify(c, reference)) then
+                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                    else
+                        // Run
+                        let watch = new Stopwatch()
+                        watch.Start()
+                        for i = 0 to iterations - 1 do
+                            comp.Run([| rows / elementsPerThread; cols |], [| blockSize; blockSize |])
+                        watch.Stop()
+                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                
+                        // Dump
+                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                        instanceResult <- instanceResult @ [ ttime ]
+                        System.Threading.Thread.Sleep(500)
+                                
+            execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
+        execResults
+
+type TransposeFloat4TrainingSample() =    
+    inherit TransposeTrainingSample()
+            
+    override this.RunInternal(chain, conf) = 
+        let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
+        let minSize = Int64.Parse(configuration.["MinMatrixSize"])
+        let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
+        let iterations = Int32.Parse(configuration.["Iterations"])
+
+        let compiler = new Compiler()
+        let opts = new Dictionary<string, obj>()        
+        let rnd = System.Random()
+
+        let rm = BufferReadMode.EnqueueReadBuffer
+        let wm = BufferWriteMode.EnqueueWriteBuffer
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+
+        let mutable execResults: obj list list = []
+        let blockSize = 16L
+        let elementsPerThread = 4L
+                
+        let sizes = (seq {
+                            let s = ref minSize
+                            while !s <= maxSize do
+                                yield (!s, !s)
+                                //yield (!s, !s * 2L)
+                                s := !s + minSize
+                        }) |> Array.ofSeq
+
+        for rows, cols in sizes do
+            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
+                                          
+            let a = Array.init (rows * cols |> int) (fun i -> 
+                                                        let r = (i |> int64) / cols
+                                                        r |> float32)                                    
             let block = Array.zeroCreate<float32> (blockSize * blockSize * elementsPerThread * elementsPerThread  |> int)
             //let rf = float4tofloat(reference)
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 
-                for dIndex, dName, dType in pDevs do    
-                    if dIndex > 0 then                            
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                        let c = Array.zeroCreate<float32> (cols * rows |> int)
+                for dIndex, dName, dType in pDevs do                              
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                    let c = Array.zeroCreate<float32> (cols * rows |> int)
 
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        TransposeFloat4(
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    AsFloat4(c))),
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    AsFloat4(a))),
-                                            AsFloat4(block))) @>   
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    TransposeFloat4(
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                AsFloat4(c))),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                AsFloat4(a))),
+                                        AsFloat4(block))) @>   
                             
-                        // Extract features
-                        let km = compiler.Compile(comp, opts) :?> IKernelModule
-                        let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols |], [| blockSize; blockSize |], opts)
+                    // Extract features
+                    let km = compiler.Compile(comp, opts) :?> IKernelModule
+                    let precomputedFeatures = chain.Precompute(km)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |], opts)
                                                                                                               
-                        // Run once to skip compilation time
-                        comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                        let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                    if not (this.Verify(c, reference)) then
+                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                    else
+                        // Run
+                        let watch = new Stopwatch()
+                        watch.Start()
+                        for i = 0 to iterations - 1 do
+                            comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                        watch.Stop()
+                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                     
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
+                        // Dump
+                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                        instanceResult <- instanceResult @ [ ttime ]
+                        System.Threading.Thread.Sleep(500)
                                     
             execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
         execResults
