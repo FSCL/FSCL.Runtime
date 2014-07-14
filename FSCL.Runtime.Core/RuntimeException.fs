@@ -21,3 +21,6 @@ type KernelFlowGraphException(msg: string) =
 type KernelSetupException(msg: string) =
     inherit System.Exception(msg)
 
+type KernelQueryException(msg: string) =
+    inherit System.Exception(msg)
+

@@ -72,6 +72,9 @@ module Runtime =
             }
                                                     
         member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =  
+            if OpenCLPlatform.Platforms.Count = 0 then
+                raise (new KernelCompilationException("No OpnCL device has been found on your platform"))
+
             let result = this.Run((input, this.creationManager, this.globalPool), opts) :?> ExecutionOutput
 
             // Read output buffers
@@ -192,6 +195,7 @@ module Runtime =
         member this.RunExpression(expr: Expr<'T>, 
                                   globalSize: int64 array, 
                                   localSize: int64 array, 
+                                  globalOffset: int64 array, 
                                   mode: RunningMode, 
                                   fallback: bool,
                                   opt: Dictionary<string, obj>) =
@@ -206,7 +210,7 @@ module Runtime =
 
             // Add options for work size and running mode
             if not(opts.ContainsKey(RuntimeOptions.WorkSize) && globalSize.Length > 0 && localSize.Length > 0) then
-                opts.Add(RuntimeOptions.WorkSize, (globalSize, localSize))
+                opts.Add(RuntimeOptions.WorkSize, (globalSize, localSize, globalOffset))
             if not(opts.ContainsKey(RuntimeOptions.RunningMode)) then
                 opts.Add(RuntimeOptions.RunningMode, mode)
             if not(opts.ContainsKey(RuntimeOptions.MultithreadFallback)) then
@@ -223,8 +227,58 @@ module Runtime =
 
             if not isSubRunning then
                 this.isRunning <- false
-            result
-       
+            result       
+
+        member this.GetLocalMemorySizeForSingleKernelExpression(e: Expr) =
+            let opts = new Dictionary<string, obj>()
+            opts.Add(RuntimeOptions.CreateOnly, true)
+            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+            if result :? KernelFlowGraphNode then
+                let node = result :?> KernelFlowGraphNode
+                node.CompiledKernelData.Kernel.GetLocalMemorySize(node.DeviceData.Device)
+            else
+                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+
+        member this.GetCompileWorkGroupSizeForSingleKernelExpression(e: Expr) =
+            let opts = new Dictionary<string, obj>()
+            opts.Add(RuntimeOptions.CreateOnly, true)
+            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+            if result :? KernelFlowGraphNode then
+                let node = result :?> KernelFlowGraphNode
+                node.CompiledKernelData.Kernel.GetCompileWorkGroupSize(node.DeviceData.Device)
+            else
+                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+
+        member this.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(e: Expr) =
+            let opts = new Dictionary<string, obj>()
+            opts.Add(RuntimeOptions.CreateOnly, true)
+            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+            if result :? KernelFlowGraphNode then
+                let node = result :?> KernelFlowGraphNode
+                node.CompiledKernelData.Kernel.GetPreferredWorkGroupSizeMultiple(node.DeviceData.Device)
+            else
+                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+
+        member this.GetPrivateMemorySizeForSingleKernelExpression(e: Expr) =
+            let opts = new Dictionary<string, obj>()
+            opts.Add(RuntimeOptions.CreateOnly, true)
+            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+            if result :? KernelFlowGraphNode then
+                let node = result :?> KernelFlowGraphNode
+                node.CompiledKernelData.Kernel.GetPrivateMemorySize(node.DeviceData.Device)
+            else
+                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+
+        member this.GetWorkGroupSizeForSingleKernelExpression(e: Expr) =
+            let opts = new Dictionary<string, obj>()
+            opts.Add(RuntimeOptions.CreateOnly, true)
+            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+            if result :? KernelFlowGraphNode then
+                let node = result :?> KernelFlowGraphNode
+                node.CompiledKernelData.Kernel.GetWorkGroupSize(node.DeviceData.Device)
+            else
+                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+
         member this.ForceClearPool(transferBackBuffers: bool) =
             if transferBackBuffers then
                 // Read output buffers
@@ -261,98 +315,130 @@ module Runtime =
     type Expr<'T> with
         member this.Run() =
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||],
                                         RunningMode.OpenCL, true, 
                                         Dictionary<string, obj>()) :?> 'T
         member this.Run(globalSize: int64, localSize: int64) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||],
                                         RunningMode.OpenCL, true, 
                                         Dictionary<string, obj>()) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||],
+                                        RunningMode.OpenCL, true, 
+                                        Dictionary<string, obj>()) :?> 'T
+        member this.Run(globalSize: int64 array, localSize: int64 array, offset: int64 array) =
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, offset,
                                         RunningMode.OpenCL, true, 
                                         Dictionary<string, obj>()) :?> 'T
             
         member this.Run(opts) =
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||], 
                                         RunningMode.OpenCL, true, 
                                         opts) :?> 'T
         member this.Run(globalSize: int64, localSize: int64, opts) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||], 
                                         RunningMode.OpenCL, true, 
                                         opts) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array, opts) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||], 
+                                        RunningMode.OpenCL, true, 
+                                        opts) :?> 'T
+        member this.Run(globalSize: int64 array, localSize: int64 array, globalOffset: int64 array, opts) =
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, globalOffset,
                                         RunningMode.OpenCL, true, 
                                         opts) :?> 'T
                                         
         member this.Run([<ParamArray>] args:(string * obj)[]) =            
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||],
                                         RunningMode.OpenCL, true, 
                                         VarArgsToDictionary(args)) :?> 'T
         member this.Run(globalSize: int64, localSize: int64, [<ParamArray>] args:(string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||], 
                                         RunningMode.OpenCL, true, 
                                         VarArgsToDictionary(args)) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array, [<ParamArray>] args:(string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||], 
+                                        RunningMode.OpenCL, true,  
+                                        VarArgsToDictionary(args)) :?> 'T
+        member this.Run(globalSize: int64 array, localSize: int64 array, globalOffset: int64 array, [<ParamArray>] args:(string * obj)[]) =
+            kernelRunner.RunExpression(this, 
+                                        globalSize, localSize, globalOffset, 
                                         RunningMode.OpenCL, true,  
                                         VarArgsToDictionary(args)) :?> 'T
             
         member this.RunSequential() =
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||], 
                                         RunningMode.Sequential, true, 
                                         Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||], 
                                         RunningMode.Sequential, true, 
                                         Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||], 
                                         RunningMode.Sequential, true, 
                                         Dictionary<string, obj>()) :?> 'T
             
         member this.RunSequential(opts) =
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||], 
                                         RunningMode.Sequential, true, 
                                         opts) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64, opts) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||], 
                                         RunningMode.Sequential, true, 
                                         opts) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array, opts) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||], 
                                         RunningMode.Sequential, true, 
                                         opts) :?> 'T
                                         
         member this.RunSequential([<ParamArray>] args: (string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        [||], [||], 
+                                        [||], [||], [||], 
                                         RunningMode.Sequential, true, 
                                         VarArgsToDictionary(args)) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64, [<ParamArray>] args: (string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], 
+                                        [| globalSize |], [| localSize |], [||], 
                                         RunningMode.Sequential, true, 
                                         VarArgsToDictionary(args)) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array, [<ParamArray>] args: (string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, 
+                                        globalSize, localSize, [||], 
                                         RunningMode.Sequential, true, 
                                         VarArgsToDictionary(args)) :?> 'T
+
+    // Extension methods to query info about a (single) quoted kernel
+    type Expr<'T> with
+        member this.GetLocalMemorySize() =
+            kernelRunner.GetLocalMemorySizeForSingleKernelExpression(this)
+
+        member this.GetCompileWorkGroupSize() =
+            kernelRunner.GetCompileWorkGroupSizeForSingleKernelExpression(this)
+
+        member this.GetPreferredWorkGroupSizeMultiple() =
+            kernelRunner.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(this)
+
+        member this.GetPrivateMemorySize() =
+            kernelRunner.GetPrivateMemorySizeForSingleKernelExpression(this)
+
+        member this.GetWorkGroupSize() =
+            kernelRunner.GetWorkGroupSizeForSingleKernelExpression(this)
             
 

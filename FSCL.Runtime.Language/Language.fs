@@ -67,14 +67,15 @@ module Language =
     ///</summary>
     ///
     [<AllowNullLiteral>]
-    type WorkSizeAttribute(globalSize: int64 array, localSize: int64 array) =
+    type WorkSizeAttribute(globalSize: int64 array, localSize: int64 array, globalOffset: int64 array) =
         inherit KernelMetadataAttribute()
         member val GlobalSize = globalSize with get
         member val LocalSize = localSize with get
-        new(globalSize: int64, localSize: int64) =
-            WorkSizeAttribute([| globalSize |], [| localSize |])  
+        member val GlobalOffset = globalOffset with get
+        new(globalSize: int64, localSize: int64, globalOffset: int64) =
+            WorkSizeAttribute([| globalSize |], [| localSize |], [| globalOffset |])  
         new() =
-            WorkSizeAttribute([| 0L |], [| 0L |])   
+            WorkSizeAttribute([| 0L |], [| 0L |], [| 0L |])   
             
     // Functions matching attributes for dynamic marking of parameters
     [<KernelMetadataFunction(typeof<DeviceAttribute>)>]

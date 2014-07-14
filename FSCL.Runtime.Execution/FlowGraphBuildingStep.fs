@@ -36,4 +36,7 @@ type FlowGraphBuildingStep(tm: TypeManager,
         opts <- opt
         kernelCreationManager <- creationManager                
         let creationResult = (this.Process(input)).Value
-        ContinueCompilation(creationResult, poolManager)
+        if opts.ContainsKey(RuntimeOptions.CreateOnly) && (opts.[RuntimeOptions.CreateOnly] :?> bool) then
+            StopCompilation(creationResult)
+        else
+            ContinueCompilation(creationResult, poolManager)

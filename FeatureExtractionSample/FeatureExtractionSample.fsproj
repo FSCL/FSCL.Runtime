@@ -24,6 +24,7 @@
     <DocumentationFile>..\bin\Debug\FeatureExtractionSample.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <EnableUnmanagedDebugging>true</EnableUnmanagedDebugging>
+    <Commandlineparameters>--profile=log</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -61,6 +62,7 @@
     <Compile Include="ReductionTrainingSample.fs" />
     <Compile Include="PrefixSumTrainingSample.fs" />
     <Compile Include="TransposeTrainingSample.fs" />
+    <Compile Include="LUDecompositionTrainingSample.fs" />
     <Compile Include="Program.fs" />
     <None Include="Script1.fsx" />
   </ItemGroup>
@@ -102,6 +104,10 @@
     <Reference Include="FSharp.Core">
       <Private>True</Private>
     </Reference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
+      <Name>OpenCLManagedWrapper</Name>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

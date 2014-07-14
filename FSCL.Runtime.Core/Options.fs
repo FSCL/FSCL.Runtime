@@ -18,5 +18,9 @@ module RuntimeOptions =
     [<Literal>]
     let BufferSharePriority = "BufferSharePriority"
 
+    // Internal options
+    [<Literal>]
+    let CreateOnly = "CreateOnly"
+
 
 

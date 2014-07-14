@@ -86,7 +86,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="OpenCLManagedWrapper.dll.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

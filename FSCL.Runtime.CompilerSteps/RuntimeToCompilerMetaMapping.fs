@@ -34,12 +34,12 @@ type RuntimeToCompilerMetadataMapping() =
                             new DeviceTypeAttribute(DeviceType.Cpu))
         
         // Add global work size, local work size, running mode and fallback meta
-        if not((kmeta :> IKernelMetaCollection).Contains<WorkSizeAttribute>() && opts.ContainsKey(RuntimeOptions.WorkSize)) then
-            let gsize, lsize = opts.[RuntimeOptions.WorkSize] :?> (int64 array) * (int64 array)
-            kmeta.Add(new WorkSizeAttribute(gsize, lsize))            
-        if not((kmeta :> IKernelMetaCollection).Contains<RunningModeAttribute>()) then
+        if not((kmeta :> IKernelMetaCollection).Contains<WorkSizeAttribute>()) && opts.ContainsKey(RuntimeOptions.WorkSize) then
+            let gsize, lsize, goff = opts.[RuntimeOptions.WorkSize] :?> (int64 array) * (int64 array) * (int64 array)
+            kmeta.Add(new WorkSizeAttribute(gsize, lsize, goff))            
+        if not((kmeta :> IKernelMetaCollection).Contains<RunningModeAttribute>()) && opts.ContainsKey(RuntimeOptions.RunningMode) then
             kmeta.Add(new RunningModeAttribute(opts.[RuntimeOptions.RunningMode] :?> RunningMode))
-        if not((kmeta :> IKernelMetaCollection).Contains<MultithreadFallbackAttribute>()) then
+        if not((kmeta :> IKernelMetaCollection).Contains<MultithreadFallbackAttribute>()) && opts.ContainsKey(RuntimeOptions.MultithreadFallback) then
             kmeta.Add(new MultithreadFallbackAttribute(opts.[RuntimeOptions.MultithreadFallback] :?> bool))
             
         (kmeta, rmeta, pmeta)

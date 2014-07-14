@@ -18,6 +18,7 @@ open SobelFilterTrainingSample
 open PrefixSumTrainingSample
 open ReductionTrainingSample
 open TransposeTrainingSample
+open LUDecompositionTrainingSample
 
 [<EntryPoint>]
 let main argv = 
@@ -46,11 +47,12 @@ let main argv =
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new ERROR SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
+                        // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
+                        new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 
     for sample in samples do

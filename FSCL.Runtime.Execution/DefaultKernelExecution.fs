@@ -198,7 +198,7 @@ type DefaultKerernelExecutionProcessor() =
             // Run kernel
             // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
             // We cannot put case into F# kernels each time the user does operations with get_global_id and similar!
-            node.DeviceData.Queue.Execute(node.CompiledKernelData.Kernel, null, workSize.GlobalSize, workSize.LocalSize, null)
+            node.DeviceData.Queue.Execute(node.CompiledKernelData.Kernel, workSize.GlobalOffset, workSize.GlobalSize, workSize.LocalSize, null)
             node.DeviceData.Queue.Finish()
 
             // Dispose buffers

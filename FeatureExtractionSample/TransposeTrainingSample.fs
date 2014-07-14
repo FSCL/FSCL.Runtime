@@ -11,8 +11,9 @@ open System.IO
 open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
+open OpenCL
 
-[<ReflectedDefinition; Device(0,1)>]
+[<ReflectedDefinition>]
 let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[]) =
     let wiWidth  = get_global_size(0)
     let gix_t = get_group_id(0)
@@ -133,7 +134,7 @@ type TransposeTrainingSample() =
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
         let blockSize = 16L
@@ -217,12 +218,12 @@ type TransposeFloat4TrainingSample() =
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
         let blockSize = 16L
         let elementsPerThread = 4L
-                
+
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
@@ -241,45 +242,49 @@ type TransposeFloat4TrainingSample() =
             //let rf = float4tofloat(reference)
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
+            Console.Write(GetOpenCLPlatforms().Count.ToString());
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 
-                for dIndex, dName, dType in pDevs do                              
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                    let c = Array.zeroCreate<float32> (cols * rows |> int)
+                for dIndex, dName, dType in pDevs do      
+                    if ((OpenCL.OpenCLPlatform.Platforms.[pIndex].Devices.[dIndex].MaxWorkItemDimensions |> int) >= 2 &&
+                         OpenCL.OpenCLPlatform.Platforms.[pIndex].Devices.[dIndex].MaxWorkItemSizes.[1] > 1L) then  
+                               
+                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                        let c = Array.zeroCreate<float32> (cols * rows |> int)
 
-                    let comp = <@ DEVICE(pIndex, dIndex,
-                                    TransposeFloat4(
-                                        BUFFER_WRITE_MODE(wm, 
-                                            MEMORY_FLAGS(ofl, 
-                                                AsFloat4(c))),
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                AsFloat4(a))),
-                                        AsFloat4(block))) @>   
-                            
-                    // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |], opts)
-                                                                                                              
-                    // Run once to skip compilation time
-                    comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                    else
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
-                        // Dump
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
+                        let comp = <@ DEVICE(pIndex, dIndex,
+                                        TransposeFloat4(
+                                            BUFFER_WRITE_MODE(wm, 
+                                                MEMORY_FLAGS(ofl, 
+                                                    AsFloat4(c))),
+                                            BUFFER_READ_MODE(rm, 
+                                                MEMORY_FLAGS(ifl, 
+                                                    AsFloat4(a))),
+                                            AsFloat4(block))) @>   
+                                
+                        // Extract features
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |], opts)
+                                                                                                                  
+                        // Run once to skip compilation time
+                        comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                        let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                        
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            instanceResult <- instanceResult @ [ ttime ]
+                            System.Threading.Thread.Sleep(500)
                                     
             execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
         execResults
