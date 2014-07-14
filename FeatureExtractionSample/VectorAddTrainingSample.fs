@@ -54,7 +54,7 @@ type VectorAddTrainingSample() =
                     ids.Add(dName + " Completion Time (ms)")
             ids.Add("Vector Size (elements)")
             ids |> List.ofSeq
-    
+                
     override this.RunInternal(chain, conf) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
