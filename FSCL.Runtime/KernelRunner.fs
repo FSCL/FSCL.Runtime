@@ -70,7 +70,7 @@ module Runtime =
                 globalPool = new BufferPoolManager()
                 creationManager = new KernelCreationManager(comp, metr)
             }
-                                                    
+                                          
         member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =  
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpnCL device has been found on your platform"))
@@ -98,6 +98,8 @@ module Runtime =
                         this.globalPool.ClearTrackedAndUntrackedPool()
                     else
                         this.globalPool.ClearUntrackedPoolOnly()
+                else
+                    this.globalPool.ClearUntrackedPoolOnly()
                 v
             | _ ->
                 let v = this.globalPool.ReadRootBuffer()
@@ -108,6 +110,8 @@ module Runtime =
                         this.globalPool.ClearTrackedAndUntrackedPool()
                     else
                         this.globalPool.ClearUntrackedPoolOnly()
+                else
+                    this.globalPool.ClearUntrackedPoolOnly()
                 v :> obj
                             
         member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =    
@@ -224,6 +228,27 @@ module Runtime =
                              this.RunExpressionMultithread(expr, opts, isSubRunning)
                          | _ ->              
                              this.RunExpressionMultithread(expr, opts, isSubRunning)
+
+            if not isSubRunning then
+                this.isRunning <- false
+            result       
+                   
+        member this.IterateExpression(expr: Expr<'T>, 
+                                      itSetup: int -> (int64[] *int64[] *int64[] * obj list) option,
+                                      opt: Dictionary<string, obj>) =
+            
+            let isSubRunning = this.isRunning
+            this.isRunning <- true
+
+            // Copy options
+            let opts = new Dictionary<string, obj>()
+            for item in opt do
+                opts.Add(item.Key, item.Value)
+
+            opts.Add("IterativeSetup", itSetup)                    
+                      
+            // If global or local size empty theyshould be embedded in kernel expression 
+            let result = this.RunExpressionOpenCL(expr, opts, isSubRunning)
 
             if not isSubRunning then
                 this.isRunning <- false
@@ -375,6 +400,10 @@ module Runtime =
                                         globalSize, localSize, globalOffset, 
                                         RunningMode.OpenCL, true,  
                                         VarArgsToDictionary(args)) :?> 'T
+        member this.Iterate(itSetup: int -> (int64[] * int64[] * int64[] * obj list) option) =
+            kernelRunner.IterateExpression(this, 
+                                           itSetup, 
+                                           Dictionary<string, obj>()) :?> 'T
             
         member this.RunSequential() =
             kernelRunner.RunExpression(this, 

@@ -44,6 +44,19 @@ namespace OpenCL
     /// <seealso cref="OpenCLMemory"/>
     public class OpenCLBuffer : OpenCLBufferBase
     {
+        #region Properties
+        public GCHandle ArrayHandle
+        {
+            get;
+            private set;
+        }
+        public bool IsValidArrayHandle
+        {
+            get;
+            private set;
+        }
+        #endregion
+
         #region Constructors
 
         /// <summary>
@@ -89,13 +102,21 @@ namespace OpenCL
             GCHandle dataPtr = GCHandle.Alloc(data, GCHandleType.Pinned);
             try
             {
+
+                if ((flags & OpenCLMemoryFlags.UseHostPointer) != 0)
+                {
+                    this.ArrayHandle = dataPtr;
+                    this.IsValidArrayHandle = true;
+                }
+
                 OpenCLErrorCode error = OpenCLErrorCode.Success;
                 Handle = CL10.CreateBuffer(context.Handle, flags, new IntPtr(Marshal.SizeOf(data.GetType().GetElementType()) * data.Length), dataPtr.AddrOfPinnedObject(), out error);
                 OpenCLException.ThrowOnError(error);
             }
             finally 
             {
-                dataPtr.Free(); 
+                if(!this.IsValidArrayHandle)
+                    dataPtr.Free(); 
             }
             Init();
         }
@@ -139,5 +160,11 @@ namespace OpenCL
             return lengths.ToArray();            
         }
 #endregion
+        protected override void Dispose(bool manual)
+        {
+            if (this.IsValidArrayHandle)
+                this.ArrayHandle.Free();
+            base.Dispose(manual);
+        }
     }
 }

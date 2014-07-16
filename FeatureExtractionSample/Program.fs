@@ -42,18 +42,18 @@ let main argv =
                                            |])
     
     let samples = [|
-                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ERROR SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
-                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 
     for sample in samples do

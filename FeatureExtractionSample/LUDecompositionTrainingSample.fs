@@ -176,71 +176,52 @@ type LUDecompositionTrainingSample() =
                         let kernelWorkGroupSize = comp.GetWorkGroupSize()
 
                         // Run iterations for execution
-                        let globalSize = [| blockSize; rows |]
-                        let localSize = [| blockSize; 1L |]
-                        let globalOffset = [| 0L; 0L |]
-
-                        for index = 0 to (rows |> int) - 1 do
-                            if index % VECTOR_SIZE = 0 then
-                                // Setup global size, local size and offset
-                                globalOffset.[0] <- (index / VECTOR_SIZE) |> int64
-                                globalOffset.[1] <- VECTOR_SIZE * (index / VECTOR_SIZE) |> int64
-
-                                if (index = 0) then
-                                    globalSize.[0] <- globalSize.[0] + 1L
-                                    globalSize.[1] <- globalSize.[1] + (VECTOR_SIZE |> int64)
-                                globalSize.[0] <- globalSize.[0] - 1L
-                                globalSize.[1] <- globalSize.[1] - (VECTOR_SIZE |> int64)
-
-                                if globalSize.[0] <= kernelWorkGroupSize then
-                                    localSize.[0] <- globalSize.[0]
-                                else
-                                    let mutable temp = kernelWorkGroupSize
-                                    let mutable ok = false
-                                    while not ok && temp > 1L do
-                                        if globalSize.[0] % temp = 0L then
-                                            ok <- true
+                        comp.Iterate(fun index ->
+                                        if index >= (rows |> int) - 1 then
+                                            None
                                         else
-                                            temp <- temp - 1L
-                                    localSize.[0] <- temp
+                                            let globalSize = [| blockSize; rows |]
+                                            let localSize = [| blockSize; 1L |]
+                                            let globalOffset = [| 0L; 0L |]
 
-                                if globalSize.[1] <= kernelWorkGroupSize / localSize.[0] then
-                                    localSize.[1] <- globalSize.[1]
-                                else
-                                    let mutable temp = kernelWorkGroupSize / localSize.[0]
-                                    let mutable ok = false
-                                    while not ok && temp > 1L do
-                                        if globalSize.[1] % temp = 0L then
-                                            ok <- true
-                                        else
-                                            temp <- temp - 1L
-                                    localSize.[1] <- temp
+                                            if index % VECTOR_SIZE = 0 then
+                                                // Setup global size, local size and offset
+                                                globalOffset.[0] <- (index / VECTOR_SIZE) |> int64
+                                                globalOffset.[1] <- VECTOR_SIZE * (index / VECTOR_SIZE) |> int64
+
+                                                if (index = 0) then
+                                                    globalSize.[0] <- globalSize.[0] + 1L
+                                                    globalSize.[1] <- globalSize.[1] + (VECTOR_SIZE |> int64)
+                                                globalSize.[0] <- globalSize.[0] - 1L
+                                                globalSize.[1] <- globalSize.[1] - (VECTOR_SIZE |> int64)
+
+                                                if globalSize.[0] <= kernelWorkGroupSize then
+                                                    localSize.[0] <- globalSize.[0]
+                                                else
+                                                    let mutable temp = kernelWorkGroupSize
+                                                    let mutable ok = false
+                                                    while not ok && temp > 1L do
+                                                        if globalSize.[0] % temp = 0L then
+                                                            ok <- true
+                                                        else
+                                                            temp <- temp - 1L
+                                                    localSize.[0] <- temp
+
+                                                if globalSize.[1] <= kernelWorkGroupSize / localSize.[0] then
+                                                    localSize.[1] <- globalSize.[1]
+                                                else
+                                                    let mutable temp = kernelWorkGroupSize / localSize.[0]
+                                                    let mutable ok = false
+                                                    while not ok && temp > 1L do
+                                                        if globalSize.[1] % temp = 0L then
+                                                            ok <- true
+                                                        else
+                                                            temp <- temp - 1L
+                                                    localSize.[1] <- temp
                      
-                            // Run computation
-                            let localData = Array.zeroCreate<float32> (localSize.[1] |> int)
-                            let comp = <@ 
-                                        DEVICE(pIndex, dIndex,
-                                            LUDecompose(
-                                                BUFFER_READ_MODE(rm, 
-                                                    BUFFER_WRITE_MODE(wm,
-                                                        MEMORY_FLAGS(ifl, 
-                                                            AsFloat4(inputMatrix2)))),
-                                                BUFFER_READ_MODE(rm, 
-                                                    BUFFER_WRITE_MODE(wm,
-                                                        MEMORY_FLAGS(ifl, 
-                                                            AsFloat4(inplaceMatrix)))),
-                                                index,
-                                                localData)) 
-                                       @>
-
-                            // Extract features
-                            let km = compiler.Compile(comp, opts) :?> IKernelModule
-                            //let precomputedFeatures = chain.Precompute(km)
-                            //features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(inputMatrix2); AsFloat4(inplaceMatrix); index; localData ], globalSize, localSize, opts)
-
-                            // Run once to skip compilation time
-                            comp.Run(globalSize, localSize, globalOffset)
-
+                                            let localData = Array.zeroCreate<float32> (localSize.[1] |> int)
+                                            Some(globalSize, localSize, globalOffset, [ inputMatrix2; inplaceMatrix; index; localData ]))    
+                           
                         // Compose LU
                         let comp = <@ 
                                     DEVICE(pIndex, dIndex,

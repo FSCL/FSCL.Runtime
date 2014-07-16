@@ -463,8 +463,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
     member this.EndUsingBuffer(buffer) =        
         if reverseTrackedBufferPool.ContainsKey(buffer) then
             // Tracked buffer
-            let item = trackedBufferPool.[reverseTrackedBufferPool.[buffer]]
-            item.IsAvailable <- true
+            let arr = reverseTrackedBufferPool.[buffer]
+            let b = trackedBufferPool.ContainsKey(arr)
+            if b then
+                trackedBufferPool.[arr].IsAvailable <- true
+
         else if untrackedBufferPool.ContainsKey(buffer.Context) then
             // Untracked buffer
             if untrackedBufferPool.[buffer.Context].ContainsKey(buffer) then

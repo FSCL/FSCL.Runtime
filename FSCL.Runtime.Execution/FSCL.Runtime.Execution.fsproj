@@ -59,6 +59,7 @@
     <Compile Include="AcceleratedFlowGraphBuilding.fs" />
     <Compile Include="KernelExecutionStep.fs" />
     <Compile Include="DefaultKernelExecution.fs" />
+    <Compile Include="IterativeKernelExecution.fs" />
     <Compile Include="ReduceKernelExecution.fs" />
     <Compile Include="RegularFunctionExecution.fs" />
   </ItemGroup>
