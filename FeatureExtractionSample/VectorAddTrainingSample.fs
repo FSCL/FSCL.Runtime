@@ -64,11 +64,11 @@ type VectorAddTrainingSample() =
         let compiler = new Compiler()
         let opts = new Dictionary<string, obj>()        
         let rnd = System.Random()
-
-        let rm = BufferReadMode.MapBuffer
-        let wm = BufferWriteMode.MapBuffer
-        let ifl = MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        
+        let rm = BufferReadMode.EnqueueReadBuffer
+        let wm = BufferWriteMode.EnqueueWriteBuffer
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 

@@ -96,7 +96,8 @@ type LUDecompositionTrainingSample() =
         eq
     
     override this.CreateVerifiedOutput(o: obj) =
-        let matrix, dimension = o :?> float32[] * int
+        let m, dimension = o :?> float32[] * int
+        let matrix = Array.init (m.Length) (fun i -> m.[i])
         for d = 0 to dimension - 2 do
             for i = d + 1 to dimension - 1 do
                 let ratio = matrix.[i * dimension + d] / matrix.[d * dimension + d]
@@ -128,8 +129,8 @@ type LUDecompositionTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
+        let ifl = MemoryFlags.None ||| MemoryFlags.ReadWrite
+        let ofl = MemoryFlags.None ||| MemoryFlags.ReadWrite
 
         let mutable execResults: obj list list = []
         let sizes = (seq {
@@ -174,16 +175,16 @@ type LUDecompositionTrainingSample() =
                                                 [||])) 
                                        @>
                         let kernelWorkGroupSize = comp.GetWorkGroupSize()
+                        
+                        let globalSize = [| blockSize; rows |]
+                        let localSize = [| blockSize; 1L |]
+                        let globalOffset = [| 0L; 0L |]
 
                         // Run iterations for execution
                         comp.Iterate(fun index ->
                                         if index >= (rows |> int) - 1 then
                                             None
                                         else
-                                            let globalSize = [| blockSize; rows |]
-                                            let localSize = [| blockSize; 1L |]
-                                            let globalOffset = [| 0L; 0L |]
-
                                             if index % VECTOR_SIZE = 0 then
                                                 // Setup global size, local size and offset
                                                 globalOffset.[0] <- (index / VECTOR_SIZE) |> int64

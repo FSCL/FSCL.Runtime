@@ -65,7 +65,7 @@ type SimpleReductionTrainingSample() =
         dict.Add("MaxVectorSize", 32L <<< 20)
         dict.Add("MinBlockSize", 8L)
         dict.Add("MaxBlockRatio", 2L)
-        dict.Add("Iterations", 100)
+        dict.Add("Iterations", 10)
         dict
         
     override this.Verify(output: obj, reference: obj) =

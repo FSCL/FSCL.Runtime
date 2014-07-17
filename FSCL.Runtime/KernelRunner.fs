@@ -387,12 +387,12 @@ module Runtime =
                                         VarArgsToDictionary(args)) :?> 'T
         member this.Run(globalSize: int64, localSize: int64, [<ParamArray>] args:(string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], [||], 
+                                        [| globalSize |], [| localSize |], [| 0L |], 
                                         RunningMode.OpenCL, true, 
                                         VarArgsToDictionary(args)) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array, [<ParamArray>] args:(string * obj)[]) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, [||], 
+                                        globalSize, localSize, [| 0L |], 
                                         RunningMode.OpenCL, true,  
                                         VarArgsToDictionary(args)) :?> 'T
         member this.Run(globalSize: int64 array, localSize: int64 array, globalOffset: int64 array, [<ParamArray>] args:(string * obj)[]) =
@@ -412,12 +412,12 @@ module Runtime =
                                         Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], [||], 
+                                        [| globalSize |], [| localSize |], [| 0L |], 
                                         RunningMode.Sequential, true, 
                                         Dictionary<string, obj>()) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array) =
             kernelRunner.RunExpression(this, 
-                                        globalSize, localSize, [||], 
+                                        globalSize, localSize, [| 0L |], 
                                         RunningMode.Sequential, true, 
                                         Dictionary<string, obj>()) :?> 'T
             
@@ -428,7 +428,7 @@ module Runtime =
                                         opts) :?> 'T
         member this.RunSequential(globalSize: int64, localSize: int64, opts) =
             kernelRunner.RunExpression(this, 
-                                        [| globalSize |], [| localSize |], [||], 
+                                        [| globalSize |], [| localSize |], [| 0L |], 
                                         RunningMode.Sequential, true, 
                                         opts) :?> 'T
         member this.RunSequential(globalSize: int64 array, localSize: int64 array, opts) =

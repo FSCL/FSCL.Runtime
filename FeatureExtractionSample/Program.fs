@@ -46,13 +46,13 @@ let main argv =
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ERROR SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; // Error
+                        new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
-                        new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 

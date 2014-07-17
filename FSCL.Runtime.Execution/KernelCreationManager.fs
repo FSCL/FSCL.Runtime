@@ -100,6 +100,8 @@ type KernelCreationManager(compiler: Compiler,
             // Create kernel
             let computeKernel = computeProgram.CreateKernel(runtimeKernel.Kernel.Signature.Name)
             if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex) then
+                // Dispose and remove
+                (runtimeKernel.Instances.[platformIndex, deviceIndex] :> IDisposable).Dispose()
                 runtimeKernel.Instances.Remove((platformIndex, deviceIndex)) |> ignore            
             // Add kernel implementation to the list of implementations for the given kernel
             let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel, dynDefines)

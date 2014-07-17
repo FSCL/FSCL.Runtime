@@ -69,16 +69,16 @@ let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.L
 
     if((xIndex < width) && (yIndex < height)) then
         let index_in = yIndex * width + xIndex
-        block.[get_local_id(1)*(BLOCK_DIM+1)+get_local_id(0)] <- input.[index_in]
+        block.[(get_local_id(1)*(BLOCK_DIM+1))+get_local_id(0)] <- 1.0f
 
     barrier(CLK_LOCAL_MEM_FENCE)
 
     // write the transposed matrix tile to global memory
-    xIndex <- get_group_id(1) * BLOCK_DIM + get_local_id(0)
-    yIndex <- get_group_id(0) * BLOCK_DIM + get_local_id(1)
+    xIndex <- (get_group_id(1) * BLOCK_DIM) + get_local_id(0)
+    yIndex <- (get_group_id(0) * BLOCK_DIM) + get_local_id(1)
     if((xIndex < height) && (yIndex < width)) then
-        let index_out = yIndex * height + xIndex;
-        output.[index_out] <- block.[get_local_id(0)*(BLOCK_DIM+1)+get_local_id(1)]
+        let index_out = (yIndex * height) + xIndex;
+        output.[index_out] <- block.[(get_local_id(0)*(BLOCK_DIM+1))+get_local_id(1)]
         
 type TransposeTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
@@ -133,8 +133,8 @@ type TransposeTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.None ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.None ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
         let blockSize = 16L
