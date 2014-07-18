@@ -63,9 +63,9 @@ type SimpleReductionTrainingSample() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinVectorSize", 2048L)
         dict.Add("MaxVectorSize", 32L <<< 20)
-        dict.Add("MinBlockSize", 8L)
+        dict.Add("MinBlockRatio", 32L)
         dict.Add("MaxBlockRatio", 2L)
-        dict.Add("Iterations", 10)
+        dict.Add("Iterations", 100)
         dict
         
     override this.Verify(output: obj, reference: obj) =
@@ -89,14 +89,14 @@ type SimpleReductionTrainingSample() =
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])
-        let minBlockSize = Int64.Parse(configuration.["MinBlockSize"])
+        let minBlockRatio = Int64.Parse(configuration.["MinBlockRatio"])
         let maxBlockRatio = Int64.Parse(configuration.["MaxBlockRatio"])
         let iterations = Int32.Parse(configuration.["Iterations"])
 
         let compiler = new Compiler()
         let opts = new Dictionary<string, obj>()    
         // We try to reuse buffer ACROSS different kernel expressions
-        //opts.Add(RuntimeOptions.BufferPoolPersistency, BufferPoolPersistency.PersistencyAcrossExpressions)   
+        opts.Add(RuntimeOptions.BufferPoolPersistency, BufferPoolPersistency.PersistencyAcrossExpressions)   
         // We accept a little change to the opencl memory flags to increase sharing chances 
         opts.Add(RuntimeOptions.BufferSharePriority, BufferSharePriority.PriorityToShare)        
         let rnd = System.Random()
@@ -113,7 +113,7 @@ type SimpleReductionTrainingSample() =
                         
             let a = Array.init (!size |> int) (fun i -> 1)
             let reference = this.CreateVerifiedOutput(a)
-            let mutable blockSize = minBlockSize
+            let mutable blockSize = (!size / minBlockRatio)
             while blockSize <= (!size / maxBlockRatio) do
                 Console.WriteLine("      Block Size: " + String.Format("{0,10:##########}", blockSize))
 
@@ -121,8 +121,10 @@ type SimpleReductionTrainingSample() =
                 let mutable instanceResult: obj list = []
                 for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                     for dIndex, dName, dType in pDevs do                                
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
-                        let c = Array.zeroCreate<int> (!size |> int)
+                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")    
+                        Runtime.ForceClearPool(false)                                
+
+                        let c = Array.zeroCreate<int> (!size / blockSize |> int)
 
                         let mutable currentInputSize = !size
                         let mutable currentOutputSize = !size / blockSize
@@ -131,9 +133,14 @@ type SimpleReductionTrainingSample() =
                             currentOutputSize <- 1L
 
                         let mutable firstIteration = true
-                        while currentOutputSize > 1L do
+                        while currentOutputSize > 0L do
                             let inputTransferMode =
                                 if firstIteration then
+                                    TransferMode.TransferIfNeeded
+                                else
+                                    TransferMode.NoTransfer     
+                            let outputTransferMode =
+                                if currentOutputSize = 1L then
                                     TransferMode.TransferIfNeeded
                                 else
                                     TransferMode.NoTransfer     
@@ -152,7 +159,7 @@ type SimpleReductionTrainingSample() =
                                                     BUFFER_READ_MODE(rm, 
                                                         MEMORY_FLAGS(fl, 
                                                             input))),
-                                                TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
+                                                TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(fl, 
                                                             c))),
@@ -180,68 +187,45 @@ type SimpleReductionTrainingSample() =
                             // Run           
                             comp.Run(globalSize, localSize, opts)
 
-                            let prevOutputSize = currentOutputSize
-                            currentInputSize <- prevOutputSize
-                            currentOutputSize <- currentOutputSize / currentBlockSize    
-                            if currentOutputSize = 0L then
-                                currentBlockSize <- prevOutputSize
-                                currentOutputSize <- 1L
+                            if currentOutputSize = 1L then
+                                currentOutputSize <- 0L
+                            else
+                                let prevOutputSize = currentOutputSize
+                                currentInputSize <- prevOutputSize
+                                currentOutputSize <- currentOutputSize / currentBlockSize    
+                                if currentOutputSize = 0L then
+                                    currentBlockSize <- prevOutputSize
+                                    currentOutputSize <- 1L
                             firstIteration <- false
                             
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        SimpleReduction(
-                                            TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
-                                                BUFFER_READ_MODE(rm, 
-                                                    MEMORY_FLAGS(fl, 
-                                                        c))),
-                                            TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
-                                                BUFFER_WRITE_MODE(wm, 
-                                                    MEMORY_FLAGS(fl, 
-                                                        c))),
-                                            currentBlockSize |> int,
-                                            currentInputSize |> int)) @>   
-                        // Extract features
-                        let km = compiler.Compile(comp, opts) :?> IKernelModule
-                        let precomputedFeatures = chain.Precompute(km)
-                        let additFeatures = chain.Evaluate(km, precomputedFeatures, [ c; c; currentBlockSize |> int; currentInputSize |> int], [| 1L |], [| 1L |], opts)
-                        if features.IsEmpty then
-                            features <- additFeatures
-                        else
-                            features <- List.map2(fun (a:obj) (b:obj) -> 
-                                                    match a with
-                                                    | :? int ->
-                                                        box((a :?> int) + (b :?> int))
-                                                    | :? int64 ->
-                                                        box((a :?> int64) + (b :?> int64))
-                                                    | :? float32 ->
-                                                        box((a :?> float32) + (b :?> float32))
-                                                    | _ ->
-                                                        box((a :?> float) + (b :?> float))) features additFeatures
-                                          
-                        // Run final iteration
-                        comp.Run(1L, 1L, opts)
                         if not (this.Verify(c.[0], reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
+                        if true then
                             // Force clear buffer pool, otherwise successive iterations reuse buffers
-                            //Runtime.ForceClearPool(false)
-
-                            let c = Array.zeroCreate<int> (!size |> int)
+                            Runtime.ForceClearPool(false)
+                            
+                            let c = Array.zeroCreate<int> (!size / blockSize |> int)
 
                             // Run                                                  
                             let watch = new Stopwatch()
                             watch.Start()
                             for i = 0 to iterations - 1 do
+
                                 let mutable currentInputSize = !size
                                 let mutable currentOutputSize = !size / blockSize
                                 let mutable currentBlockSize = blockSize
                                 if currentOutputSize = 0L then
                                     currentOutputSize <- 1L
-                           
+
                                 let mutable firstIteration = true
-                                while currentOutputSize > 1L do
+                                while currentOutputSize > 0L do
                                     let inputTransferMode =
                                         if firstIteration then
+                                            TransferMode.TransferIfNeeded
+                                        else
+                                            TransferMode.NoTransfer     
+                                    let outputTransferMode =
+                                        if currentOutputSize = 1L then
                                             TransferMode.TransferIfNeeded
                                         else
                                             TransferMode.NoTransfer     
@@ -260,7 +244,7 @@ type SimpleReductionTrainingSample() =
                                                             BUFFER_READ_MODE(rm, 
                                                                 MEMORY_FLAGS(fl, 
                                                                     input))),
-                                                        TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.NoTransfer,
+                                                        TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(fl, 
                                                                     c))),
@@ -270,30 +254,16 @@ type SimpleReductionTrainingSample() =
                                     // Run           
                                     comp.Run(globalSize, localSize, opts)
 
-                                    let prevOutputSize = currentOutputSize
-                                    currentInputSize <- prevOutputSize
-                                    currentOutputSize <- currentOutputSize / currentBlockSize    
-                                    if currentOutputSize = 0L then
-                                        currentBlockSize <- prevOutputSize
-                                        currentOutputSize <- 1L
+                                    if currentOutputSize = 1L then
+                                        currentOutputSize <- 0L
+                                    else
+                                        let prevOutputSize = currentOutputSize
+                                        currentInputSize <- prevOutputSize
+                                        currentOutputSize <- currentOutputSize / currentBlockSize    
+                                        if currentOutputSize = 0L then
+                                            currentBlockSize <- prevOutputSize
+                                            currentOutputSize <- 1L
                                     firstIteration <- false
-                            
-                                let comp = <@ DEVICE(pIndex, dIndex,
-                                                SimpleReduction(
-                                                    TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
-                                                        BUFFER_READ_MODE(rm, 
-                                                            MEMORY_FLAGS(fl, 
-                                                                c))),
-                                                    TRANSFER_MODE(TransferMode.NoTransfer, TransferMode.TransferIfNeeded,
-                                                        BUFFER_WRITE_MODE(wm, 
-                                                            MEMORY_FLAGS(fl, 
-                                                                c))),
-                                                    currentBlockSize |> int,
-                                                    currentInputSize |> int)) @>   
-                                // Run final iteration
-                                comp.Run(1L, 1L, opts)
-
-                                //Runtime.ForceClearPool(false)
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 
@@ -302,7 +272,7 @@ type SimpleReductionTrainingSample() =
                             instanceResult <- instanceResult @ [ ttime ]
                             System.Threading.Thread.Sleep(500)
                                 
-                execResults <- execResults @ [ instanceResult @ [!size] @ features ]  
+                execResults <- execResults @ [ instanceResult @ [!size; blockSize] @ features ]  
                 blockSize <- blockSize * 2L
                               
             size := !size * 2L   
@@ -360,9 +330,11 @@ type AdvancedReductionTrainingSample() =
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do                                
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")   
+                    
+                    Runtime.ForceClearPool(false)                                 
                                
-                    let c = Array.zeroCreate<int> a.Length    
+                    let c = Array.zeroCreate<int> (a.Length / 2)
                     let mutable currentDataSize = a.Length
                     let mutable currentGlobalSize = currentDataSize / 2
                     let mutable currentLocalSize = if localSize > currentGlobalSize then currentGlobalSize else localSize
@@ -437,7 +409,7 @@ type AdvancedReductionTrainingSample() =
                         Runtime.ForceClearPool(false)
                                                 
                         // Run                                 
-                        let c = Array.zeroCreate<int> a.Length    
+                        let c = Array.zeroCreate<int> (a.Length / 2)
                                                      
                         let watch = new Stopwatch()
                         watch.Start()

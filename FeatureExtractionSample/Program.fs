@@ -48,7 +48,7 @@ let main argv =
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; // Error
-                        new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;

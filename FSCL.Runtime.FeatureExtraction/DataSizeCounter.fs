@@ -40,14 +40,14 @@ type DataSizeCounter() =
                                         analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
                                         space <> AddressSpace.Private &&
                                         space <> AddressSpace.Local &&
-                                        ((htdtransferMode <> TransferMode.NoTransfer) || (flags &&& MemoryFlags.UseHostPointer |> int > 0))
+                                        ((htdtransferMode <> TransferMode.NoTransfer))
 
             let isTransferredFromDevice = item.DataType.IsArray &&
                                           analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
                                           space <> AddressSpace.Local &&
                                           space <> AddressSpace.Private &&
                                           space <> AddressSpace.Constant &&
-                                          ((dthtransferMode <> TransferMode.NoTransfer) || (flags &&& MemoryFlags.UseHostPointer |> int > 0))
+                                          ((dthtransferMode <> TransferMode.NoTransfer))
             if isTransferredToDevice then
                 globalHostToDevP <- globalHostToDevP @ [ i ]
             if isTransferredFromDevice then
