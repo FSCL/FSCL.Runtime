@@ -111,11 +111,6 @@
       <Project>{81f4ce2d-feb3-4189-999a-f024c19019fe}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj">
-      <Name>FSCL.Runtime.FeatureExtraction</Name>
-      <Project>{cbcee72c-fc8c-49f1-8e9d-f6ead2b213df}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
       <Project>{9692f3d3-7408-46f4-8429-b4e77d128849}</Project>
