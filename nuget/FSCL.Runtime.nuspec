@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <metadata xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <id>@project@</id>
+    <version>@build.number@</version>
+    <authors>@authors@</authors>
+    <owners>@authors@</owners>
+    <licenseUrl>http://github.com/GabrieleCocco/FSCL.Runtime/blob/master/LICENSE.txt</licenseUrl>
+    <projectUrl>http://github.com/GabrieleCocco/FSCL.Runtime</projectUrl>
+    <iconUrl>https://raw.github.com/fsharp/FSharp.ProjectScaffold/master/nuget/logo.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>@summary@</summary>
+    <description>@description@</description>
+    <releaseNotes>@releaseNotes@</releaseNotes>
+    <copyright>Copyright 2013</copyright>
+    <tags>@tags@</tags>
+    <dependencies>
+  <dependency id="FSCL.Compiler" version="1.3.0" />
+	</dependencies>
+  </metadata>
+  <files>
+    <file src="..\bin\FSCL.Runtime.Core.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.Language.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.Scheduling.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.FeatureExtraction.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.CompilerSteps.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.Execution.dll" target="lib/net45" />
+    <file src="..\bin\OpenCLManagedWrapper.dll" target="lib/net45" />
+    <file src="..\bin\FSCL.Runtime.dll" target="lib/net45" />
+  </files>
+</package>

@@ -1,7 +1,0 @@
-[submodule "mono.reflection"]
-	path = mono.reflection
-	url = git@github.com:GabrieleCocco/mono.reflection.git
-[submodule "FSCL.Compiler"]
-	path = FSCL.Compiler
-	url = git@github.com:GabrieleCocco/FSCL.Compiler.git
-	branch = master

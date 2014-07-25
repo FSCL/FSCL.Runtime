@@ -6,6 +6,11 @@ F# kernel scheduler and runtime support
 
 ### Latest news
 
+July 15, 2014: The project structure has been refactored according to the <a href="https://github.com/fsprojects/ProjectScaffold">F# Project Scaffold</a> template.
+All the coming release notes will be stored in RELEASE_NOTES.md file.
+
+*****
+
 June 21, 2014: FSCL accelerated collections now support the following functions: *Array.map, Array.mapi, Array.map2, Array.mapi2, Array.rev, Array.sum and Array.reduce*.
 Array.scan will be added soon.
 The action to apply to the elements of the collection can be passed in the following ways (Array.map is taking as an example, but this holds for all the other functions):
@@ -54,13 +59,8 @@ The FSCL runtime provides two main services:
 ###Usage
 To use the FSCL runtime to execute F# kernels, programmers must:
 
-1. Link the appropriate compiler libraries: *FSCL.Compiler.dll* and *FSCL.Compiler.Language.dll*;
-2. Link the appropriate runtime libraries: *FSCL.Runtime.dll*;
-3. Open the appropriate namespaces: *FSCL.Compiler*, *FSCL.Compiler.KernelLanguage*, *FSCL.Runtime* and *FSCL.Runtime.HostLanguage*;
-4. Write the F# kernel *Fun* and mark it with the *ReflectedDefinition attribute*;
-5. Execute the kernel invoking *<@@ Fun(x) @@>.Run(globalSize, localSize)*
-
-
-
-
+1. Link the appropriate compiler libraries: *FSCL.Runtime.dll* and *FSCL.Language.dll*;
+2. Open the appropriate namespaces: *FSCL*, *FSCL.Runtime*, *FSCL.Language*;
+3. Write the F# kernel *MyKernel* and mark it with the *ReflectedDefinition* attribute;
+4. Execute the kernel invoking *<@ MyKernel(args) @>.Run(g)*
 
