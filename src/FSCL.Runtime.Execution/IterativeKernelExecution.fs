@@ -188,26 +188,26 @@ type IterativeKernelExecutionProcessor() =
                     let lockObj = new Object()
 
                     // Spawn threads
-                    let methodToExecute = node.KernelData.ParsedSignature
-                    let ids = seq { 
-                                    for i = globalOffset.[2] to globalSize.[2] - 1L do
-                                        for j = globalOffset.[1] to globalSize.[1] - 1L do
-                                            for k = globalOffset.[0] to globalSize.[0] - 1L do
-                                                let globalId = [| k; j; i |]
-                                                yield globalId
-                                   }
-                    ids |> 
-                    Seq.map(fun gid -> 
-                                async {                            
-                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, lockObj, recreateBarrier, barrier)
-                                    let data = actualArgs |> List.mapi (fun i a -> 
+                    let methodToExecute = node.KernelData.ParsedSignature      
+                    let threads = new List<Thread>()          
+                    for i = globalOffset.[2] |> int to globalSize.[2] - 1L |> int do
+                        for j = globalOffset.[1] |> int to globalSize.[1] - 1L |> int do
+                            for k = globalOffset.[0] |> int to globalSize.[0] - 1L |> int do
+                                let globalId = [| k |> int64; j |> int64; i |> int64 |]
+                                let workItemInfo = new MultithreadWorkItemInfo(globalId, globalSize, globalOffset, lockObj, recreateBarrier, barrier)
+                                let data = actualArgs |> List.mapi (fun i a -> 
                                                                             if i = workSizeIndex then 
                                                                                 box workItemInfo 
                                                                             else
                                                                                 a) |> List.toArray
-                                    methodToExecute.Invoke(null, data) |> ignore
-                                }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
-                                
+                                let t = new Thread(fun () -> methodToExecute.Invoke(null, data) |> ignore)
+                                threads.Add(t)
+                                t.Start()
+
+                    // Wait to complete
+                    for t in threads do
+                        t.Join()
+                                                        
                     iteration <- iteration + 1
                     iterationData <- iterativeSetup.Value(iteration)
                               
