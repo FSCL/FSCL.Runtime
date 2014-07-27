@@ -106,13 +106,18 @@ type DefaultKernelExecutionProcessor() =
                             ()
                              
                 // Foreach argument of the function
+                let mutable workSize = WorkSize(0L)
                 for par in node.KernelData.ParsedSignature.GetParameters() do      
                     match nodeInput.[par.Name] with
                     | ActualArgument(expr) ->
-                        // Input from an actual argument
-                        let o = LeafExpressionConverter.EvaluateQuotation(expr)
-                        // Store argument
-                        arguments.Add(o)
+                        // Check if worksize arg
+                        if typeof<WorkItemInfo>.IsAssignableFrom(expr.Type) then
+                            workSize <- LeafExpressionConverter.EvaluateQuotation(expr) :?> WorkSize
+                        else
+                            // Input from an actual argument
+                            let o = LeafExpressionConverter.EvaluateQuotation(expr)
+                            // Store argument
+                            arguments.Add(o)
                     | KernelOutput(othNode, a) ->
                         // Copy the output buffer of the input kernel     
                         match inputFromOtherKernels.[par.Name] with
@@ -128,14 +133,15 @@ type DefaultKernelExecutionProcessor() =
                         raise (new KernelSetupException("A regular function cannot receive an input different from ActualArgument or KernelOutput"))
 
                 // Setup workitem info
-                let workSize = LeafExpressionConverter.EvaluateQuotation(node.WorkSize.Value) :?> WorkSize
                 let globalSize, _, globalOffset = KernelSetupUtil.NormalizeWorkSize(workSize.GlobalSize(), workSize.LocalSize(), workSize.GlobalOffset())
 
                 // Create barrier
                 let mutable totalGlobalSize = 1L
                 for i in 0.. globalSize.Length - 1 do
                     totalGlobalSize <- totalGlobalSize * globalSize.[i]
-                let barrier = new Barrier(totalGlobalSize |> int)
+                let barrier = ref null
+                let recreateBarrier = ref true
+                let lockObj = new Object()
 
                 // Evaluate arguments
                 let args = node.Arguments |> List.map(fun (e:Expr) -> LeafExpressionConverter.EvaluateQuotation(e))
@@ -152,7 +158,7 @@ type DefaultKernelExecutionProcessor() =
                 ids |> 
                 Seq.map(fun gid -> 
                             async {                            
-                                let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
+                                let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, lockObj, recreateBarrier, barrier)
                                 let data = args @ [ box workItemInfo ] |> List.toArray
                                 methodToExecute.Invoke(null, data) |> ignore
                             }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously

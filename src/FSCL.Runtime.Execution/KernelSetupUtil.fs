@@ -13,15 +13,26 @@ open System.Collections.Generic
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Threading
 
-type MultithreadWorkItemInfo(globalID: int64[], globalSize: int64[], globalOffset: int64[], localBarrier: Barrier) =
+type MultithreadWorkItemInfo(globalID: int64[], globalSize: int64[], globalOffset: int64[], lockObj: obj, recreateBarrier: bool ref, currentBarrier: Barrier ref) =
     inherit WorkSize(globalSize, globalSize, globalOffset)
-    
+    // Reusable barrier
+    let totalGlobalSize = Array.reduce(fun a b -> a * b) globalSize
+    let recreateB (b:Barrier) =
+        recreateBarrier := true
+
     override this.GlobalID(idx) =
         globalID.[idx] |> int      
     override this.LocalID(idx) =
         globalID.[idx] |> int      
     override this.Barrier(memFence) =
-        localBarrier.SignalAndWait()
+        lock (lockObj) (fun() ->
+                        if !recreateBarrier then
+                            recreateBarrier := false
+                            currentBarrier := new Barrier(totalGlobalSize |> int, 
+                                                          fun b -> 
+                                                            recreateB b))
+        (!currentBarrier).SignalAndWait()
+
 
 module KernelSetupUtil =
     let ComputeLocalSizeWithGlobalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[]) =

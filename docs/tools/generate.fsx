@@ -4,19 +4,19 @@
 // --------------------------------------------------------------------------------------
 
 // Binaries that have XML documentation (in a corresponding generated XML file)
-let referenceBinaries = [ "FSCL.Compiler.Core.dll" ]
+let referenceBinaries = [ "FSCL.Runtime.Core.dll" ]
 // Web site location for the generated documentation
 let website = "http://www.gabrielecocco.it/fscl/nugetdocs"
 
-let githubLink = "http://github.com/GabrieleCocco/FSCL.Compiler"
+let githubLink = "http://github.com/FSCL/FSCL.Runtime"
 
 // Specify more information about your project
 let info =
-  [ "project-name", "FSCL.Compiler"
+  [ "project-name", "FSCL.Runtime"
     "project-author", "Gabriele Cocco"
-    "project-summary", "F# to OpenCL compiler"
+    "project-summary", "F# execution engine for FSCL kernels"
     "project-github", githubLink
-    "project-nuget", "http://nuget.com/packages/FSCL.Compiler" ]
+    "project-nuget", "http://nuget.com/packages/FSCL.Runtime" ]
 
 // --------------------------------------------------------------------------------------
 // For typical project, no changes are needed below

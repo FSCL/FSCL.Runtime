@@ -1,12 +1,10 @@
-module FSCL.Runtime.Tests
+﻿module FSCL.Runtime.Tests.Kernels
 
 open FSCL
 open FSCL.Runtime
 open FSCL.Compiler
 open FSCL.Language
-
 open OpenCL
-open NUnit.Framework
 
 // Vector addition
 [<ReflectedDefinition>]
@@ -92,6 +90,41 @@ let MatrixMultAdvanced(matA: float32[,], matB: float32[,], matC: float32[,], wi:
         bRow <- bRow + bStep
     matC.[by * BLOCK_SIZE + ty, bx * BLOCK_SIZE + tx] <- Csub
  
+// Matrix multiplication with local and reference to global var (BLOCK_SIZE)
+[<ReflectedDefinition>]
+let SMALL_BLOCK_SIZE = 4
+[<ReflectedDefinition>]
+let MatrixMultAdvancedLocalParams(matA: float32[,], matB: float32[,], matC: float32[,], 
+                                  [<AddressSpace(AddressSpace.Local)>]
+                                  As: float32[,],
+                                  [<AddressSpace(AddressSpace.Local)>]
+                                  Bs: float32[,],
+                                  wi: WorkItemInfo) =
+    let bx = wi.GroupID(0)
+    let by = wi.GroupID(1) 
+    let tx = wi.LocalID(0)
+    let ty = wi.LocalID(1)
+    let wa = matA.GetLength(0)
+    let wb = matB.GetLength(0)
+
+    let bCol = bx * SMALL_BLOCK_SIZE
+    let bBeginRow = 0
+    let bStep  = SMALL_BLOCK_SIZE
+    let mutable bRow = bBeginRow
+    let mutable Csub = 0.0f
+
+    for aCol in 0 .. SMALL_BLOCK_SIZE .. (wa - 1) do
+        As.[ty, tx] <- matA.[by * BLOCK_SIZE, aCol]
+        Bs.[ty, tx] <- matB.[bRow, bCol]
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
+ 
+        for k = 0 to SMALL_BLOCK_SIZE - 1 do
+            Csub <- Csub + (As.[ty,k] * Bs.[k,tx])
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
+
+        bRow <- bRow + bStep
+    matC.[by * SMALL_BLOCK_SIZE + ty, bx * SMALL_BLOCK_SIZE + tx] <- Csub
+ 
 // Sequential computation
 let SimpleSequentialComp(a:float32[], b:float32[]) =
     let c = Array.zeroCreate<float32> (a.Length/2)
@@ -118,38 +151,9 @@ let Create4Vectors size =
     let b = Array.create size (float4(3.5f))
     let c = Array.zeroCreate<float4> size
     a, b, c
-  
-// Tests            
-[<Test>]
-let ``Can run simple vector addition``() =
-    if OpenCL.OpenCLPlatform.Platforms.Count > 0 then
-        let a, b, c = CreateVectors 1024
-        let worksize = new WorkSize(1024L, 64L)
-        <@ VectorAdd(a, b, c, worksize) @>.Run() 
-        let correctResult = Array.map2 (+) a b
-        Assert.AreEqual(correctResult, c)
-    else
-        System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
-                       
-[<Test>]
-let ``Can run vector addition with return type``() =
-    if OpenCL.OpenCLPlatform.Platforms.Count > 0 then
-        let a, b, _ = CreateVectors 1024
-        let worksize = new WorkSize(1024L, 64L)
-        let c = <@ VectorAddReturn(a, b, worksize) @>.Run() 
-        let correctResult = Array.map2 (+) a b
-        Assert.AreEqual(correctResult, c)
-    else
-        System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
-                    
-[<Test>]
-let ``Can run vector addition with utility function``() =
-    if OpenCL.OpenCLPlatform.Platforms.Count > 0 then
-        let a, b, c = CreateVectors 1024
-        let worksize = new WorkSize(1024L, 64L)
-        <@ VectorAddWithUtilityFunction(a, b, c, worksize) @>.Run() 
-        let correctResult = Array.map2 (+) a b
-        Assert.AreEqual(correctResult, c)
-    else
-        System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
-    
+
+let CreateMatrices size =
+    let a = Array2D.create size size 2.5f
+    let b = Array2D.create size size 3.5f
+    let c = Array2D.zeroCreate<float32> size size
+    a, b, c

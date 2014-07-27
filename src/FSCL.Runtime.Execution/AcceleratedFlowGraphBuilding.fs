@@ -238,21 +238,30 @@ type AcceleratedFlowGraphBuildingProcessor() =
         // Multithread kernel        
         | ComputationCreationResult.MultithreadKernel(input) ->
             let node = new MultithreadKernelFlowGraphNode(None, input.KernelData, input.CallArgs)
-            // Build node input
-            let parameters = input.KernelData.ParsedSignature.GetParameters()
-            for i = 1 to parameters.Length - 1 do
-                let processedParam = step.Process(input.CallArgs.[i])
-                match processedParam with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                                parameters.[i].Name,
-                                                KernelOutput(precNode, 0))
-                | _ ->                    
-                    FlowGraphUtil.SetNodeInput(node,
-                                                parameters.[i].Name,
-                                                ActualArgument(input.CallArgs.[i])) 
-            Some(node :> FlowGraphNode)
-
+            if input.KernelData :? AcceleratedKernelInfo then
+                let info = input.KernelData :?> AcceleratedKernelInfo
+                // Build node input
+                let parameters = input.KernelData.ParsedSignature.GetParameters()
+                for i = 1 to parameters.Length - 1 do
+                    if not (parameters.[i].ParameterType = typeof<WorkItemInfo>) then
+                        let processedParam = step.Process(input.CallArgs.[i])
+                        match processedParam with
+                        | Some(precNode) ->
+                            FlowGraphUtil.SetNodeInput(node,
+                                                        parameters.[i].Name,
+                                                        KernelOutput(precNode, 0))
+                        | _ ->                    
+                            FlowGraphUtil.SetNodeInput(node,
+                                                        parameters.[i].Name,
+                                                        ActualArgument(input.CallArgs.[i])) 
+                    else
+                        FlowGraphUtil.SetNodeInput(node,
+                                                    parameters.[i].Name,
+                                                    ActualArgument(input.KernelData.WorkSize.Value)) 
+                    
+                Some(node :> FlowGraphNode)
+            else
+                None
         // Never happens regular function
         | _ ->
             None

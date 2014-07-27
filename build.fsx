@@ -8,6 +8,7 @@ open Fake
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
+open Fake.FileUtils
 open System
 #if MONO
 #else
@@ -166,15 +167,35 @@ Target "GenerateDocs" (fun _ ->
 // Release Scripts
 
 Target "ReleaseDocs" (fun _ ->
-    let tempDocsDir = "temp/gh-pages"
-    CleanDir tempDocsDir
-    Repository.cloneSingleBranch "" (gitHome + "/" + gitName + ".git") "gh-pages" tempDocsDir
+    let projDir = pwd()
+    let tempDocsDir = "../temp_" + project
+    rm_rf tempDocsDir
+
+    Git.Repository.clone "" (gitHome + "/" + gitName + ".git")  tempDocsDir
+    Git.Branches.checkoutBranch tempDocsDir "gh-pages"
 
     fullclean tempDocsDir
-    CopyRecursive "docs/output" tempDocsDir true |> tracefn "%A"
+    CopyRecursive (projDir + "/docs/output") tempDocsDir true |> tracefn "%A"
     StageAll tempDocsDir
     Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
-    Branches.push tempDocsDir
+    Branches.pushBranch tempDocsDir "origin" "gh-pages"
+)
+
+Target "ReleaseDocsUnsafe" (fun _ ->
+    let projDir = pwd()
+    let tempDocsDir = "../temp_" + project
+    rm_rf tempDocsDir
+
+    Git.Repository.clone "" (gitHome + "/" + gitName + ".git")  tempDocsDir
+    Git.Branches.checkoutBranch tempDocsDir "gh-pages"
+
+    fullclean tempDocsDir
+    CopyRecursive (projDir + "/docs/output") tempDocsDir true |> tracefn "%A"
+    StageAll tempDocsDir
+    Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
+    Branches.pushBranch tempDocsDir "origin" "gh-pages"
+
+    //runGitCommand ("subtree push --prefix " + docDir + " origin gh-pages") "." |> ignore
 )
 
 Target "Release" DoNothing

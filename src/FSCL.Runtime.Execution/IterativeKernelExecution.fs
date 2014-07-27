@@ -183,7 +183,9 @@ type IterativeKernelExecutionProcessor() =
                     let mutable totalGlobalSize = 1L
                     for i in 0.. globalSize.Length - 1 do
                         totalGlobalSize <- totalGlobalSize * globalSize.[i]
-                    let barrier = new Barrier(totalGlobalSize |> int)
+                    let barrier = ref null
+                    let recreateBarrier = ref true
+                    let lockObj = new Object()
 
                     // Spawn threads
                     let methodToExecute = node.KernelData.ParsedSignature
@@ -197,7 +199,7 @@ type IterativeKernelExecutionProcessor() =
                     ids |> 
                     Seq.map(fun gid -> 
                                 async {                            
-                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
+                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, lockObj, recreateBarrier, barrier)
                                     let data = actualArgs |> List.mapi (fun i a -> 
                                                                             if i = workSizeIndex then 
                                                                                 box workItemInfo 

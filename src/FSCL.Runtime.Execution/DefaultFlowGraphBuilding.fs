@@ -180,27 +180,32 @@ type DefaultFlowGraphBuildingProcessor() =
             let parameters = input.KernelData.ParsedSignature.GetParameters()
             for i = 0 to parameters.Length - 1 do
                 let p = parameters.[i]
-                // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
-                let processedParam = 
-                    match input.CallArgs.[i] with
-                    | Patterns.Call(o, mi, a) ->
-                        if mi.GetCustomAttribute<FSCL.VectorTypeArrayReinterpretAttribute>() <> null then
-                            // Reinterpretation of non-vector array 
-                            None
-                        else
-                            step.Process(input.CallArgs.[i])
-                    | _ ->
-                        None
-                    
-                match processedParam with
-                | Some(precNode) ->
-                    FlowGraphUtil.SetNodeInput(node,
-                                                p.Name,
-                                                KernelOutput(precNode, 0))
-                | None ->
+                if typeof<WorkItemInfo>.IsAssignableFrom(p.ParameterType) then
                     FlowGraphUtil.SetNodeInput(node, 
                                                 p.Name, 
-                                                ActualArgument(input.CallArgs.[i]))   
+                                                FlowGraphNodeInput.ActualArgument(input.KernelData.WorkSize.Value))                  
+                else
+                    // Check if output of a kernel (this i possible only if this is a normal parameter, that is visible to the user)
+                    let processedParam = 
+                        match input.CallArgs.[i] with
+                        | Patterns.Call(o, mi, a) ->
+                            if mi.GetCustomAttribute<FSCL.VectorTypeArrayReinterpretAttribute>() <> null then
+                                // Reinterpretation of non-vector array 
+                                None
+                            else
+                                step.Process(input.CallArgs.[i])
+                        | _ ->
+                            None
+                    
+                    match processedParam with
+                    | Some(precNode) ->
+                        FlowGraphUtil.SetNodeInput(node,
+                                                    p.Name,
+                                                    KernelOutput(precNode, 0))
+                    | None ->
+                        FlowGraphUtil.SetNodeInput(node, 
+                                                    p.Name, 
+                                                    ActualArgument(input.CallArgs.[i]))   
             // Create input for next step
             Some(node :> FlowGraphNode)
 

@@ -149,7 +149,9 @@ type MapRevKernelExecutionProcessor() =
                     let mutable totalGlobalSize = 1L
                     for i in 0.. globalSize.Length - 1 do
                         totalGlobalSize <- totalGlobalSize * globalSize.[i]
-                    let barrier = new Barrier(totalGlobalSize |> int)
+                    let barrier = ref null
+                    let recreateBarrier = ref true
+                    let lockObj = new Object()
 
                     // Evaluate arguments
                     let args = node.Arguments |> List.map(fun (e:Expr) -> LeafExpressionConverter.EvaluateQuotation(e))
@@ -166,7 +168,7 @@ type MapRevKernelExecutionProcessor() =
                     ids |> 
                     Seq.map(fun gid -> 
                                 async {                            
-                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
+                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, lockObj, recreateBarrier, barrier)
                                     let data = args @ [ box workItemInfo ] |> List.toArray
                                     methodToExecute.Invoke(null, data) |> ignore
                                 }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
