@@ -57,7 +57,7 @@ let AdvancedReduction(g_idata:int[], [<AddressSpace(AddressSpace.Local)>]sdata:i
         g_odata.[wi.GroupID(0)] <- sdata.[0]
 
 type SimpleReductionTrainingSample() =    
-    inherit VectorAddTrainingSample()
+    inherit IDefaultFeatureExtractionTrainingSample()
 
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
@@ -68,13 +68,6 @@ type SimpleReductionTrainingSample() =
         dict.Add("Iterations", 100)
         dict
         
-    override this.Verify(output: obj, reference: obj) =
-        (output :?> int) = (reference :?> int)
-    
-    override this.CreateVerifiedOutput(o: obj) =
-        let a = o :?> int[]
-        Array.reduce (fun a b -> placeholderComp a b) a |> box
-        
     override this.ResultColumnIDs 
         with get() =   
             let ids = new List<String>()         
@@ -82,9 +75,17 @@ type SimpleReductionTrainingSample() =
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
             ids.Add("Vector Size (elements)")
-            ids.Add("Block Size (elements)")
+            ids.Add("Block size (elements)")
+            ids.Add("Number of kernel calls")
             ids |> List.ofSeq
 
+    override this.Verify(output: obj, reference: obj) =
+        (output :?> int) = (reference :?> int)
+    
+    override this.CreateVerifiedOutput(o: obj) =
+        let a = o :?> int[]
+        Array.reduce (fun a b -> placeholderComp a b) a |> box
+        
     override this.RunInternal(chain, conf) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
@@ -116,9 +117,11 @@ type SimpleReductionTrainingSample() =
             let mutable blockSize = (!size / minBlockRatio)
             while blockSize <= (!size / maxBlockRatio) do
                 Console.WriteLine("      Block Size: " + String.Format("{0,10:##########}", blockSize))
-
+                
+                let mutable kernelCallCount = 0
                 let mutable features: obj list = []
                 let mutable instanceResult: obj list = []
+
                 for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                     for dIndex, dName, dType in pDevs do                                
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")    
@@ -185,6 +188,8 @@ type SimpleReductionTrainingSample() =
                            
                             // Run           
                             comp.Run(opts)
+                            if pIndex = 0 && dIndex = 0 then
+                                kernelCallCount <- kernelCallCount + 1
 
                             if currentOutputSize = 1L then
                                 currentOutputSize <- 0L
@@ -199,7 +204,7 @@ type SimpleReductionTrainingSample() =
                             
                         if not (this.Verify(c.[0], reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        if true then
+                        else
                             // Force clear buffer pool, otherwise successive iterations reuse buffers
                             Runtime.ForceClearPool(false)
                             
@@ -209,7 +214,6 @@ type SimpleReductionTrainingSample() =
                             let watch = new Stopwatch()
                             watch.Start()
                             for i = 0 to iterations - 1 do
-
                                 let mutable currentInputSize = !size
                                 let mutable currentOutputSize = !size / blockSize
                                 let mutable currentBlockSize = blockSize
@@ -270,7 +274,7 @@ type SimpleReductionTrainingSample() =
                             instanceResult <- instanceResult @ [ ttime ]
                             System.Threading.Thread.Sleep(500)
                                 
-                execResults <- execResults @ [ instanceResult @ [!size; blockSize] @ features ]  
+                execResults <- execResults @ [ instanceResult @ [!size; blockSize; kernelCallCount] @ features ]  
                 blockSize <- blockSize * 2L
                               
             size := !size * 2L   
@@ -294,6 +298,7 @@ type AdvancedReductionTrainingSample() =
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
             ids.Add("Vector Size (elements)")
+            ids.Add("Number of kernel calls")
             ids |> List.ofSeq
 
     override this.RunInternal(chain, conf) = 
@@ -324,6 +329,7 @@ type AdvancedReductionTrainingSample() =
             let reference = this.CreateVerifiedOutput(a)      
             let localSize = 128                  
            
+            let mutable kernelCallCount = 0
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
@@ -393,6 +399,8 @@ type AdvancedReductionTrainingSample() =
                                                   
                         // Run           
                         comp.Run(opts)
+                        if pIndex = 0 && dIndex = 0 then
+                            kernelCallCount <- kernelCallCount + 1
                         
                         // If local size become greater than or equal to global size, we set it to be half the global size
                         currentDataSize <- currentGlobalSize / currentLocalSize
@@ -476,7 +484,7 @@ type AdvancedReductionTrainingSample() =
                         instanceResult <- instanceResult @ [ ttime ]
                         System.Threading.Thread.Sleep(500)
                                 
-            execResults <- execResults @ [ instanceResult @ [!size] @ features ]  
+            execResults <- execResults @ [ instanceResult @ [!size; kernelCallCount] @ features ]  
             size := !size * 2L   
         execResults
 

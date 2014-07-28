@@ -298,7 +298,7 @@ type ExpressionCounter() =
                     raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
             // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
             | ExprShape.ShapeVar(v) ->
-                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome
+                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
                 //let isWorkSizeFunctionReference = (v = workItemIdContainerPlaceholder)
                 let isDynamicDefineReference = (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
                 if isParameterReference || isDynamicDefineReference then

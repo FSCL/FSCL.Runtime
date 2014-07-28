@@ -42,15 +42,15 @@ let main argv =
                                            |])
     
     let samples = [|
-                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
-                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
                         //new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
