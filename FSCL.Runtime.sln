@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{1F1B4F0F-2998-4D74-865B-9122611C2B14}"
 	ProjectSection(SolutionItems) = preProject
@@ -52,6 +52,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime", "src\FSCL.Ru
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ComputationSample", "src\ComputationSample\ComputationSample.fsproj", "{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FeatureExtractionSample", "src\FeatureExtractionSample\FeatureExtractionSample.fsproj", "{C7906474-A269-4A86-80DF-806371288760}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,6 +100,10 @@ Global
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7906474-A269-4A86-80DF-806371288760}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7906474-A269-4A86-80DF-806371288760}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

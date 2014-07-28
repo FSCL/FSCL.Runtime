@@ -62,7 +62,7 @@ type DataSizeCounter() =
         // Build expr
         [ globalHostToDevP :> obj; globalDevToHostP :> obj; localP :> obj; embeddedLocalP :> obj ] :> obj
 
-    override this.Evaluate(m, prec, args, globalSize, localSize, opts) =
+    override this.Evaluate(m, prec, args, opts) =
         // Now use args to provide values
         let mutable globalHostToDevSize = 0L
         let mutable globalDevToHostSize = 0L
