@@ -46,12 +46,13 @@ let SobelFilter(inputImage: uchar4[],
         *)
 [<ReflectedDefinition>]
 let SobelFilter2D(inputImage: uchar4[,],
-                  outputImage: uchar4[,]) =
-    let x = get_global_id(0)
-    let y = get_global_id(1)
+                  outputImage: uchar4[,],
+                  wi: WorkItemInfo) =
+    let x = wi.GlobalID(0)
+    let y = wi.GlobalID(1)
 
-    let width = get_global_size(0)
-    let height = get_global_size(1)
+    let width = wi.GlobalSize(0)
+    let height = wi.GlobalSize(1)
 
     let mutable Gx = float4(0.0f)
     let mutable Gy = Gx
@@ -75,12 +76,13 @@ let SobelFilter2D(inputImage: uchar4[,],
                 
 [<ReflectedDefinition>]
 let SobelFilter2DNoBorder(inputImage: uchar4[,],
-                          outputImage: uchar4[,]) =
-    let x = get_global_id(0)
-    let y = get_global_id(1)
+                          outputImage: uchar4[,],
+                          wi: WorkItemInfo) =
+    let x = wi.GlobalID(0)
+    let y = wi.GlobalID(1)
 
-    let width = get_global_size(0)
-    let height = get_global_size(1)
+    let width = wi.GlobalSize(0)
+    let height = wi.GlobalSize(1)
 
     let mutable Gx = float4(0.0f)
     let mutable Gy = Gx
@@ -252,6 +254,7 @@ type SobelFilterTrainingSample() =
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                     let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
+                    let ws = WorkSize([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
 
                     let comp = <@ DEVICE(pIndex, dIndex,
                                     SobelFilter2DNoBorder(
@@ -260,15 +263,16 @@ type SobelFilterTrainingSample() =
                                                 input)),
                                         BUFFER_WRITE_MODE(wm, 
                                             MEMORY_FLAGS(ofl, 
-                                                output)))) @>   
+                                                output)),
+                                        ws)) @>   
                         
                     // Extract features
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ input; output ], [| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |], opts)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ input; output; ws ], opts)
                                                      
                     // Run once to skip compilation time
-                    comp.Run([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                    comp.Run()
                     if not (this.Verify(output, reference)) then
                         Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                     else
@@ -276,7 +280,7 @@ type SobelFilterTrainingSample() =
                         let watch = new Stopwatch()
                         watch.Start()
                         for i = 0 to iterations - 1 do
-                            comp.Run([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                            comp.Run()
                         watch.Stop()
                         let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 

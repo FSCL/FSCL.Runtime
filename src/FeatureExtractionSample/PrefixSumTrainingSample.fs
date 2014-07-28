@@ -64,8 +64,9 @@ open VectorAddTrainingSample
 let ExclusivePrefixScanSmall(input: float32[],
                              output: float32[],
                              [<AddressSpace(AddressSpace.Local)>] block: float32[],
-                             length: int) =
-    let tid = get_local_id(0)    
+                             length: int,
+                             wi: WorkItemInfo) =
+    let tid = wi.LocalID(0)    
     let mutable offset = 1
 
     // Cache the computational window in shared memory
@@ -75,7 +76,7 @@ let ExclusivePrefixScanSmall(input: float32[],
     // Build the sum in place up the tree
     let mutable d = length >>> 1
     while(d > 0) do
-        barrier(CLK_LOCAL_MEM_FENCE)
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
         
         if(tid<d) then
             let ai = offset*(2*tid + 1) - 1
@@ -93,7 +94,7 @@ let ExclusivePrefixScanSmall(input: float32[],
     d <- 1
     while d < length do
         offset <- offset >>> 1
-        barrier(CLK_LOCAL_MEM_FENCE)
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
         
         if(tid < d) then
             let ai = offset*(2*tid + 1) - 1
@@ -104,7 +105,7 @@ let ExclusivePrefixScanSmall(input: float32[],
             block.[bi] <- block.[bi] + t
         d <- d * 2
     
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
     // write the results back to global memory
     output.[2*tid]     <- block.[2*tid]
@@ -140,11 +141,12 @@ let ExclusivePrefixScanSmall(input: float32[],
 let ExclusivePrefixScan(input: float32[],
                         [<AddressSpace(AddressSpace.Local)>] localBuffer: float32[],
                         blockSums: float32[],
-                        blockSumsSize: int) =
-    let gid = get_global_id(0)
-    let tid = get_local_id(0)
-    let bid = get_group_id(0)
-    let lwz  = get_local_size(0)
+                        blockSumsSize: int,
+                        wi: WorkItemInfo) =
+    let gid = wi.GlobalID(0)
+    let tid = wi.LocalID(0)
+    let bid = wi.GroupID(0)
+    let lwz  = wi.LocalSize(0)
     
     // The local buffer has 2x the size of the local-work-size, because we manage 2 scans at a time.
     let localBufferSize = lwz <<< 1
@@ -169,7 +171,7 @@ let ExclusivePrefixScan(input: float32[],
     // bottom-up
     let mutable d = lwz
     while d > 0 do
-        barrier(CLK_LOCAL_MEM_FENCE)        
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)        
         if (tid < d) then
             let ai = mad24(offset, (tid2_1+0), -1)  // offset*(tid2_0+1)-1 = offset*(tid2_1+0)-1
             let bi = mad24(offset, (tid2_1+1), -1);  // offset*(tid2_1+1)-1;
@@ -177,7 +179,7 @@ let ExclusivePrefixScan(input: float32[],
         
         offset <- offset <<< 1
         d <- d >>> 1
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
     if (tid < 1) then
         // We store the biggest value (the last) to the sum-block for later use.
@@ -190,7 +192,7 @@ let ExclusivePrefixScan(input: float32[],
     d <- 1
     while d < localBufferSize do
         offset <- offset >>> 1
-        barrier(CLK_LOCAL_MEM_FENCE)
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
         
         if (tid < d) then
             let ai = mad24(offset, (tid2_1+0), -1) // offset*(tid2_0+1)-1 = offset*(tid2_1+0)-1
@@ -201,7 +203,7 @@ let ExclusivePrefixScan(input: float32[],
             localBuffer.[bi] <- localBuffer.[bi] + tmp
         d <- d <<< 1
 
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
     // Copy back from the local buffer to the output array
     if (gid2_0 < blockSumsSize) then
@@ -220,17 +222,18 @@ let ExclusivePrefixScan(input: float32[],
 [<ReflectedDefinition>]
 let UniformAdd(output: float32[],
                blockSums: float32[],
-               outputSize: int) =
+               outputSize: int,
+               wi: WorkItemInfo) =
 
-    let mutable gid = get_global_id(0) * 2
-    let tid = get_local_id(0)
-    let blockId = get_group_id(0)
+    let mutable gid = wi.GlobalID(0) * 2
+    let tid = wi.LocalID(0)
+    let blockId = wi.GroupID(0)
 
     let localBuffer = local(Array.zeroCreate<float32> 1)
 
     if (tid < 1) then
         localBuffer.[0] <- blockSums.[blockId]
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
     if (gid < outputSize) then
         output.[gid] <- output.[gid] + localBuffer.[0]
@@ -309,8 +312,9 @@ type PrefixSumTrainingSample() =
                         // Execute scan passes
                         let mutable passInput = data 
                         for i = 0 to pass - 1 do
-                            let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int
-                            let lSize = (localSize |> int) / 2
+                            let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int64
+                            let lSize = (localSize) / 2L
+                            let ws = WorkSize(globalSize, localSize)
                             // We transfer input the first time, but we never transfer back
                             let inputTransferMode = if i = 0 then 
                                                         TransferMode.ForceTransfer 
@@ -328,11 +332,12 @@ type PrefixSumTrainingSample() =
                                                     BUFFER_WRITE_MODE(wm, 
                                                         MEMORY_FLAGS(blockFlags, 
                                                             clBufferBlockSums.[i]))),
-                                                blockSumsSizes.[i])) @>
+                                                blockSumsSizes.[i],
+                                                ws)) @>
                             // Extract features (compilation will be done only first time)
                             let km = compiler.Compile(scan, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
-                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passInput; local; clBufferBlockSums.[i]; blockSumsSizes.[i] ], [| globalSize |> int64 |], [| lSize |> int64 |], opts)
+                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passInput; local; clBufferBlockSums.[i]; blockSumsSizes.[i], ws ], opts)
                             if features.IsEmpty then
                                 features <- additFeatures
                             else
@@ -348,14 +353,15 @@ type PrefixSumTrainingSample() =
                                                             box((a :?> float) + (b :?> float))) features additFeatures
                             // Run
 
-                            scan.Run(globalSize |> int64, lSize |> int64, opts)
+                            scan.Run(opts)
                             passInput <- clBufferBlockSums.[i]
                         
                         // Uniform addition
                         let mutable i = pass - 2
                         for i = pass - 2 downto 0 do
-                            let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int
-                            let lSize = (localSize |> int) / 2
+                            let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int64
+                            let lSize = (localSize) / 2L
+                            let ws = WorkSize(globalSize, lSize)
                             let passOutput = if i > 0 then clBufferBlockSums.[i - 1] else data
 
                             // We should transfer back the output only the last iteration
@@ -374,11 +380,12 @@ type PrefixSumTrainingSample() =
                                                     BUFFER_READ_MODE(rm, 
                                                         MEMORY_FLAGS(ifl, 
                                                             clBufferBlockSums.[i]))),
-                                                blockSumsSizes.[i])) @>
+                                                blockSumsSizes.[i],
+                                                ws)) @>
                             // Extract features (compilation will be done only first time)
                             let km = compiler.Compile(unifa, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
-                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passOutput; clBufferBlockSums.[i]; blockSumsSizes.[i] ], [| globalSize |> int64 |], [| lSize |> int64 |], opts)
+                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passOutput; clBufferBlockSums.[i]; blockSumsSizes.[i]; ws ], opts)
                             features <- List.map2(fun (a:obj) (b:obj) -> 
                                                     match a with
                                                     | :? int ->
@@ -390,7 +397,7 @@ type PrefixSumTrainingSample() =
                                                     | _ ->
                                                         box((a :?> float) + (b :?> float))) features additFeatures
                             // Run
-                            unifa.Run(globalSize |> int64, lSize |> int64, opts)
+                            unifa.Run()
                               
                         // Run once to skip compilation time
                         if not (this.Verify(data, reference)) then
@@ -421,8 +428,10 @@ type PrefixSumTrainingSample() =
                                 // Execute scan passes
                                 let mutable passInput = data 
                                 for i = 0 to pass - 1 do
-                                    let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int
-                                    let lSize = (localSize |> int) / 2
+                                    let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int64
+                                    let lSize = (localSize) / 2L
+                                    let ws = WorkSize(globalSize, lSize)
+
                                     // We transfer input the first time, but we never transfer back
                                     let inputTransferMode = if i = 0 then 
                                                                 TransferMode.ForceTransfer 
@@ -440,11 +449,12 @@ type PrefixSumTrainingSample() =
                                                             BUFFER_WRITE_MODE(wm, 
                                                                 MEMORY_FLAGS(blockFlags, 
                                                                     clBufferBlockSums.[i]))),
-                                                        blockSumsSizes.[i])) @>
+                                                        blockSumsSizes.[i],
+                                                        ws)) @>
                                     // Extract features (compilation will be done only first time)
                                     let km = compiler.Compile(scan, opts) :?> IKernelModule
                                     let precomputedFeatures = chain.Precompute(km)
-                                    let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passInput; local; clBufferBlockSums.[i]; blockSumsSizes.[i] ], [| globalSize |> int64 |], [| lSize |> int64 |], opts)
+                                    let additFeatures = chain.Evaluate(km, precomputedFeatures, [ passInput; local; clBufferBlockSums.[i]; blockSumsSizes.[i]; ws ], opts)
                                     if features.IsEmpty then
                                         features <- additFeatures
                                     else
@@ -460,14 +470,16 @@ type PrefixSumTrainingSample() =
                                                                     box((a :?> float) + (b :?> float))) features additFeatures
                                     // Run
 
-                                    scan.Run(globalSize |> int64, lSize |> int64, opts)
+                                    scan.Run()
                                     passInput <- clBufferBlockSums.[i]
                         
                                 // Uniform addition
                                 let mutable i = pass - 2
                                 for i = pass - 2 downto 0 do
-                                    let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int
-                                    let lSize = (localSize |> int) / 2
+                                    let globalSize = Math.Ceiling(((blockSumsSizes.[i] |> float) / 2.0) / ((localSize |> float) / 2.0)) * ((localSize |> float) / 2.0) |> int64
+                                    let lSize = (localSize) / 2L
+                                    let ws = WorkSize(globalSize, lSize)
+
                                     let passOutput = if i > 0 then clBufferBlockSums.[i - 1] else data
 
                                     // We should transfer back the output only the last iteration
@@ -486,9 +498,10 @@ type PrefixSumTrainingSample() =
                                                             BUFFER_READ_MODE(rm, 
                                                                 MEMORY_FLAGS(ifl, 
                                                                     clBufferBlockSums.[i]))),
-                                                        blockSumsSizes.[i])) @>
+                                                        blockSumsSizes.[i],
+                                                        ws)) @>
                                     // Run
-                                    unifa.Run(globalSize |> int64, lSize |> int64, opts)
+                                    unifa.Run(opts)
 
                                 // Force clear buffer pool, otherwise successive iterations reuse buffers
                                 Runtime.ForceClearPool(false)

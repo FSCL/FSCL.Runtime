@@ -14,18 +14,18 @@ open System.Diagnostics
 open OpenCL
 
 [<ReflectedDefinition>]
-let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[]) =
-    let wiWidth  = get_global_size(0)
-    let gix_t = get_group_id(0)
-    let giy_t = get_group_id(1)
-    let num_of_blocks_x = get_num_groups(0)
+let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[], wi: WorkItemInfo) =
+    let wiWidth  = wi.GlobalSize(0)
+    let gix_t = wi.GroupID(0)
+    let giy_t = wi.GroupID(1)
+    let num_of_blocks_x = wi.NumGroups(0)
 
     // break memory banks dependency by "reshuffling" global indeces
     let giy = gix_t
     let gix = giy_t
 
-    let lix = get_local_id(0)
-    let liy = get_local_id(1)
+    let lix = wi.LocalID(0)
+    let liy = wi.LocalID(1)
 
     let blockSize = 16//get_local_size(0)
 
@@ -41,7 +41,7 @@ let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpa
     block.[ind+(blockSize*3)] <- input.[index_in+(wiWidth*3)]
     
     // wait until the whole block is filled
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
     
     // calculate the corresponding target 
     // as location inside block of transposed location
@@ -62,23 +62,23 @@ let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpa
     output.[index_out+(wiWidth*3)] <- float4(v0.w, v1.w, v2.w, v3.w)
     
 [<ReflectedDefinition>]
-let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.Local)>] block: float32[], width: int, height: int) =
-    let mutable xIndex = get_global_id(0)
-    let mutable yIndex = get_global_id(1)
+let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.Local)>] block: float32[], width: int, height: int, wi: WorkItemInfo) =
+    let mutable xIndex = wi.GlobalID(0)
+    let mutable yIndex = wi.GlobalID(1)
     let BLOCK_DIM = 16
 
     if((xIndex < width) && (yIndex < height)) then
         let index_in = yIndex * width + xIndex
-        block.[(get_local_id(1)*(BLOCK_DIM+1))+get_local_id(0)] <- 1.0f
+        block.[(wi.LocalID(1)*(BLOCK_DIM+1))+wi.LocalID(0)] <- 1.0f
 
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
     // write the transposed matrix tile to global memory
-    xIndex <- (get_group_id(1) * BLOCK_DIM) + get_local_id(0)
-    yIndex <- (get_group_id(0) * BLOCK_DIM) + get_local_id(1)
+    xIndex <- (wi.GroupID(1) * BLOCK_DIM) + wi.LocalID(0)
+    yIndex <- (wi.GroupID(0) * BLOCK_DIM) + wi.LocalID(1)
     if((xIndex < height) && (yIndex < width)) then
         let index_out = (yIndex * height) + xIndex;
-        output.[index_out] <- block.[(get_local_id(0)*(BLOCK_DIM+1))+get_local_id(1)]
+        output.[index_out] <- block.[(wi.LocalID(0)*(BLOCK_DIM+1))+wi.LocalID(1)]
         
 type TransposeTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
@@ -162,7 +162,8 @@ type TransposeTrainingSample() =
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
                     let c = Array.zeroCreate<float32> (cols * rows |> int)
-
+                    
+                    let ws = WorkSize([| rows; cols |], [| blockSize; blockSize |])
                     let comp = <@ DEVICE(pIndex, dIndex,
                                     Transpose(
                                         BUFFER_WRITE_MODE(wm, 
@@ -173,15 +174,16 @@ type TransposeTrainingSample() =
                                                 a)),
                                         block,
                                         cols |> int,
-                                        rows |> int)) @>   
+                                        rows |> int,
+                                        ws)) @>   
                         
                     // Extract features
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int ], [| rows; cols |], [| blockSize; blockSize |], opts)
+                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)
                                                                                                           
                     // Run once to skip compilation time
-                    comp.Run([| rows; cols |], [| blockSize; blockSize |])
+                    comp.Run()
                     let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
                     if not (this.Verify(c, reference)) then
                         Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
@@ -190,7 +192,7 @@ type TransposeTrainingSample() =
                         let watch = new Stopwatch()
                         watch.Start()
                         for i = 0 to iterations - 1 do
-                            comp.Run([| rows / elementsPerThread; cols |], [| blockSize; blockSize |])
+                            comp.Run()
                         watch.Stop()
                         let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                 
@@ -251,6 +253,7 @@ type TransposeFloat4TrainingSample() =
                                
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
                         let c = Array.zeroCreate<float32> (cols * rows |> int)
+                        let ws = WorkSize([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
 
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         TransposeFloat4(
@@ -260,15 +263,16 @@ type TransposeFloat4TrainingSample() =
                                             BUFFER_READ_MODE(rm, 
                                                 MEMORY_FLAGS(ifl, 
                                                     AsFloat4(a))),
-                                            AsFloat4(block))) @>   
+                                            AsFloat4(block),
+                                            ws)) @>   
                                 
                         // Extract features
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block) ], [| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |], opts)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block); ws ], opts)
                                                                                                                   
                         // Run once to skip compilation time
-                        comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                        comp.Run()
                         let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
                         if not (this.Verify(c, reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
@@ -277,7 +281,7 @@ type TransposeFloat4TrainingSample() =
                             let watch = new Stopwatch()
                             watch.Start()
                             for i = 0 to iterations - 1 do
-                                comp.Run([| rows / elementsPerThread; cols / elementsPerThread |], [| blockSize; blockSize |])
+                                comp.Run()
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                         

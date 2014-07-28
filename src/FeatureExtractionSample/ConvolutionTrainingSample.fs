@@ -16,10 +16,10 @@ open System.Diagnostics
 let FILTER_WIDTH = 3
 
 [<ReflectedDefinition>]
-let Convolution4(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
-    let nWidth = get_global_size(0)
-    let xOut = get_global_id(0) 
-    let yOut = get_global_id(1)
+let Convolution4(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int, wi: WorkItemInfo) =
+    let nWidth = wi.GlobalSize(0)
+    let xOut = wi.GlobalID(0) 
+    let yOut = wi.GlobalID(1)
     
     let xInTopLeft = xOut
     let yInTopLeft = yOut
@@ -71,10 +71,10 @@ let Convolution4(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFil
     pOutput.[idxOut] <- sum4.x + sum4.y + sum4.z + sum4.w
     
 [<ReflectedDefinition>]
-let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int) =
-    let nWidth = get_global_size(0)
-    let xOut = get_global_id(0) 
-    let yOut = get_global_id(1)
+let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int, wi: WorkItemInfo) =
+    let nWidth = wi.GlobalSize(0)
+    let xOut = wi.GlobalID(0) 
+    let yOut = wi.GlobalID(1)
     
     let xInTopLeft = xOut
     let yInTopLeft = yOut
@@ -169,7 +169,8 @@ type ConvolutionTrainingSample() =
                 for pIndex, pName, pDevs in GetOpenCLPlatforms() do        
                     for dIndex, dName, dType in pDevs do
                         let c = Array.zeroCreate (matSize * matSize |> int)
-                                
+                        let ws = WorkSize([| matSize; matSize |], [| 16L; 16L |])
+
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         Convolution(
@@ -182,15 +183,16 @@ type ConvolutionTrainingSample() =
                                             BUFFER_WRITE_MODE(wm, 
                                                 MEMORY_FLAGS(ofl, 
                                                     c)),
-                                            inputSize |> int)) @>
+                                            inputSize |> int,
+                                            ws)) @>
 
                         // Extract features
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; filter; c; matSize |> int ], [| matSize; matSize |], [| 16L; 16L |], opts)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ a; filter; c; inputSize |> int; ws ],  opts)
 
                         // Run once to skip compilation time
-                        comp.Run([| matSize; matSize |], [| 16L; 16L |], opts)
+                        comp.Run(opts)
                         if not (this.Verify(c, reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                         else                            
@@ -198,7 +200,7 @@ type ConvolutionTrainingSample() =
                             let watch = new Stopwatch()
                             watch.Start()
                             for i = 0 to iterations - 1 do
-                                comp.Run([| matSize; matSize |], [| 16L; 16L |], opts)
+                                comp.Run(opts)
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                     

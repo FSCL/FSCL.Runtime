@@ -18,9 +18,9 @@ let placeholderComp a b =
     a + b
 
 [<ReflectedDefinition>]
-let SimpleReduction(g_idata:int[], g_odata:int[], block: int, inputSize: int) =
-    let mutable global_index = get_global_id(0) * block
-    let mutable upper_bound = (get_global_id(0) + 1) * block
+let SimpleReduction(g_idata:int[], g_odata:int[], block: int, inputSize: int, wi: WorkItemInfo) =
+    let mutable global_index = wi.GlobalID(0) * block
+    let mutable upper_bound = (wi.GlobalID(0) + 1) * block
     if upper_bound > inputSize then
         upper_bound <- inputSize
 
@@ -32,29 +32,29 @@ let SimpleReduction(g_idata:int[], g_odata:int[], block: int, inputSize: int) =
         accumulator <- placeholderComp accumulator g_idata.[global_index]
         global_index <- global_index + 1
 
-    g_odata.[get_global_id(0)] <- accumulator
+    g_odata.[wi.GlobalID(0)] <- accumulator
 
 [<ReflectedDefinition>]
-let AdvancedReduction(g_idata:int[], [<AddressSpace(AddressSpace.Local)>]sdata:int[], g_odata:int[], inputSize: int) =
-    let global_index = get_global_id(0)
-    let global_size = get_global_size(0)
+let AdvancedReduction(g_idata:int[], [<AddressSpace(AddressSpace.Local)>]sdata:int[], g_odata:int[], inputSize: int, wi: WorkItemInfo) =
+    let global_index = wi.GlobalID(0)
+    let global_size = wi.GlobalSize(0)
     let mutable accumulator = g_idata.[global_index]
     for gi in global_index + global_size .. global_size .. inputSize - 1 do
         accumulator <- placeholderComp accumulator g_idata.[gi]
                                         
-    let local_index = get_local_id(0)
+    let local_index = wi.LocalID(0)
     sdata.[local_index] <- accumulator
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
-    let mutable offset = get_local_size(0) / 2
+    let mutable offset = wi.LocalSize(0) / 2
     while(offset > 0) do
         if(local_index < offset) then
             sdata.[local_index] <- placeholderComp (sdata.[local_index]) (sdata.[local_index + offset])
         offset <- offset / 2
-        barrier(CLK_LOCAL_MEM_FENCE)
+        wi.Barrier(CLK_LOCAL_MEM_FENCE)
                 
     if local_index = 0 then
-        g_odata.[get_group_id(0)] <- sdata.[0]
+        g_odata.[wi.GroupID(0)] <- sdata.[0]
 
 type SimpleReductionTrainingSample() =    
     inherit VectorAddTrainingSample()
@@ -150,9 +150,7 @@ type SimpleReductionTrainingSample() =
                                 else
                                     c
 
-                            let globalSize = currentOutputSize
-                            let localSize = Math.Min(128L, currentOutputSize)
-
+                            let ws = WorkSize(currentOutputSize, Math.Min(128L, currentOutputSize))
                             let comp = <@ DEVICE(pIndex, dIndex,
                                             SimpleReduction(
                                                 TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
@@ -164,12 +162,13 @@ type SimpleReductionTrainingSample() =
                                                         MEMORY_FLAGS(fl, 
                                                             c))),
                                                 currentBlockSize |> int,
-                                                currentInputSize |> int)) @>   
+                                                currentInputSize |> int,
+                                                ws)) @>   
                         
                             // Extract features
                             let km = compiler.Compile(comp, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
-                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; c ; currentBlockSize |> int; currentInputSize |> int], [| globalSize |], [| localSize |], opts)
+                            let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; c ; currentBlockSize |> int; currentInputSize |> int; ws], opts)
                             if features.IsEmpty then
                                 features <- additFeatures
                             else
@@ -185,7 +184,7 @@ type SimpleReductionTrainingSample() =
                                                             box((a :?> float) + (b :?> float))) features additFeatures
                            
                             // Run           
-                            comp.Run(globalSize, localSize, opts)
+                            comp.Run(opts)
 
                             if currentOutputSize = 1L then
                                 currentOutputSize <- 0L
@@ -235,9 +234,7 @@ type SimpleReductionTrainingSample() =
                                         else
                                             c
 
-                                    let globalSize = currentOutputSize
-                                    let localSize = Math.Min(128L, currentOutputSize)
-
+                                    let ws = WorkSize(currentOutputSize, Math.Min(128L, currentOutputSize))
                                     let comp = <@ DEVICE(pIndex, dIndex,
                                                     SimpleReduction(
                                                         TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
@@ -249,10 +246,11 @@ type SimpleReductionTrainingSample() =
                                                                 MEMORY_FLAGS(fl, 
                                                                     c))),
                                                         currentBlockSize |> int,
-                                                        currentInputSize |> int)) @>   
+                                                        currentInputSize |> int,
+                                                        ws)) @>   
                            
                                     // Run           
-                                    comp.Run(globalSize, localSize, opts)
+                                    comp.Run(opts)
 
                                     if currentOutputSize = 1L then
                                         currentOutputSize <- 0L
@@ -361,6 +359,7 @@ type AdvancedReductionTrainingSample() =
                             else
                                 c           
                                        
+                        let ws = WorkSize(currentGlobalSize |> int64, currentLocalSize |> int64)
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         AdvancedReduction(
                                             TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
@@ -372,11 +371,12 @@ type AdvancedReductionTrainingSample() =
                                                 BUFFER_WRITE_MODE(wm, 
                                                     MEMORY_FLAGS(fl, 
                                                         c))),
-                                            currentDataSize)) @>   
+                                            currentDataSize,
+                                            ws)) @>   
                         // Extract features
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; localArray; c; currentDataSize], [| currentGlobalSize |> int64 |], [| currentLocalSize |> int64 |], opts)
+                        let additFeatures = chain.Evaluate(km, precomputedFeatures, [ input; localArray; c; currentDataSize; ws], opts)
                         if features.IsEmpty then
                             features <- additFeatures
                         else
@@ -392,7 +392,7 @@ type AdvancedReductionTrainingSample() =
                                                         box((a :?> float) + (b :?> float))) features additFeatures
                                                   
                         // Run           
-                        comp.Run(currentGlobalSize |> int64, currentLocalSize |> int64, opts)
+                        comp.Run(opts)
                         
                         // If local size become greater than or equal to global size, we set it to be half the global size
                         currentDataSize <- currentGlobalSize / currentLocalSize
@@ -440,6 +440,7 @@ type AdvancedReductionTrainingSample() =
                                     else
                                         c           
                                        
+                                let ws = WorkSize(currentGlobalSize |> int64, currentLocalSize |> int64)
                                 let comp = <@ DEVICE(pIndex, dIndex,
                                                 AdvancedReduction(
                                                     TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
@@ -451,10 +452,11 @@ type AdvancedReductionTrainingSample() =
                                                         BUFFER_WRITE_MODE(wm, 
                                                             MEMORY_FLAGS(fl, 
                                                                 c))),
-                                                    currentDataSize)) @>   
+                                                    currentDataSize,
+                                                    ws)) @>   
 
                                 // Run           
-                                comp.Run(currentGlobalSize |> int64, currentLocalSize |> int64, opts)
+                                comp.Run(opts)
                         
                                 // If local size become greater than or equal to global size, we set it to be half the global size
                                 currentDataSize <- currentGlobalSize / currentLocalSize

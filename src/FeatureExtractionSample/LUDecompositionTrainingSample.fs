@@ -21,24 +21,25 @@ let LUDecompose(lMatrix: float4[],
                 inplaceMatrix: float4[],
                 d: int,
                 [<AddressSpace(AddressSpace.Local)>]
-                ratio: float32[]) =
+                ratio: float32[],
+                wi: WorkItemInfo) =
     //get the global id of the work item
-    let y = get_global_id(1)
-    let x = get_global_id(0)
-    let lidx = get_local_id(0)
-    let lidy = get_local_id(1)
+    let y = wi.GlobalID(1)
+    let x = wi.GlobalID(0)
+    let lidx = wi.LocalID(0)
+    let lidy = wi.LocalID(1)
     //the range in x axis is dimension / 4
-    let xdimension = get_global_size(0) + d / VECTOR_SIZE
+    let xdimension = wi.GlobalSize(0) + d / VECTOR_SIZE
     let D = d % VECTOR_SIZE;
     //printf(" Thread ID %d %d local ID %d  %d\n",x,y,lidx,lidy);
-    if (get_local_id(0) = 0) then
+    if (wi.LocalID(0) = 0) then
         //ratio needs to be calculated only once per workitem
         if (D = 0) then (ratio.[lidy] <- inplaceMatrix.[ y * xdimension + d / VECTOR_SIZE].x / inplaceMatrix.[ d * xdimension + d / VECTOR_SIZE].x) else ratio.[lidy] <- 1.0f
         if (D = 1) then (ratio.[lidy] <- inplaceMatrix.[ y * xdimension + d / VECTOR_SIZE].y / inplaceMatrix.[ d * xdimension + d / VECTOR_SIZE].y) else ratio.[lidy] <- 1.0f
         if (D = 2) then (ratio.[lidy] <- inplaceMatrix.[ y * xdimension + d / VECTOR_SIZE].w / inplaceMatrix.[ d * xdimension + d / VECTOR_SIZE].w) else ratio.[lidy] <- 1.0f
         if (D = 3) then (ratio.[lidy] <- inplaceMatrix.[ y * xdimension + d / VECTOR_SIZE].z / inplaceMatrix.[ d * xdimension + d / VECTOR_SIZE].z) else ratio.[lidy] <- 1.0f
          
-    barrier(CLK_LOCAL_MEM_FENCE)
+    wi.Barrier(CLK_LOCAL_MEM_FENCE)
      
     //check which workitems need to be included for computation
     if (y >= d + 1 && ((x + 1) * VECTOR_SIZE) > d) then
@@ -63,14 +64,15 @@ let LUDecompose(lMatrix: float4[],
 
 [<ReflectedDefinition>]
 let LUCombine(lMatrix: float32[],
-              inplaceMatrix: float32[]) =
-    let i = get_global_id(1)
-    let j = get_global_id(0)
-    let gidx = get_group_id(0)
-    let gidy = get_group_id(1)
-    let dimension = get_global_size(0)
+              inplaceMatrix: float32[],
+              wi: WorkItemInfo) =
+    let i = wi.GlobalID(1)
+    let j = wi.GlobalID(0)
+    let gidx = wi.GroupID(0)
+    let gidy = wi.GroupID(1)
+    let dimension = wi.GlobalSize(0)
     if (i > j) then
-        let dimension = get_global_size(0)
+        let dimension = wi.GlobalSize(0)
         inplaceMatrix.[i * dimension + j] <- lMatrix.[i * dimension + j]
     
 type LUDecompositionTrainingSample() =    
@@ -159,6 +161,7 @@ type LUDecompositionTrainingSample() =
                     if dIndex > -1 then
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
 
+                        let ws = WorkSize(0L)
                         // Retrieve the best work group size for the kernel
                         let comp = <@ 
                                         DEVICE(pIndex, dIndex,
@@ -172,7 +175,8 @@ type LUDecompositionTrainingSample() =
                                                         MEMORY_FLAGS(ifl, 
                                                             AsFloat4(inplaceMatrix)))),
                                                 0,
-                                                [||])) 
+                                                [||],
+                                                ws)) 
                                        @>
                         let kernelWorkGroupSize = comp.GetWorkGroupSize()
                         
@@ -221,9 +225,10 @@ type LUDecompositionTrainingSample() =
                                                     localSize.[1] <- temp
                      
                                             let localData = Array.zeroCreate<float32> (localSize.[1] |> int)
-                                            Some(globalSize, localSize, globalOffset, [ inputMatrix2; inplaceMatrix; index; localData ]))    
+                                            Some([ inputMatrix2; inplaceMatrix; index; localData; WorkSize(globalSize, localSize, globalOffset) ]))    
                            
                         // Compose LU
+                        let ws = WorkSize([| cols; rows |], null)
                         let comp = <@ 
                                     DEVICE(pIndex, dIndex,
                                         LUCombine(
@@ -234,7 +239,8 @@ type LUDecompositionTrainingSample() =
                                             BUFFER_READ_MODE(rm, 
                                                 BUFFER_WRITE_MODE(wm,
                                                     MEMORY_FLAGS(ifl, 
-                                                        inplaceMatrix))))) 
+                                                        inplaceMatrix))),
+                                            ws)) 
                                    @>
 
                         // Extract features
@@ -243,74 +249,84 @@ type LUDecompositionTrainingSample() =
                         //features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(inputMatrix2); AsFloat4(inplaceMatrix); ], [| rows; cols |], localSize, opts)
 
                         // Run once to skip compilation time
-                        comp.Run([| rows; cols |], null, [| 0L; 0L |])
+                        comp.Run()
      
                         if not (this.Verify(inplaceMatrix, reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
                         else                        
                             // Run
+                            let ws = WorkSize(0L)
+                            // Retrieve the best work group size for the kernel
+                            let comp = <@ 
+                                            DEVICE(pIndex, dIndex,
+                                                LUDecompose(
+                                                    BUFFER_READ_MODE(rm, 
+                                                        BUFFER_WRITE_MODE(wm,
+                                                            MEMORY_FLAGS(ifl, 
+                                                                AsFloat4(inputMatrix2)))),
+                                                    BUFFER_READ_MODE(rm, 
+                                                        BUFFER_WRITE_MODE(wm,
+                                                            MEMORY_FLAGS(ifl, 
+                                                                AsFloat4(inplaceMatrix)))),
+                                                    0,
+                                                    [||],
+                                                    ws)) 
+                                           @>
+                            let kernelWorkGroupSize = comp.GetWorkGroupSize()
+
                             let watch = new Stopwatch()
                             watch.Start()
-                            for i = 0 to iterations - 1 do                                
-                                // Run iterations for execution
+                            for i = 0 to iterations - 1 do      
+                                                                            
                                 let globalSize = [| blockSize; rows |]
                                 let localSize = [| blockSize; 1L |]
                                 let globalOffset = [| 0L; 0L |]
 
-                                for index = 0 to (rows |> int) - 1 do
-                                    if index % VECTOR_SIZE = 0 then
-                                        // Setup global size, local size and offset
-                                        globalOffset.[0] <- (index / VECTOR_SIZE) |> int64
-                                        globalOffset.[1] <- VECTOR_SIZE * (index / VECTOR_SIZE) |> int64
-
-                                        if (index = 0) then
-                                            globalSize.[0] <- globalSize.[0] + 1L
-                                            globalSize.[1] <- globalSize.[1] + (VECTOR_SIZE |> int64)
-                                        globalSize.[0] <- globalSize.[0] - 1L
-                                        globalSize.[1] <- globalSize.[1] - (VECTOR_SIZE |> int64)
-
-                                        if globalSize.[0] <= kernelWorkGroupSize then
-                                            localSize.[0] <- globalSize.[0]
-                                        else
-                                            let mutable temp = kernelWorkGroupSize
-                                            let mutable ok = false
-                                            while not ok && temp > 1L do
-                                                if globalSize.[0] % temp = 0L then
-                                                    ok <- true
+                                // Run iterations for execution
+                                comp.Iterate(fun index ->
+                                                if index >= (rows |> int) - 1 then
+                                                    None
                                                 else
-                                                    temp <- temp - 1L
-                                            localSize.[0] <- temp
+                                                    if index % VECTOR_SIZE = 0 then
+                                                        // Setup global size, local size and offset
+                                                        globalOffset.[0] <- (index / VECTOR_SIZE) |> int64
+                                                        globalOffset.[1] <- VECTOR_SIZE * (index / VECTOR_SIZE) |> int64
 
-                                        if globalSize.[1] <= kernelWorkGroupSize / localSize.[0] then
-                                            localSize.[1] <- globalSize.[1]
-                                        else
-                                            let mutable temp = kernelWorkGroupSize / localSize.[0]
-                                            let mutable ok = false
-                                            while not ok && temp > 1L do
-                                                if globalSize.[1] % temp = 0L then
-                                                    ok <- true
-                                                else
-                                                    temp <- temp - 1L
-                                            localSize.[1] <- temp
+                                                        if (index = 0) then
+                                                            globalSize.[0] <- globalSize.[0] + 1L
+                                                            globalSize.[1] <- globalSize.[1] + (VECTOR_SIZE |> int64)
+                                                        globalSize.[0] <- globalSize.[0] - 1L
+                                                        globalSize.[1] <- globalSize.[1] - (VECTOR_SIZE |> int64)
+
+                                                        if globalSize.[0] <= kernelWorkGroupSize then
+                                                            localSize.[0] <- globalSize.[0]
+                                                        else
+                                                            let mutable temp = kernelWorkGroupSize
+                                                            let mutable ok = false
+                                                            while not ok && temp > 1L do
+                                                                if globalSize.[0] % temp = 0L then
+                                                                    ok <- true
+                                                                else
+                                                                    temp <- temp - 1L
+                                                            localSize.[0] <- temp
+
+                                                        if globalSize.[1] <= kernelWorkGroupSize / localSize.[0] then
+                                                            localSize.[1] <- globalSize.[1]
+                                                        else
+                                                            let mutable temp = kernelWorkGroupSize / localSize.[0]
+                                                            let mutable ok = false
+                                                            while not ok && temp > 1L do
+                                                                if globalSize.[1] % temp = 0L then
+                                                                    ok <- true
+                                                                else
+                                                                    temp <- temp - 1L
+                                                            localSize.[1] <- temp
                      
-                                    // Run computation
-                                    let localData = Array.zeroCreate<float32> (localSize.[1] |> int)
-                                    let comp = <@ 
-                                                DEVICE(pIndex, dIndex,
-                                                    LUDecompose(
-                                                        BUFFER_READ_MODE(rm, 
-                                                            BUFFER_WRITE_MODE(wm,
-                                                                MEMORY_FLAGS(ifl, 
-                                                                    AsFloat4(inputMatrix2)))),
-                                                        BUFFER_READ_MODE(rm, 
-                                                            BUFFER_WRITE_MODE(wm,
-                                                                MEMORY_FLAGS(ifl, 
-                                                                    AsFloat4(inplaceMatrix)))),
-                                                        index,
-                                                        localData)) 
-                                               @>
-                                    comp.Run(globalSize, localSize, globalOffset)
+                                                    let localData = Array.zeroCreate<float32> (localSize.[1] |> int)
+                                                    Some([ inputMatrix2; inplaceMatrix; index; localData; WorkSize(globalSize, localSize, globalOffset) ]))    
+                     
                                 // Compose LU
+                                let ws = WorkSize([| cols; rows |], null)
                                 let comp = <@ 
                                             DEVICE(pIndex, dIndex,
                                                 LUCombine(
@@ -321,10 +337,12 @@ type LUDecompositionTrainingSample() =
                                                     BUFFER_READ_MODE(rm, 
                                                         BUFFER_WRITE_MODE(wm,
                                                             MEMORY_FLAGS(ifl, 
-                                                                inplaceMatrix))))) 
-                                           @>
+                                                                inplaceMatrix))),
+                                                    ws)) 
+                                            @>
+
                                 // Run once to skip compilation time
-                                comp.Run([| rows; cols |], null, [| 0L; 0L |])
+                                comp.Run()
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                         
@@ -441,7 +459,8 @@ type LUDecompositionOpenCLDirectTrainingSample() =
                                                     MEMORY_FLAGS(ifl, 
                                                         AsFloat4(inplaceMatrix)))),
                                             0,
-                                            [||])) 
+                                            [||],
+                                            WorkSize(0L))) 
                                     @>
                     let kmdecomp = compiler.Compile(decomp, opts) :?> IKernelModule
                     let program = new OpenCLProgram(context, [| kmdecomp.Code.Value |])
@@ -459,7 +478,8 @@ type LUDecompositionOpenCLDirectTrainingSample() =
                                                 BUFFER_READ_MODE(rm, 
                                                     BUFFER_WRITE_MODE(wm,
                                                         MEMORY_FLAGS(ifl, 
-                                                            inplaceMatrix))))) 
+                                                            inplaceMatrix))),
+                                                WorkSize(0L))) 
                                         @>
                     let kmdecomb = compiler.Compile(combcomp, opts) :?> IKernelModule
                     let combprogram = new OpenCLProgram(context, [| kmdecomb.Code.Value |])
