@@ -114,7 +114,7 @@ type MatrixMultSimpleTrainingSample() =
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinMatrixSize", 64L)
-        dict.Add("MaxMatrixSize", 1024L)
+        dict.Add("MaxMatrixSize", 2048L)
         dict.Add("Iterations", 100)
         dict
         
