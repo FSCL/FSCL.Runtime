@@ -259,43 +259,44 @@ type MatrixMultAdvancedTrainingSample() =
 
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    let c = Array2D.zeroCreate (rows |> int) (cols |> int)
-                    let ws = new WorkSize([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
-                                    
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                    let comp = <@ DEVICE(pIndex, dIndex,
-                                    MatMul(
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                a)),
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                b)),
-                                        BUFFER_WRITE_MODE(wm, 
-                                            MEMORY_FLAGS(ofl, 
-                                                c)),
-                                        ws)) @>
+                    if dIndex > 0 then
+                        let c = Array2D.zeroCreate (rows |> int) (cols |> int)
+                        let ws = new WorkSize([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
+                                        
+                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                        let comp = <@ DEVICE(pIndex, dIndex,
+                                        MatMul(
+                                            BUFFER_READ_MODE(rm, 
+                                                MEMORY_FLAGS(ifl, 
+                                                    a)),
+                                            BUFFER_READ_MODE(rm, 
+                                                MEMORY_FLAGS(ifl, 
+                                                    b)),
+                                            BUFFER_WRITE_MODE(wm, 
+                                                MEMORY_FLAGS(ofl, 
+                                                    c)),
+                                            ws)) @>
 
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
 
-                    // Run once to skip compilation time
-                    comp.Run()
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                    else                        
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run()
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
+                        // Run once to skip compilation time
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else                        
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                        
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            instanceResult <- instanceResult @ [ ttime ]
+                            System.Threading.Thread.Sleep(500)
                                 
             execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
         execResults

@@ -4,13 +4,18 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Collections.Generic
 open System
+open FSCL.Language
 
 module ReflectionUtil =
     let ToTuple(args: obj[]) =
-        let tupleType = FSharpType.MakeTupleType(Array.map(fun i -> i.GetType()) args)
+        let tupleType = FSharpType.MakeTupleType(Array.mapi(fun idx (i:obj) -> 
+            if i :? WorkSize && idx = args.Length - 1 then
+                typeof<WorkItemInfo>
+            else
+                i.GetType()) args)
         let tuple = FSharpValue.MakeTuple(args, tupleType)
         tuple
-    
+            
     let rec GetMethodInfoFromQuotation(e: Expr) = 
         match e with
         | Patterns.Call(o, mi, a) ->
