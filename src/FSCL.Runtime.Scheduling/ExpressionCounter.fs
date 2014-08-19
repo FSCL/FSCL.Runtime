@@ -149,7 +149,7 @@ type ExpressionCounter() =
                     let ifb, newStack = EstimateInternal(ib, condStack)
                     let elseb, newStack = EstimateInternal(eb, condStack)
                     // Fixe: before we had half the instrs of if branch and half the instrs of else branch. But on GPU often executed in lockstep
-                    let result = <@ %cond + 0.5f * %ifb + 0.5f * %elseb @>, newStack
+                    let result = <@ %cond + 1.0f * %ifb + 1.0f * %elseb @>, newStack
                     result
 
                 | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
