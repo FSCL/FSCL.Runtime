@@ -84,7 +84,7 @@ let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItem
     let c = wi.GlobalID(1)
    
     let mutable accum = 0.0f
-    for i = 0 to (matA.GetLength(1) >>> 3) - 1 do
+    for i = 0 to (matA.GetLength(1) / 8) - 1 do
         accum <- accum + matA.[r, i] * matB.[i, c]
         accum <- accum + matA.[r, i + 1] * matB.[i + 1, c]
         accum <- accum + matA.[r, i + 2] * matB.[i + 2, c]
@@ -93,6 +93,10 @@ let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItem
         accum <- accum + matA.[r, i + 5] * matB.[i + 5, c]
         accum <- accum + matA.[r, i + 6] * matB.[i + 6, c]
         accum <- accum + matA.[r, i + 7] * matB.[i + 7, c]
+
+    for i = (matA.GetLength(1) / 8) to matA.GetLength(1) - 1 do
+        accum <- accum + matA.[r, i] * matB.[i, c]
+        
     matC.[r, c] <- accum
       
 let Verify(output: float32[,], expected: float32[,]) =
@@ -162,7 +166,7 @@ type MatrixMultSimpleTrainingSample() =
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
-                                yield (!s, !s)
+                                yield (!s + 1L, !s + 1L)
                                 //yield (!s, !s * 2L)
                                 s := !s + 64L
                         }) |> Array.ofSeq

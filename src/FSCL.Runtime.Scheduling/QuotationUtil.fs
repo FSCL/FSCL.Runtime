@@ -27,7 +27,18 @@ module ReflectionUtil =
         | ExprShape.ShapeCombination(o, l) ->
             failwith "Cannot find a call to a method inside the given expression"
 
+// Quotations-related functions
 module QuotationUtil =
+    // Normalizes a multi-dim array access expressions, creating an expression for 1D access
+    let NormalizeArrayAccess(arrayExpr: Expr, accessExprs: Expr list) =        
+        let mutable normalisedExpr = <@ (%%accessExprs.[0]) @>
+        let lengthMethodCall = arrayExpr.Type.GetMethod("GetLength");
+        for idx = 1 to accessExprs.Length - 1 do         
+            let length = Expr.Call(arrayExpr, lengthMethodCall, [ <@@ idx - 1 @@> ])               
+            normalisedExpr <- <@ ((%normalisedExpr * (%%length:int)) + (%%accessExprs.[idx]:int)) @>
+        normalisedExpr
+
+    // Replaces the body of a tupled function (preserving arguments binding)
     let ReplaceTupledFunctionBody(root: Expr, haystack: Expr) =
         let rec InsertRecursive(expr) =
             match expr with

@@ -66,6 +66,7 @@
     <Compile Include="MemoryTransfer.Tools.fs" />
     <Compile Include="MemoryTransfer.Test.fs" />
     <Compile Include="SchedulingMetric.fs" />
+    <Compile Include="InterThreadMemoryAccessAnalyser.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -93,6 +94,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
+      <Name>FSCL.Runtime.Core</Name>
+      <Project>{061550db-589c-4dbc-94ef-6df4ec751b71}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
       <Project>{9692F3D3-7408-46F4-8429-B4E77D128849}</Project>

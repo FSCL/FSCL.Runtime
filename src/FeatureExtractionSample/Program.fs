@@ -34,17 +34,19 @@ let main argv =
     //MatrixMultFeatures.TestFeatures 64L 1024L 100
 
     // Convolution
-    let chain = new FeatureExtractionChain([| new BranchCounter();
+    let chain = new FeatureExtractionChain([| 
+                                              new BranchCounter();
                                               new MemoryAccessCounter();
                                               new ArithmeticOperationCounter();
                                               new DataSizeCounter();
-                                              new WorkSizeCounter() 
+                                              new WorkSizeCounter();
+                                              //new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 

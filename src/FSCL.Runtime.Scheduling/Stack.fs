@@ -61,8 +61,5 @@ module VarStack =
                 else
                     failwith "Cannot tail the stack cause traceback is passing through a mutated variable"
             else
-                if not (restrictNonMutated && b) then
-                    findAndTail x restrictNonMutated tl 
-                else
-                    failwith "Cannot tail the stack cause traceback is passing through a mutated variable"
+                findAndTail x restrictNonMutated tl 
                     
