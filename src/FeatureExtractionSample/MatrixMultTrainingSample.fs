@@ -91,19 +91,8 @@ let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItem
     let r = wi.GlobalID(0)
     let c = wi.GlobalID(1)
     if(r < matA.GetLength(0) && c < matA.GetLength(1)) then
-        let maxWidth = (matA.GetLength(1) / 8) * 8
         let mutable accum = 0.0f
-        for i in 0 .. 8 .. maxWidth - 1 do
-            accum <- accum + matA.[r, i] * matB.[i, c]
-            accum <- accum + matA.[r, i + 1] * matB.[i + 1, c]
-            accum <- accum + matA.[r, i + 2] * matB.[i + 2, c]
-            accum <- accum + matA.[r, i + 3] * matB.[i + 3, c]
-            accum <- accum + matA.[r, i + 4] * matB.[i + 4, c]
-            accum <- accum + matA.[r, i + 5] * matB.[i + 5, c]
-            accum <- accum + matA.[r, i + 6] * matB.[i + 6, c]
-            accum <- accum + matA.[r, i + 7] * matB.[i + 7, c]
-
-        for i = maxWidth to matA.GetLength(1) - 1 do
+        for i = 0 to matA.GetLength(1) - 1 do
             accum <- accum + matA.[r, i] * matB.[i, c]
         matC.[r, c] <- accum
       
@@ -191,7 +180,7 @@ type MatrixMultSimpleTrainingSample() =
 
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > -1 then
+                    if dIndex > 0 then
                         let c = Array2D.zeroCreate (rows |> int) (cols |> int)
                         let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
