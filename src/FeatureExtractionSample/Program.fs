@@ -24,16 +24,11 @@ open LUDecompositionTrainingSample
 let main argv = 
     //opts.Add(CompilerOptions.ParseOnly, ())
 
-    // Test vector add
-    //let km = compiler.Compile(<@ VectorAdd(a, b, c) @>, opts) :?> IKernelModule
-    //let precomputedFeatures = fec.Precompute(km)
-    //let features = fec.Evaluate(km, precomputedFeatures, [| a; b; c |])
-    
+    // Micro benchmarks
+    let waveFrontBenchmark = new WavefrontBenchmark.WavefrontBenchmark()
+    waveFrontBenchmark.Execute(0, 1)
 
-    // Matrix multiplication
-    //MatrixMultFeatures.TestFeatures 64L 1024L 100
-
-    // Convolution
+    // Training samples profiling
     let chain = new FeatureExtractionChain([| 
                                               new BranchCounter();
                                               new MemoryAccessCounter();

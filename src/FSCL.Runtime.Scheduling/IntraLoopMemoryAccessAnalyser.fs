@@ -14,8 +14,11 @@ open FSCL.Compiler
 open FSCL.Compiler.Util
 open Microsoft.FSharp.Reflection
 open VarStack
-open System.Runtime.InteropServices;
+open System.Runtime.InteropServices
 open System.Linq
+
+type LoopTree =
+| Loop of int * LoopTree list
 
 type IntraLoopMemoryAccessAnalyser() = 
     static member private ReplaceDynamicConstantDefines(expr: Expr, dynamicDefinesPlaceholders: List<Var>) =
@@ -164,17 +167,19 @@ type IntraLoopMemoryAccessAnalyser() =
                         let normalisedExpr = QuotationUtil.NormalizeArrayAccess(l.[0], accessExprs) :> Expr
 
                         // Compute delta between the access with last loop var at binding value and last loop var at binding value + step
+                        // Compute start value for iteration var
                         let bindingExpr = normalisedExpr.Substitute(fun v -> 
                                                                     if v = loopVar then
                                                                         Some(bindingValue)
                                                                     else
                                                                         None)
+                        // Compute the successive value for iteration var
                         let stepExpr = normalisedExpr.Substitute(fun v -> 
                                                                     if v = loopVar then
                                                                         Some(followingValue)
                                                                     else
                                                                         None)
-                        let mutable deltaExpr = <@@ Math.Abs((%%bindingExpr:int) - (%%stepExpr:int)) *  @@>  
+                        let mutable deltaExpr = <@@ Math.Abs((%%bindingExpr:int) - (%%stepExpr:int)) * Marshal.SizeOf(arrayVar.Type.GetElementType()) @@>  
 
                         // Unfold expr
                         deltaExpr <- UnfoldExpr(deltaExpr, stack) 
@@ -437,7 +442,7 @@ type IntraLoopMemoryAccessAnalyser() =
                             for loopVar, loopInit, secondValue, loopTripCount in loopVars do
                                 totalTripCount <- <@ (%totalTripCount) * %loopTripCount @>   
                             // Now check inside loop             
-                            EstimateExpr(body, newStack, totalTripCount, loopVars @ [ (guardVar, bindingValue.Value, tripCountExpr) ])
+                            EstimateExpr(body, newStack, totalTripCount, loopVars @ [ (guardVar, bindingValue.Value,  tripCountExpr) ])
                         | _ ->                            
                             raise (new ExpressionCounterError("Cannot find the variable update of a while loop"))                                
                     else
