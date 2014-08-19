@@ -191,7 +191,7 @@ type MatrixMultSimpleTrainingSample() =
 
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > 0 then
+                    if dIndex > -1 then
                         let c = Array2D.zeroCreate (rows |> int) (cols |> int)
                         let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
