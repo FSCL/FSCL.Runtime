@@ -163,7 +163,7 @@ type ExpressionCounter() =
                     let unfoldEnd = UnfoldExpr(ende, newStack)
                     let incCount = if considerLoopIncr then 1.0f else 0.0f
                     <@
-                        if ((%%starte : int) > (%%ende : int)) then
+                        if ((%%unfoldStart : int) > (%%unfoldEnd : int)) then
                             %es + ((((float32)(%%unfoldStart : int) - (float32)(%%unfoldEnd : int) + 1.0f)) * (float32)(%subexpr + %ee + incCount))
                         else
                             %es + ((((float32)(%%unfoldEnd : int) - (float32)(%%unfoldStart : int) + 1.0f)) * (float32)(%subexpr + %ee + incCount))

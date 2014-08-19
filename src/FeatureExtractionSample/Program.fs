@@ -45,8 +45,8 @@ let main argv =
     
     let samples = [|
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
