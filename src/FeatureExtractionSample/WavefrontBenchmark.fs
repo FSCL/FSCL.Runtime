@@ -21,10 +21,12 @@ type WavefrontBenchmark() =
         let mutable accum = 0.0f
         if wi.LocalID(0) < maxIfIndex then
             for idx = 0 to tripCount - 1 do   
-                accum <- accum + i.[0]    
+                accum <- accum + i.[wi.GlobalID(0)]
+                wi.Barrier(CLK_LOCAL_MEM_FENCE)
         else
             for idx = 0 to tripCount - 1 do   
-                accum <- accum - i.[0]                
+                accum <- accum - i.[wi.GlobalID(0)] 
+                wi.Barrier(CLK_LOCAL_MEM_FENCE)        
         o.[wi.GlobalID(0)] <- accum
 
     member this.Execute(pIndex: int, dIndex: int) =
@@ -33,15 +35,15 @@ type WavefrontBenchmark() =
         let o = Array.zeroCreate<float32> (4 <<< 20)
 
         // At first, run non-divergente test
-        let ws = new WorkSize(i.LongLength, i.LongLength)
+        let ws = new WorkSize(i.LongLength, 512L)
         let comp = <@ DEVICE(pIndex, dIndex, 
-                             WavefrontBenchmark.WavefrontTest(i, o, 0, (16 <<< 20), ws)) @>
+                             WavefrontBenchmark.WavefrontTest(i, o, 0, (4 <<< 10), ws)) @>
         comp.Run()
 
         // Ensured compilation overhead excluded, start test
         let timer = new Stopwatch()
         timer.Start()
-        for i = 0 to 99 do
+        for i = 0 to 1 do
             comp.Run()
         timer.Stop()
         let referenceTime = timer.ElapsedMilliseconds
@@ -51,14 +53,14 @@ type WavefrontBenchmark() =
         for j = 1 to 64 do
             let mutable currentWavefrontSize = 1
             let comp = <@ DEVICE(pIndex, dIndex, 
-                                 WavefrontBenchmark.WavefrontTest(i, o, j, (16 <<< 20), ws)) @>
+                                 WavefrontBenchmark.WavefrontTest(i, o, j, (4 <<< 10), ws)) @>
             let timer = new Stopwatch()
             timer.Start()
-            for i = 0 to 99 do
+            for i = 0 to 1 do
                 comp.Run()
             timer.Stop()
             let currentTime = timer.ElapsedMilliseconds
-            Console.WriteLine(currentTime.ToString() + " ms")
+            Console.WriteLine(j.ToString() + ": " + currentTime.ToString() + " ms")
         
 
                         

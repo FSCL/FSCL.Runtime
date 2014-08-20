@@ -66,6 +66,7 @@
     <Compile Include="TransposeTrainingSample.fs" />
     <Compile Include="LUDecompositionTrainingSample.fs" />
     <Compile Include="WavefrontBenchmark.fs" />
+    <Compile Include="LDSBenchmark.fs" />
     <Compile Include="Program.fs" />
     <None Include="Script1.fsx" />
     <None Include="packages.config" />

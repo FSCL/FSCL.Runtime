@@ -30,11 +30,8 @@ type MemoryAccessPatternAnalyser() =
     override this.FeatureNameList 
         with get() =
             [ "Average intra-thread global read access stride on dim 1 (bytes)";
-              "Average inter-thread global read access stride on dim 1 (bytes)";
               "Average intra-thread global read access stride on dim 2 (bytes)";
-              "Average inter-thread global read access stride on dim 2 (bytes)";
-              "Average intra-thread global read access stride on dim 3 (bytes)";
-              "Average inter-thread global read access stride on dim 3 (bytes)" ]
+              "Average intra-thread global read access stride on dim 3 (bytes)" ]
 
     override this.Precompute(m: IKernelModule) =
         // We have parameters in m with access analysis computed
@@ -94,7 +91,7 @@ type MemoryAccessPatternAnalyser() =
                  
         // Now compute delta of accesses from other threads compared to the baseLine. 
         // We take into account threads of the same group and of different group in all the dimensions
-        let strides = Array.create 3 (-1.0f, -1.0f)
+        let strides = Array.create 3 -1.0f
         for dim = 0 to dims - 1 do
             // Compute the stride for two threads of the same group in this dimension
             let mutable strideIntraGroup = 0.0f
@@ -112,35 +109,9 @@ type MemoryAccessPatternAnalyser() =
                 // Now compute delta
                 strideIntraGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32))
 
-            // Compute the stride between the last thread of a group and the first of the successive group
-            if workSize.NumGroups(dim) > 1 then                
-                // Evaluate last thread of first group
-                let globalID = Array.init (dims) (fun i -> if i = dim then workSize.LocalSize(i) - 1 |> int64 else 0L)
-                let localID = Array.init (dims) (fun i -> if i = dim then workSize.LocalSize(i) - 1 |> int64 else 0L)
-                let wi = new MutableWorkItemInfo(globalID, localID, globalSize, localSize, globalOffset)
-                let newArgs = replaceWorkItemInfo(args, wi)
-                let mutable baseLineLast = evAccessExpr
-                for a in newArgs do
-                    baseLineLast <- baseLineLast.GetType().GetMethod("Invoke").Invoke(baseLineLast, [| a |])
-                for d in dynDefArgs do
-                    baseLineLast <- baseLineLast.GetType().GetMethod("Invoke").Invoke(baseLineLast, [| d |])
-
-                // Evaluate first thread of the second group
-                let globalID = Array.init (dims) (fun i -> if i = dim then workSize.LocalSize(i) |> int64 else 0L)
-                let localID = Array.zeroCreate<int64> (dims)
-                let wi = new MutableWorkItemInfo(globalID, localID, globalSize, localSize, globalOffset)
-                let newArgs = replaceWorkItemInfo(args, wi)
-                let mutable access = evAccessExpr
-                for a in newArgs do
-                    access <- access.GetType().GetMethod("Invoke").Invoke(access, [| a |])
-                for d in dynDefArgs do
-                    access <- access.GetType().GetMethod("Invoke").Invoke(access, [| d |])
-                // Now compute delta
-                strideInterGroup <- Math.Abs((access :?> float32) - (baseLineLast :?> float32))
-
             // Add item to strides
-            strides.[dim] <- (strideIntraGroup, strideInterGroup)
-                            
+            strides.[dim] <- strideIntraGroup
+
         evCount :?> int, strides
 
     override this.Evaluate(m, prec, args, opts) =
@@ -163,7 +134,7 @@ type MemoryAccessPatternAnalyser() =
                             } |> List.ofSeq     
                                                              
         // For each access we evaluate the stride, ignoring the particular array accessed
-        let strideList = new List<int * (float32 * float32)[]>()
+        let strideList = new List<int * (float32)[]>()
         for v in accessExpressions do
             for accessExprCount, accessExpr in v.Value do
                 let count, strides = this.EvaluateStride(accessExprCount, accessExpr, dynDefArgs, args)
@@ -176,9 +147,8 @@ type MemoryAccessPatternAnalyser() =
             totalCount <- totalCount + itemCount
             for sIndex = 0 to strides.Length - 1 do
                 match strides.[sIndex] with
-                | (intra, inter) ->
-                    avgStrideList.[sIndex * 2] <- (avgStrideList.[sIndex * 2] + (itemCount |> float32) * intra)
-                    avgStrideList.[sIndex * 2 + 1] <- (avgStrideList.[sIndex * 2 + 1] + (itemCount |> float32) * inter)
+                | intra ->
+                    avgStrideList.[sIndex] <- (avgStrideList.[sIndex * 2] + (itemCount |> float32) * intra)
         
         for sIndex = 0 to avgStrideList.Length - 1 do
             avgStrideList.[sIndex] <- avgStrideList.[sIndex] / (totalCount |> float32)          

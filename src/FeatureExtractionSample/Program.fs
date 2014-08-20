@@ -25,17 +25,20 @@ let main argv =
     //opts.Add(CompilerOptions.ParseOnly, ())
 
     // Micro benchmarks
-    let waveFrontBenchmark = new WavefrontBenchmark.WavefrontBenchmark()
-    waveFrontBenchmark.Execute(0, 1)
+    //let waveFrontBenchmark = new WavefrontBenchmark.WavefrontBenchmark()
+    //waveFrontBenchmark.Execute(0, 1)
+
+    let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
+    ldsBenchmark.Execute(0, 1)
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
-                                              new BranchCounter();
-                                              new MemoryAccessCounter();
-                                              new ArithmeticOperationCounter();
-                                              new DataSizeCounter();
-                                              new WorkSizeCounter();
-                                              //new MemoryAccessPatternAnalyser()
+                                              //new BranchCounter();
+                                              //new MemoryAccessCounter();
+                                              //new ArithmeticOperationCounter();
+                                              //new DataSizeCounter();
+                                              //new WorkSizeCounter();
+                                              new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|

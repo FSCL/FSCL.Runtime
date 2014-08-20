@@ -88,8 +88,8 @@ let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) 
 // Matrix multiplication
 [<ReflectedDefinition>]
 let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItemInfo) =
-    let r = wi.GlobalID(0)
-    let c = wi.GlobalID(1)
+    let r = wi.GlobalID(1)
+    let c = wi.GlobalID(0)
     if(r < matA.GetLength(0) && c < matA.GetLength(1)) then
         let mutable accum = 0.0f
         for i = 0 to matA.GetLength(1) - 1 do
