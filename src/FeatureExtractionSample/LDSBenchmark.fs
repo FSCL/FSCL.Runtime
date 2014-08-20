@@ -17,9 +17,9 @@ open System.Diagnostics
 
 type LDSBenchmark() = 
     [<ReflectedDefinition>]
-    static member private LDSStrideTest([<AddressSpace(AddressSpace.Local)>] l:int[], o:int[], stride: int, wi:WorkItemInfo) =
+    static member private LDSStrideTest([<AddressSpace(AddressSpace.Local)>] l:char[], o:int[], stride: int, wi:WorkItemInfo) =
         let gid = wi.GlobalID(0)
-        l.[gid] <- (int)(gid % 255)
+        l.[gid] <- (char)(gid % 255)
         let lid = wi.LocalID(0)
 
         // Test reading with a stride
@@ -634,7 +634,7 @@ type LDSBenchmark() =
         // Create wavefront test
         let o = Array.zeroCreate<int> (4 <<< 20)
         let localSize = 512
-        let localArr = Array.zeroCreate<int>((0 * localSize) + 255)
+        let localArr = Array.zeroCreate<char>((0 * localSize) + 255)
 
         // Ensure compilation overhead excluded
         let ws = new WorkSize(o.LongLength, localSize |> int64)
@@ -647,7 +647,7 @@ type LDSBenchmark() =
         let mutable lastTime = 0L
 
         for stride = 0 to 16 do
-            let localArr = Array.zeroCreate<int>((stride * localSize) + 255)
+            let localArr = Array.zeroCreate<char>((stride * localSize) + 255)
             let comp = <@ DEVICE(pIndex, dIndex, 
                                  LDSBenchmark.LDSStrideTest(localArr, o, stride, ws)) @>
             let timer = new Stopwatch()
@@ -716,7 +716,7 @@ type LDSBenchmark() =
             let currentTime = timer.ElapsedMilliseconds
             Console.WriteLine(lineMult.ToString() + " banks: " + currentTime.ToString() + " ms")
 
-            // Update drops
+    // Update drops
     member this.Execute(pIndex: int, dIndex: int) =
         let line = this.FindLDSLineSize(pIndex, dIndex)
         this.FindLDSBanksCount(line + 4, pIndex, dIndex)
