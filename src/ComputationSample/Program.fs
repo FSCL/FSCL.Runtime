@@ -172,7 +172,7 @@ let main argv =
     // Record vectors
     let aRecord = Array.create size ({ x = 1.0f; y = 2.0f })
     let bRecord = Array.create size ({ x = 4.0f; y = 3.0f })
-    let mutable cRecord = Array.create size ({ x = 4.0f; y = 3.0f })
+    let mutable cRecord = Array.create size ({ x = 0.0f; y = 0.0f })
     let correctMapResultRecord = Array.create size ({ x = 5.0f; y = 5.0f })
     // Matrices
     let matSize = 32

@@ -425,9 +425,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
+            if poolItem.UnmanagedBlittablePtr.IsSome || BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 if poolItem.UnmanagedBlittablePtr.IsSome then
-                    BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.UnmanagedBlittablePtr.Value, poolItem.Buffer, ArrayUtil.GetArrayLengths(item.Key))                
+                    if (poolItem.Buffer.Flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0 then
+                        // No need to READ to unmanaged pointer
+                        BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.UnmanagedBlittablePtr.Value, poolItem.Buffer, ArrayUtil.GetArrayLengths(item.Key))                
                     // Copy to managed memory
                     this.WriteRecordArrayFromPtr(item.Key, poolItem.UnmanagedBlittablePtr.Value) |> ignore
                 else
@@ -440,7 +442,9 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             if buff.UnmanagedBlittablePtr.IsSome || (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.Buffer.Flags, buff.AddressSpace, buff.DeviceToHostTransferMode)) then
                 // If it's using UseHostPointer then arr already contains the result
                 if buff.UnmanagedBlittablePtr.IsSome then
-                    BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, buff.UnmanagedBlittablePtr.Value, buff.Buffer, ArrayUtil.GetArrayLengths(arr))                
+                    if (buff.Buffer.Flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0 then
+                        // No need to READ to unmanaged pointer
+                        BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, buff.UnmanagedBlittablePtr.Value, buff.Buffer, ArrayUtil.GetArrayLengths(arr))                
                     // Copy to managed memory
                     this.WriteRecordArrayFromPtr(arr, buff.UnmanagedBlittablePtr.Value) |> ignore
                     arr
