@@ -23,7 +23,11 @@ type WorkSizeCounter() =
     override this.Precompute(m: IKernelModule) =
         [] :> obj
 
-    override this.Evaluate(m, precomputed, args, globalSize, localSize, opts) =
+    override this.Evaluate(m, precomputed, args, opts) =
+        let globalSize, localSize =
+            let ws = args |> List.find(fun (o:obj) -> o.GetType() = typeof<WorkSize>) |> (fun o -> o :?> WorkSize)
+            ws.GlobalSize(), ws.LocalSize()
+
         let data = [ globalSize.[0]; (if globalSize.Length > 1 then globalSize.[1] else 1L); (if globalSize.Length > 2 then globalSize.[2] else 1L);
                      localSize.[0]; (if localSize.Length > 1 then localSize.[1] else 1L); (if localSize.Length > 2 then localSize.[2] else 1L) ]
         List.mapi (fun i s -> (data.[i] :> obj)) (this.FeatureNameList)

@@ -21,9 +21,9 @@ type FeatureExtractionChain(extractors: IFeatureExtractor[]) =
                              }
         Array.ofSeq precomputed
 
-    member this.Evaluate(m, precomputed: obj[], args: obj list, globalSize: int64[], localSize: int64[], opts: Dictionary<string ,obj>) =
+    member this.Evaluate(m, precomputed: obj[], args: obj list, opts: Dictionary<string ,obj>) =
         let mutable fl = []
         for i = 0 to extractors.Length - 1 do
-            fl <- fl @ extractors.[i].Evaluate(m, precomputed.[i], args, globalSize, localSize, opts)
+            fl <- fl @ extractors.[i].Evaluate(m, precomputed.[i], args, opts)
         fl
     

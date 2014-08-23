@@ -4,13 +4,18 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Reflection
 open System.Collections.Generic
 open System
+open FSCL.Language
 
 module ReflectionUtil =
     let ToTuple(args: obj[]) =
-        let tupleType = FSharpType.MakeTupleType(Array.map(fun i -> i.GetType()) args)
+        let tupleType = FSharpType.MakeTupleType(Array.mapi(fun idx (i:obj) -> 
+            if i :? WorkSize && idx = args.Length - 1 then
+                typeof<WorkItemInfo>
+            else
+                i.GetType()) args)
         let tuple = FSharpValue.MakeTuple(args, tupleType)
         tuple
-    
+            
     let rec GetMethodInfoFromQuotation(e: Expr) = 
         match e with
         | Patterns.Call(o, mi, a) ->
@@ -22,7 +27,18 @@ module ReflectionUtil =
         | ExprShape.ShapeCombination(o, l) ->
             failwith "Cannot find a call to a method inside the given expression"
 
+// Quotations-related functions
 module QuotationUtil =
+    // Normalizes a multi-dim array access expressions, creating an expression for 1D access
+    let NormalizeArrayAccess(arrayExpr: Expr, accessExprs: Expr list) =        
+        let mutable normalisedExpr = <@ (%%accessExprs.[0]) @>
+        let lengthMethodCall = arrayExpr.Type.GetMethod("GetLength");
+        for idx = 1 to accessExprs.Length - 1 do         
+            let length = Expr.Call(arrayExpr, lengthMethodCall, [ <@@ idx - 1 @@> ])               
+            normalisedExpr <- <@ ((%normalisedExpr * (%%length:int)) + (%%accessExprs.[idx]:int)) @>
+        normalisedExpr
+
+    // Replaces the body of a tupled function (preserving arguments binding)
     let ReplaceTupledFunctionBody(root: Expr, haystack: Expr) =
         let rec InsertRecursive(expr) =
             match expr with

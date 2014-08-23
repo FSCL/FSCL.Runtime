@@ -4,12 +4,12 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{B02C148F-2441-4B18-9D2B-B4E519789EDB}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>FSCL.Runtime.CompilerSteps</RootNamespace>
-    <AssemblyName>FSCL.Runtime.CompilerSteps</AssemblyName>
+    <ProjectGuid>{C7906474-A269-4A86-80DF-806371288760}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FeatureExtractionSample</RootNamespace>
+    <AssemblyName>FeatureExtractionSample</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>FSCL.Runtime.CompilerSteps</Name>
+    <Name>FeatureExtractionSample</Name>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
@@ -19,19 +19,25 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>..\bin\Debug\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+    <EnableUnmanagedDebugging>true</EnableUnmanagedDebugging>
+    <Commandlineparameters>--profile=log</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>..\bin\Release\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -41,20 +47,24 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>..\bin\Debug\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+    <EnableUnmanagedDebugging>true</EnableUnmanagedDebugging>
+    <Commandlineparameters>--profile=log</Commandlineparameters>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>..\bin\Release\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
@@ -62,20 +72,24 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>..\bin\Debug\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
+    <EnableUnmanagedDebugging>true</EnableUnmanagedDebugging>
+    <Commandlineparameters>--profile=log</Commandlineparameters>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>..\..\bin\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\FSCL.Runtime.CompilerSteps.XML</DocumentationFile>
+    <DocumentationFile>..\bin\Release\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <Choose>
@@ -91,16 +105,20 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" Condition="Exists('$(FSharpTargetsPath)')" />
-  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
-  </Target>
   <ItemGroup>
-    <Compile Include="KernelModuleParser.fs" />
-    <Compile Include="RuntimeToCompilerMetaMapping.fs" />
+    <None Include="App.config" />
+    <Compile Include="VectorAddTrainingSample.fs" />
+    <Compile Include="MatrixMultTrainingSample.fs" />
+    <Compile Include="SobelFilterTrainingSample.fs" />
+    <Compile Include="ConvolutionTrainingSample.fs" />
+    <Compile Include="ReductionTrainingSample.fs" />
+    <Compile Include="PrefixSumTrainingSample.fs" />
+    <Compile Include="TransposeTrainingSample.fs" />
+    <Compile Include="LUDecompositionTrainingSample.fs" />
+    <Compile Include="WavefrontBenchmark.fs" />
+    <Compile Include="LDSBenchmark.fs" />
+    <Compile Include="Program.fs" />
+    <None Include="Script1.fsx" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -128,22 +146,33 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="FSharp.Core">
-      <Private>True</Private>
-    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
       <Project>{061550DB-589C-4DBC-94EF-6DF4EC751B71}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj">
+      <Name>FSCL.Runtime.FeatureExtraction</Name>
+      <Project>{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
       <Project>{9692F3D3-7408-46F4-8429-B4E77D128849}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime\FSCL.Runtime.fsproj">
+      <Name>FSCL.Runtime</Name>
+      <Project>{0972DAF2-5AAF-4D52-B0C6-4B51F00BE03C}</Project>
+    </ProjectReference>
+    <Reference Include="FSharp.Core">
+      <Private>True</Private>
+    </Reference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
-      <Name>OpenCLManagedWrapper</Name>
       <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
+      <Name>OpenCLManagedWrapper</Name>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

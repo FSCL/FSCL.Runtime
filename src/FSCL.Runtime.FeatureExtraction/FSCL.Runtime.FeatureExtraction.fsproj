@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF</ProjectGuid>
+    <ProjectGuid>{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>FSCL.Runtime.FeatureExtraction</RootNamespace>
     <AssemblyName>FSCL.Runtime.FeatureExtraction</AssemblyName>
@@ -37,6 +37,50 @@
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>..\..\bin\FSCL.Runtime.FeatureExtraction.XML</DocumentationFile>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>..\..\bin\FSCL.Runtime.FeatureExtraction.XML</DocumentationFile>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <Tailcalls>false</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>..\..\bin\FSCL.Runtime.FeatureExtraction.XML</DocumentationFile>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <OutputPath>..\..\bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>..\..\bin\FSCL.Runtime.FeatureExtraction.XML</DocumentationFile>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
       <PropertyGroup>
@@ -66,28 +110,28 @@
     <Compile Include="DataSizeCounter.fs" />
     <Compile Include="MemoryAccessCounter.fs" />
     <Compile Include="WorkSizeCounter.fs" />
-    <Compile Include="KernelArgsPreparation.fs" />
+    <Compile Include="MemoryAccessPatternAnalyser.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3\lib\net45\FSCL.Compiler.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Language.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Util.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
@@ -101,28 +145,23 @@
     </Reference>
     <ProjectReference Include="..\FSCL.Runtime.CompilerSteps\FSCL.Runtime.CompilerSteps.fsproj">
       <Name>FSCL.Runtime.CompilerSteps</Name>
-      <Project>{b02c148f-2441-4b18-9d2b-b4e519789edb}</Project>
-      <Private>True</Private>
+      <Project>{B02C148F-2441-4B18-9D2B-B4E519789EDB}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
-      <Project>{061550db-589c-4dbc-94ef-6df4ec751b71}</Project>
-      <Private>True</Private>
+      <Project>{061550DB-589C-4DBC-94EF-6DF4EC751B71}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
-      <Project>{9692f3d3-7408-46f4-8429-b4e77d128849}</Project>
-      <Private>True</Private>
+      <Project>{9692F3D3-7408-46F4-8429-B4E77D128849}</Project>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj">
       <Name>FSCL.Runtime.Scheduling</Name>
-      <Project>{266e7303-23e0-47ac-9324-4b9705fc61f1}</Project>
-      <Private>True</Private>
+      <Project>{266E7303-23E0-47AC-9324-4B9705FC61F1}</Project>
     </ProjectReference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
-      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
-      <Private>True</Private>
+      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

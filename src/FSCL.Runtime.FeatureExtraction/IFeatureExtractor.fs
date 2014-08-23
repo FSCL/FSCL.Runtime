@@ -17,12 +17,12 @@ type FeatureList = obj list
 type IFeatureExtractor() =
     abstract FeatureNameList: string list
     abstract Precompute: IKernelModule -> obj
-    abstract Evaluate: IKernelModule * obj * obj list * int64[] * int64[] * Dictionary<string, obj> -> FeatureList
+    abstract Evaluate: IKernelModule * obj * obj list * Dictionary<string, obj> -> FeatureList
 
 [<AbstractClass>]
 type IDefaultFeatureExtractor() = 
     inherit IFeatureExtractor()
-    override this.Evaluate(m, pfl: obj, args, globalSize, localSize, opts) =
+    override this.Evaluate(m, pfl: obj, args, opts) =
         // Default evaluation of precomputed features consists in
         // evaluating the expression to obtain a function to then apply using the current args
         let precFeatures, dynDefPlaceholders = pfl :?> (obj list * Var list)

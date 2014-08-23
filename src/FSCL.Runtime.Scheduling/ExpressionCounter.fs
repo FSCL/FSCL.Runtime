@@ -149,7 +149,7 @@ type ExpressionCounter() =
                     let ifb, newStack = EstimateInternal(ib, condStack)
                     let elseb, newStack = EstimateInternal(eb, condStack)
                     // Fixe: before we had half the instrs of if branch and half the instrs of else branch. But on GPU often executed in lockstep
-                    let result = <@ %cond + 0.5f * %ifb + 0.5f * %elseb @>, newStack
+                    let result = <@ %cond + 1.0f * %ifb + 1.0f * %elseb @>, newStack
                     result
 
                 | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
@@ -163,7 +163,7 @@ type ExpressionCounter() =
                     let unfoldEnd = UnfoldExpr(ende, newStack)
                     let incCount = if considerLoopIncr then 1.0f else 0.0f
                     <@
-                        if ((%%starte : int) > (%%ende : int)) then
+                        if ((%%unfoldStart : int) > (%%unfoldEnd : int)) then
                             %es + ((((float32)(%%unfoldStart : int) - (float32)(%%unfoldEnd : int) + 1.0f)) * (float32)(%subexpr + %ee + incCount))
                         else
                             %es + ((((float32)(%%unfoldEnd : int) - (float32)(%%unfoldStart : int) + 1.0f)) * (float32)(%subexpr + %ee + incCount))
@@ -298,7 +298,7 @@ type ExpressionCounter() =
                     raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
             // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
             | ExprShape.ShapeVar(v) ->
-                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome
+                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
                 //let isWorkSizeFunctionReference = (v = workItemIdContainerPlaceholder)
                 let isDynamicDefineReference = (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
                 if isParameterReference || isDynamicDefineReference then

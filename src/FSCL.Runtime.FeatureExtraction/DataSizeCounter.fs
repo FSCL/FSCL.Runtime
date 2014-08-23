@@ -62,7 +62,7 @@ type DataSizeCounter() =
         // Build expr
         [ globalHostToDevP :> obj; globalDevToHostP :> obj; localP :> obj; embeddedLocalP :> obj ] :> obj
 
-    override this.Evaluate(m, prec, args, globalSize, localSize, opts) =
+    override this.Evaluate(m, prec, args, opts) =
         // Now use args to provide values
         let mutable globalHostToDevSize = 0L
         let mutable globalDevToHostSize = 0L
@@ -99,7 +99,11 @@ type DataSizeCounter() =
                                         // Create function to evaluate the alloc exprs
                                         let ev = QuotationUtil.ReplaceFunctionBody(m.Kernel.OriginalBody, e)
                                         let res = LeafExpressionConverter.EvaluateQuotation(ev.Value) 
-                                        let tupledArg = ToTuple(args |> List.toArray)
+                                        let tupledArg = ToTuple(args |> List.map (fun i -> 
+                                            if i :? WorkSize then 
+                                                box(i :?> WorkItemInfo) 
+                                            else 
+                                                i) |> List.toArray)
                                         // Evaluate alloc exprs
                                         let allocCountValue = res.GetType().GetMethod("Invoke").Invoke(res, [| tupledArg |])
                                         allocCountValue :?> int) (allocExpr.Value)
