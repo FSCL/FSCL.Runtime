@@ -9,9 +9,12 @@ open FSCL
 open FSCL.Language
 open FSCL.Runtime
 open System.Diagnostics
+open Microsoft.FSharp.Reflection
+open FSCL.Compiler.Util
 
 [<AllowNullLiteral>]
 type BufferPoolItem(buffer: OpenCLBuffer, 
+                    unmanagedPtr: IntPtr option,
                     queue: OpenCLCommandQueue, 
                     analysis: AccessAnalysisResult,
                     flags: MemoryFlags,
@@ -33,6 +36,8 @@ type BufferPoolItem(buffer: OpenCLBuffer,
     member val Buffer = buffer with get
     member val IsAvailable = false with get, set
     member val Queue = queue with get
+
+    member val UnmanagedBlittablePtr = unmanagedPtr with get
                
 // To create a new buffer pool manager from a previous one, so to reuse buffers created in a preceding expression
 [<AllowNullLiteral>]
@@ -50,10 +55,38 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
     // To get buffers from an old pool item and merge them into a new one
     member internal this.GetTrackedBufferPool() =
         trackedBufferPool
-     member internal this.GetUntrackedBufferPool() =
+    member internal this.GetUntrackedBufferPool() =
         untrackedBufferPool
-     member internal this.GetReverseTrackedBufferPool() =
+    member internal this.GetReverseTrackedBufferPool() =
         reverseTrackedBufferPool
+                    
+    // Create a struct array out of a record
+    member private this.CreatePtrFromRecordArray(arr: Array, init: bool) =
+        if FSharpType.IsRecord(arr.GetType().GetElementType()) then
+            // Map to array with fields sequentially layed out
+            let size = Marshal.SizeOf(arr.GetType().GetElementType())
+            let unmanagedPtr = Marshal.AllocHGlobal(size * ArrayUtil.GetArrayLength(arr))
+            let mutable currentPtr = unmanagedPtr
+            for i = 0 to arr.Length - 1 do
+                if (arr.GetValue(0) <> null) then
+                    Marshal.StructureToPtr(arr.GetValue(i), currentPtr, false)
+                    currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
+            Some(unmanagedPtr)
+        else 
+            None
+            
+    member private this.WriteRecordArrayFromPtr(arr: Array, ptr: IntPtr) =
+        if FSharpType.IsRecord(arr.GetType().GetElementType()) then
+            // Map to array with fields sequentially layed out
+            let size = Marshal.SizeOf(arr.GetType().GetElementType())
+            let mutable currentPtr = ptr
+            for i = 0 to arr.Length - 1 do
+                if (arr.GetValue(0) <> null) then
+                    Marshal.PtrToStructure(currentPtr, arr.GetValue(i))
+                    currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
+            Some(arr)
+        else 
+            None
 
     // Tracking buffer
     // This is the buffer is amtching an array argument
@@ -118,10 +151,21 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                     Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause memory flags are not compatible (pool buffer: " + prevBuffer.Flags.ToString() + ", this parameter: " + mergedFlags.ToString() + ", share priority: " + sharePriority.ToString() + ")") 
                 else
                     Trace.WriteLine("FSCL Warning: pre-existing tracked buffer cannot be reused for parameter " + parameter.Name + " cause the OpenCL context is different") 
+                let shouldCopyBuffer = BufferStrategies.ShouldCopyBuffer(prevBuffer.AccessAnalysis, prevBuffer.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace)
                 //Console.WriteLine("No adapted flags can be computed, create new buffer")   
+                // Check if record array
+                let ptr = this.CreatePtrFromRecordArray(arr, shouldCopyBuffer)
+                let buff = 
+                    if ptr.IsNone then
+                        BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags))
+                    else
+                        let count = ArrayUtil.GetArrayLengths(arr)
+                        BufferTools.CreateBuffer(ptr.Value, arr.GetType().GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags))
+
                 // We must create a new buffer
                 let bufferItem = new BufferPoolItem(
-                                    BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                                    buff,
+                                    ptr, 
                                     queue, 
                                     parameter.AccessAnalysis,
                                     mergedFlags, 
@@ -132,7 +176,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     writeMode,
                                     parameter.IsReturned)
                 // We need to copy buffer only if is has been potentially changed the one we are compying from
-                if (BufferStrategies.ShouldCopyBuffer(prevBuffer.AccessAnalysis, prevBuffer.AddressSpace, bufferItem.AccessAnalysis, addressSpace.AddressSpace)) then
+                if (shouldCopyBuffer) then
                     BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
                 //else
                     //Console.WriteLine("Buffer in NOT copied")   
@@ -150,8 +194,18 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         else
             //Console.WriteLine("No buffer found, create it")   
             // Create a buffer tracking the parameter
+            let shouldInitBuffer = BufferStrategies.ShouldInitBuffer(parameter.AccessAnalysis, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags), addressSpace.AddressSpace, transferMode.HostToDeviceMode)
+            let ptr = this.CreatePtrFromRecordArray(arr, shouldInitBuffer)
+            let buff = 
+                if ptr.IsNone then
+                    BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags))
+                else
+                    let count = ArrayUtil.GetArrayLengths(arr)
+                    BufferTools.CreateBuffer(ptr.Value, arr.GetType().GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags))
+
             let bufferItem = new BufferPoolItem(
-                                    BufferTools.CreateBuffer(arr, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                                    buff, 
+                                    ptr,
                                     queue,
                                     parameter.AccessAnalysis,
                                     mergedFlags,
@@ -161,8 +215,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     readMode,
                                     writeMode,
                                     parameter.IsReturned)            
-            if BufferStrategies.ShouldInitBuffer(bufferItem.AccessAnalysis, bufferItem.Buffer.Flags, addressSpace.AddressSpace, transferMode.HostToDeviceMode) then
-                BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, arr)    
+            if shouldInitBuffer then
+                if ptr.IsSome then
+                    BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, ptr.Value, arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr))    
+                else
+                    BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, arr)    
             //else
                 //Console.WriteLine("Buffer is NOT initialised")                           
             // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
@@ -212,6 +269,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
 
         let bufferItem = new BufferPoolItem(
                             BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                            None,
                             queue,
                             parameter.AccessAnalysis,
                             mergedFlags,
@@ -368,16 +426,27 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         for item in trackedBufferPool do
             let poolItem = item.Value
             if BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
-                BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key, poolItem.Buffer)                
+                if poolItem.UnmanagedBlittablePtr.IsSome then
+                    BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.UnmanagedBlittablePtr.Value, poolItem.Buffer, ArrayUtil.GetArrayLengths(item.Key))                
+                    // Copy to managed memory
+                    this.WriteRecordArrayFromPtr(item.Key, poolItem.UnmanagedBlittablePtr.Value) |> ignore
+                else
+                    BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, item.Key, poolItem.Buffer)                
                 
     member this.ReadRootBuffer() =
         // Read back root return buffer
         if rootReturnBuffer.IsSome then
             let buff, arr = rootReturnBuffer.Value
-            if (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.Buffer.Flags, buff.AddressSpace, buff.DeviceToHostTransferMode)) then
+            if buff.UnmanagedBlittablePtr.IsSome || (BufferStrategies.ShouldReadBackBuffer(buff.AccessAnalysis, buff.Buffer.Flags, buff.AddressSpace, buff.DeviceToHostTransferMode)) then
                 // If it's using UseHostPointer then arr already contains the result
-                BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, arr, buff.Buffer)
-                arr
+                if buff.UnmanagedBlittablePtr.IsSome then
+                    BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, buff.UnmanagedBlittablePtr.Value, buff.Buffer, ArrayUtil.GetArrayLengths(arr))                
+                    // Copy to managed memory
+                    this.WriteRecordArrayFromPtr(arr, buff.UnmanagedBlittablePtr.Value) |> ignore
+                    arr
+                else
+                    BufferTools.ReadBuffer(buff.Queue, buff.ReadMode = BufferReadMode.MapBuffer, arr, buff.Buffer)
+                    arr
             else
                 arr
         else
@@ -479,19 +548,27 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                     else
                         // This buffer has already been copied, dispose it
                         buffer.Dispose()
+                        if item.UnmanagedBlittablePtr.IsSome then
+                            Marshal.FreeHGlobal(item.UnmanagedBlittablePtr.Value)
                         untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
                 else 
                     // A buffer not tracked cannot be used elsewhere by other kernels or applications
                     buffer.Dispose()
+                    if item.UnmanagedBlittablePtr.IsSome then
+                        Marshal.FreeHGlobal(item.UnmanagedBlittablePtr.Value)
                     untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
 
     member this.ClearTrackedAndUntrackedPool() =
         for item in untrackedBufferPool do
             for it in item.Value do
                 it.Key.Dispose()
+                if it.Value.UnmanagedBlittablePtr.IsSome then
+                    Marshal.FreeHGlobal(it.Value.UnmanagedBlittablePtr.Value)
         untrackedBufferPool.Clear()
-        for item in trackedBufferPool do
-            item.Value.Buffer.Dispose()
+        for it in trackedBufferPool do
+            it.Value.Buffer.Dispose()
+            if it.Value.UnmanagedBlittablePtr.IsSome then
+                Marshal.FreeHGlobal(it.Value.UnmanagedBlittablePtr.Value)
         trackedBufferPool.Clear()
         reverseTrackedBufferPool.Clear()
 
@@ -499,6 +576,8 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         for item in untrackedBufferPool do
             for it in item.Value do
                 it.Key.Dispose()
+                if it.Value.UnmanagedBlittablePtr.IsSome then
+                    Marshal.FreeHGlobal(it.Value.UnmanagedBlittablePtr.Value)
         untrackedBufferPool.Clear()
 
     interface IDisposable with

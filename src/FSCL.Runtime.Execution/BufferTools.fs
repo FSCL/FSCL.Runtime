@@ -11,7 +11,8 @@ open System.Runtime.InteropServices
 open FSCL.Runtime
 open FSCL.Compiler.Configuration
 open System.Collections.Generic
-  
+open Microsoft.FSharp.Reflection
+
 module internal MemoryUtil =     
     [<DllImport("msvcrt.dll", SetLastError=false, CallingConvention=CallingConvention.Cdecl)>]
     extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr len);
@@ -34,11 +35,20 @@ type BufferTools() =
         let buffer = new OpenCLBuffer(c, flags, t, count)
         buffer
         
+    static member CreateBuffer(ptr: IntPtr,
+                               t:Type, 
+                               count:int64[],
+                               c:OpenCLContext, 
+                               q:OpenCLCommandQueue, 
+                               flags: OpenCLMemoryFlags) =
+        //Console.WriteLine("Creating buffer with size " + (Array.reduce(fun a b -> a * b) count).ToString() + " and flags " + flags.ToString())
+        let buffer = new OpenCLBuffer(c, flags, t, count, ptr)
+        buffer
+        
     static member CreateBuffer(a: Array,
                                c:OpenCLContext, 
                                q:OpenCLCommandQueue, 
                                flags: OpenCLMemoryFlags) =
-        // Check if CopyHostPointer or UseHostPointer otherwise the array is useless
         if (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int > 0) then
         //Console.WriteLine("Creating buffer with size " + (Array.reduce(fun a b -> a * b) count).ToString() + " and flags " + flags.ToString())
             new OpenCLBuffer(c, flags, a)
@@ -85,6 +95,32 @@ type BufferTools() =
                 queue.WriteToBuffer(arr, buffer, false, offset, offset, region, null, evt)
             //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
             
+    static member WriteBuffer(queue: OpenCLCommandQueue, useMap:bool, buffer:OpenCLBuffer, arr:IntPtr, elementType: Type, count:int64[]) =
+        let evt = null;//new List<OpenCLEventBase>()
+        if useMap then
+            let tCount = Array.reduce (fun a b -> a * b) count
+            let tBytes = tCount * (Marshal.SizeOf(buffer.ElementType) |> int64)
+            try 
+                let dstPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Write, 0L, tCount, null, evt)
+                memcpy(dstPtr, arr, new UIntPtr(tBytes |> uint64)) |> ignore                           
+                queue.Unmap(buffer, ref dstPtr, null, null)                             
+            finally
+                ()
+        else
+            match buffer.Count.Length with
+            | 1 ->
+                queue.WriteToBuffer(arr, buffer, false, 0L, count.[0], null, evt)
+            | 2 ->
+                let offset = OpenCL.SysIntX2(0, 0)                
+                let region = OpenCL.SysIntX2(count.[0], count.[1])
+                queue.WriteToBuffer(arr, buffer, false, offset, region, null, evt)
+            | _ ->
+                let offset = OpenCL.SysIntX3(0, 0, 0)
+                let region = 
+                    OpenCL.SysIntX3(count.[0], count.[1], count.[2])
+                queue.WriteToBuffer(arr, buffer, false, offset, region, null, evt)
+            //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
+            
     static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: Array, buffer: OpenCLBuffer, ?count:int64[]) =        
         let evt = null;//new List<OpenCLEventBase>()
         if useMap then
@@ -125,5 +161,35 @@ type BufferTools() =
                     else
                         OpenCL.SysIntX3(o.GetLength(0), o.GetLength(1), o.GetLength(2))
                 queue.ReadFromBuffer(buffer, ref o, true, offset, offset, region, null, evt)
+        //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
+       
+    static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: IntPtr, buffer: OpenCLBuffer, count:int64[]) =        
+        let evt = null;//new List<OpenCLEventBase>()
+        if useMap then
+            let tCount = Array.reduce (fun a b -> a * b) count
+            let tBytes = tCount * (Marshal.SizeOf(buffer.ElementType) |> int64)
+            try 
+                let srcPtr = queue.Map(buffer, true, OpenCLMemoryMappingFlags.Read, 0L, tCount, null, evt)
+                memcpy(o, srcPtr, new UIntPtr(tBytes |> uint64)) |> ignore                                                          
+                queue.Unmap(buffer, ref srcPtr, null, null)                             
+            finally
+                ()
+        else
+            match buffer.Count.Length with
+            | 1 ->
+                queue.ReadFromBuffer(buffer, o, true, 0L, count.[0], null, evt)       
+            | 2 ->
+                let offset = OpenCL.SysIntX2(0,0)
+                let region = 
+                    OpenCL.SysIntX2(count.[0], count.[1])
+                queue.ReadFromBuffer(buffer, 
+                    o, 
+                    true, 
+                    offset, region, null, null)
+            | _ ->
+                let offset = OpenCL.SysIntX3(0,0,0)
+                let region = 
+                    OpenCL.SysIntX3(count.[0], count.[1], count.[2])
+                queue.ReadFromBuffer(buffer, o, true, offset, region, null, evt)
         //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
        

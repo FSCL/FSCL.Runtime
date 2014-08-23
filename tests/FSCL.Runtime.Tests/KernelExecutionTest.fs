@@ -1,4 +1,4 @@
-module FSCL.Runtime.Tests
+module FSCL.Runtime.Tests.KernelExecution
 
 open FSCL
 open FSCL.Runtime

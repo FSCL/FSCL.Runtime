@@ -342,6 +342,18 @@ namespace OpenCL
                 newEvent.TrackGCHandle(destinationGCHandle);
             }
         }
+        public void ReadFromBuffer(OpenCLBufferBase source, IntPtr destination, bool blocking, long sourceOffset, long region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            if (blocking)
+            {
+                Read(source, blocking, sourceOffset, region, destination, events, newEvents);
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, sourceOffset, region, destination, events, newEvents);
+            }
+        }
 
         /// <summary>
         /// Enqueues a command to read data from a buffer.
@@ -358,6 +370,10 @@ namespace OpenCL
         {
             ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, newEvents);
         }
+        public void ReadFromBuffer(OpenCLBufferBase source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            ReadFromBuffer(source, destination, blocking, sourceOffset, region, 0, 0, events, newEvents);
+        }
 
         /// <summary>
         /// Enqueues a command to read data from a buffer.
@@ -373,6 +389,10 @@ namespace OpenCL
         public void ReadFromBuffer(OpenCLBufferBase source, ref Array destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             ReadFromBuffer(source, ref destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
+        }
+        public void ReadFromBuffer(OpenCLBufferBase source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            ReadFromBuffer(source, destination, blocking, sourceOffset, region, 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -405,6 +425,19 @@ namespace OpenCL
                 newEvent.TrackGCHandle(destinationGCHandle);
             }
         }
+        public void ReadFromBuffer(OpenCLBufferBase source, IntPtr destination, bool blocking, SysIntX2 sourceOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {            
+            if (blocking)
+            {
+                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(0, 0, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destination, events, newEvents);
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(0, 0, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, destination, events, eventList);
+            }
+        }
+
 
         /// <summary>
         /// Enqueues a command to read data from a buffer.
@@ -436,6 +469,18 @@ namespace OpenCL
                 Read(source, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destinationGCHandle.AddrOfPinnedObject(), events, eventList);
                 OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
                 newEvent.TrackGCHandle(destinationGCHandle);
+            }
+        }
+        public void ReadFromBuffer(OpenCLBufferBase source, IntPtr destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            if (blocking)
+            {
+                Read(source, blocking, sourceOffset, new SysIntX3(0, 0, 0), region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destination, events, newEvents);
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Read(source, blocking, sourceOffset, new SysIntX3(0, 0, 0), region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, destination, events, eventList);
             }
         }
 
@@ -530,7 +575,7 @@ namespace OpenCL
         {
             WriteToBuffer(source, destination, blocking, 0, 0, destination.TotalCount, events, newEvents);
         }
-
+        
         /// <summary>
         /// Enqueues a command to write data to a buffer.
         /// </summary>
@@ -560,6 +605,18 @@ namespace OpenCL
                 newEvent.TrackGCHandle(sourceGCHandle);
             }
         }
+        public void WriteToBuffer(IntPtr source, OpenCLBufferBase destination, bool blocking, long destinationOffset, long region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            if (blocking)
+            {
+                Write(destination, blocking, destinationOffset, region, source, events, newEvents);
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, destinationOffset, region, source, events, eventList);
+            }
+        }
 
         /// <summary>
         /// Enqueues a command to write data to a buffer.
@@ -576,6 +633,10 @@ namespace OpenCL
         {
             WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, events, newEvents);
         }
+        public void WriteToBuffer(IntPtr source, OpenCLBufferBase destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            WriteToBuffer(source, destination, blocking, destinationOffset, region, 0, 0, events, newEvents);
+        }
 
         /// <summary>
         /// Enqueues a command to write data to a buffer.
@@ -591,6 +652,10 @@ namespace OpenCL
         public void WriteToBuffer(Array source, OpenCLBufferBase destination, bool blocking, SysIntX3 sourceOffset, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null) 
         {
             WriteToBuffer(source, destination, blocking, sourceOffset, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
+        }
+        public void WriteToBuffer(IntPtr source, OpenCLBufferBase destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            WriteToBuffer(source, destination, blocking, destinationOffset, region, 0, 0, 0, 0, events, newEvents);
         }
 
         /// <summary>
@@ -621,6 +686,19 @@ namespace OpenCL
                 Write(destination, blocking, new SysIntX3(sourceOffset, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, sourceGCHandle.AddrOfPinnedObject(), events, eventList);
                 OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
                 newEvent.TrackGCHandle(sourceGCHandle);
+            }
+        }
+        public void WriteToBuffer(IntPtr source, OpenCLBufferBase destination, bool blocking, SysIntX2 destinationOffset, SysIntX2 region, long sourceRowPitch, long destinationRowPitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            if (blocking)
+            {
+                Write(destination, blocking, new SysIntX3(0, 0, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, source, events, newEvents);                
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, new SysIntX3(0, 0, 0), new SysIntX3(destinationOffset, 0), new SysIntX3(region, 1), sourceRowPitch, 0, destinationRowPitch, 0, source, events, eventList);
+                
             }
         }
 
@@ -654,6 +732,19 @@ namespace OpenCL
                 Write(destination, blocking, sourceOffset, destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, sourceGCHandle.AddrOfPinnedObject(), events, eventList);
                 OpenCLEvent newEvent = (OpenCLEvent)eventList.Last();
                 newEvent.TrackGCHandle(sourceGCHandle);
+            }
+        }
+        public void WriteToBuffer(IntPtr source, OpenCLBufferBase destination, bool blocking, SysIntX3 destinationOffset, SysIntX3 region, long sourceRowPitch, long destinationRowPitch, long sourceSlicePitch, long destinationSlicePitch, IReadOnlyList<OpenCLEventBase> events = null, IList<OpenCLEventBase> newEvents = null)
+        {
+            if (blocking)
+            {
+                Write(destination, blocking, new SysIntX3(0, 0, 0), destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, source, events, newEvents);
+            }
+            else
+            {
+                IList<OpenCLEventBase> eventList = (newEvents != null) ? newEvents : Events;
+                Write(destination, blocking, new SysIntX3(0, 0, 0), destinationOffset, region, sourceRowPitch, sourceSlicePitch, destinationRowPitch, destinationSlicePitch, source, events, eventList);
+
             }
         }
 

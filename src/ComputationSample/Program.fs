@@ -10,6 +10,21 @@ open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open OpenCL
+open System.Runtime.InteropServices
+open System.Runtime
+
+type MyStruct =
+    struct
+        val mutable x: float32
+        val mutable y: float32
+        new(a, b) = { x = a; y = b}
+    end
+
+[<StructLayout(LayoutKind.Sequential)>]
+type MyRecord = {
+    mutable x: float32;
+    mutable y: float32    
+}
 
 // Vector addition
 [<Device(0,0)>][<ReflectedDefinition>]
@@ -24,6 +39,28 @@ let VectorAddReturn(a: float32[], b: float32[], wi: WorkItemInfo) =
     c.[gid] <- a.[gid] + b.[gid]
     c
     
+// Vector addition with struct
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAddStruct(a: MyStruct[], b: MyStruct[], c: MyStruct[], wi: WorkItemInfo) =
+    let gid = wi.GlobalID(0)
+    let mutable newStruct = new MyStruct()
+    newStruct.x <- a.[gid].x + b.[gid].x
+    newStruct.y <- a.[gid].y + b.[gid].y
+    c.[gid] <- newStruct
+    
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAddStructConstructor(a: MyStruct[], b: MyStruct[], c: MyStruct[], wi: WorkItemInfo) =
+    let gid = wi.GlobalID(0)
+    let mutable newStruct = new MyStruct(a.[gid].x + b.[gid].x, a.[gid].y + b.[gid].y)
+    c.[gid] <- newStruct
+    
+// Vector addition with record
+[<Device(0,0)>][<ReflectedDefinition>]
+let VectorAddRecord(a: MyRecord[], b: MyRecord[], c: MyRecord[], wi: WorkItemInfo) =
+    let gid = wi.GlobalID(0)
+    let newRecord = { x = a.[gid].x + b.[gid].x; y = a.[gid].y + b.[gid].y }
+    c.[gid] <- newRecord
+
 [<ReflectedDefinition>]
 let sum(a, b) =
     a + b
@@ -127,6 +164,16 @@ let main argv =
     let b4 = Array.create size (float4(3.0f, 3.0f, 3.0f, 3.0f))
     let c4 = Array.zeroCreate<float4> (size)
     let correctMapResult4 = Array.create size (float4(5.0f, 5.0f, 5.0f, 5.0f))
+    // Struct vectors
+    let aStruct = Array.create size (new MyStruct(1.0f, 2.0f))
+    let bStruct = Array.create size (new MyStruct(4.0f, 3.0f))
+    let mutable cStruct = Array.zeroCreate<MyStruct> (size)
+    let correctMapResultStruct = Array.create size (new MyStruct(5.0f, 5.0f))
+    // Record vectors
+    let aRecord = Array.create size ({ x = 1.0f; y = 2.0f })
+    let bRecord = Array.create size ({ x = 4.0f; y = 3.0f })
+    let mutable cRecord = Array.create size ({ x = 4.0f; y = 3.0f })
+    let correctMapResultRecord = Array.create size ({ x = 5.0f; y = 5.0f })
     // Matrices
     let matSize = 32
     let matSizel = matSize |> int64
@@ -179,8 +226,7 @@ let main argv =
             <@ VectorAdd(a, b, c, worksize) @>.Run() |> ignore
             timer.Stop()
             Console.WriteLine("  Second vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
-                       
-       
+                              
         // Simple vector add with utility function
         Console.WriteLine("")
         Console.WriteLine("# Testing vector add with utility function with OpenCL on the first device")
@@ -229,6 +275,81 @@ let main argv =
             timer.Stop()
             Console.WriteLine("  Second float4 add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
         
+        // Vector add with struct
+        Console.WriteLine("")
+        Console.WriteLine("# Testing struct vector add with OpenCL on the first device")
+        // Execute vector add in OpenCL mode
+        let worksize = new WorkSize(lsize, 64L)
+        timer.Start()        
+        <@ VectorAddStruct(aStruct, bStruct, cStruct, worksize) @>.Run(opts) |> ignore
+        timer.Stop()
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMapResultStruct.Length - 1 do
+            if correctMapResultStruct.[i] <> cStruct.[i] then
+                isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First struct vector add returned a wrong result!")
+        else
+            Console.WriteLine("  First struct vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            cStruct <- Array.zeroCreate<MyStruct> (size)
+            timer.Restart()
+            <@ VectorAddStruct(aStruct, bStruct, cStruct, worksize) @>.Run() |> ignore
+            timer.Stop()
+            Console.WriteLine("  Second struct vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+        
+        // Vector add with struct with contructor
+        Console.WriteLine("")
+        Console.WriteLine("# Testing struct with non-default constructor vector add with OpenCL on the first device")
+        // Execute vector add in OpenCL mode
+        let worksize = new WorkSize(lsize, 64L)
+        timer.Start()        
+        <@ VectorAddStructConstructor(aStruct, bStruct, cStruct, worksize) @>.Run(opts) |> ignore
+        timer.Stop()
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMapResultStruct.Length - 1 do
+            if correctMapResultStruct.[i] <> cStruct.[i] then
+                isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First struct with non-default constructor vector add returned a wrong result!")
+        else
+            Console.WriteLine("  First struct with non-default constructor vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            cStruct <- Array.zeroCreate<MyStruct> (size)
+            timer.Restart()
+            <@ VectorAddStructConstructor(aStruct, bStruct, cStruct, worksize) @>.Run() |> ignore
+            timer.Stop()
+            Console.WriteLine("  Second struct with non-default constructor vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+                                     
+        // Vector add with record
+        Console.WriteLine("")
+        Console.WriteLine("# Testing record vector add with OpenCL on the first device")
+        // Execute vector add in OpenCL mode
+        let worksize = new WorkSize(lsize, 64L)
+        timer.Start()        
+        <@ VectorAddRecord(aRecord, bRecord, cRecord, worksize) @>.Run(opts) |> ignore
+        timer.Stop()
+        // Check result
+        let mutable isResultCorrect = true
+        for i = 0 to correctMapResultRecord.Length - 1 do
+            if correctMapResultRecord.[i] <> cRecord.[i] then
+                isResultCorrect <- false
+        if not isResultCorrect then
+            Console.WriteLine("  First record vector add returned a wrong result!")
+        else
+            Console.WriteLine("  First record vector add execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
+
+            // Re-execute vector add exploiting runtime caching for kernels    
+            cRecord <- Array.zeroCreate<MyRecord> (size)
+            timer.Restart()
+            <@ VectorAddRecord(aRecord, bRecord, cRecord, worksize) @>.Run(opts) |> ignore
+            timer.Stop()
+            Console.WriteLine("  Second record vector add execution time (kernel is taken from cache): " + timer.ElapsedMilliseconds.ToString() + "ms")
+                                           
         // Matrix multiplication
         if FirstDeviceSupportMultiDimensionalWorkItems() then
             Console.WriteLine("")
