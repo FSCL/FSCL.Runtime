@@ -14,6 +14,7 @@ open FSCL.Language
 open System.Runtime.InteropServices
 open FSCL.Runtime
 open System.Diagnostics
+open System.Runtime.InteropServices
 
 type LDSBenchmark() = 
     [<ReflectedDefinition>]
@@ -632,8 +633,12 @@ type LDSBenchmark() =
 
     member private this.FindLDSLineSize(pIndex: int, dIndex: int) =
         // Create wavefront test
-        let o = Array.zeroCreate<int> (4 <<< 20)
-        let localSize = 512
+        let localSize = 256
+        let globalSize = 2 <<< 20
+        let tries = 100
+        let strideMax = 32
+
+        let o = Array.zeroCreate<int> (globalSize)
         let localArr = Array.zeroCreate<char>((0 * localSize) + 255)
 
         // Ensure compilation overhead excluded
@@ -643,10 +648,11 @@ type LDSBenchmark() =
         comp.Run()
 
         // Now start from 1 and increase to see no conflicts 
-        let drops = Array.zeroCreate<int> 64
+        let raises = Array.zeroCreate<int64> (strideMax + 1)
         let mutable lastTime = 0L
+        let elSize = Marshal.SizeOf(localArr.GetType().GetElementType())
 
-        for stride = 0 to 16 do
+        for stride = 0 to strideMax do
             let localArr = Array.zeroCreate<char>((stride * localSize) + 255)
             let comp = <@ DEVICE(pIndex, dIndex, 
                                  LDSBenchmark.LDSStrideTest(localArr, o, stride, ws)) @>
@@ -656,42 +662,41 @@ type LDSBenchmark() =
                 comp.Run()
             timer.Stop()
             let currentTime = timer.ElapsedMilliseconds
-            Console.WriteLine("Stride " + (stride * 4).ToString() + " bytes: " + currentTime.ToString() + " ms")
+            Console.WriteLine("Stride " + (stride * elSize).ToString() + " bytes: " + currentTime.ToString() + " ms")
 
-            // Update drops
-            if (currentTime < lastTime) then            
-                // Last stride may be the LDS line size, we +1
-                drops.[stride - 1] <- drops.[stride - 1] + 1
-            else 
-                if stride > 0 then                
-                    drops.[stride - 1] <- drops.[stride - 1] - 1
+            // Update delta with prec
+            if stride > 0 then 
+                raises.[stride - 1] <- currentTime - lastTime
             lastTime <- currentTime
         
-        // Now get the sum of drops of each bucket and multiple
-        let dropsSum = new List<int>()
-        dropsSum.Add(0)
-        for i = 1 to drops.Length - 1 do
+        // Now get the sum of deltas of each bucket and multiple
+        let raisesSum = new List<int>()
+        raisesSum.Add(0)
+        for i = 1 to raises.Length - 2 do
             let mutable currMult = 1
             let mutable sum = 0
-            while (currMult * i) < drops.Length do
-                sum <- sum + drops.[currMult * i]
+            while (currMult * i) < raises.Length do
+                sum <- sum + (raises.[currMult * i] |> int)
                 currMult <- currMult + 1
-            dropsSum.Add(sum)
+            raisesSum.Add(sum)
 
         // Find lds line as max of dropsSum
         let mutable ldsLine = 0
-        let mutable maxDrop = Int32.MinValue
-        for i = 1 to dropsSum.Count - 1 do
-            if dropsSum.[i] > maxDrop then
+        let mutable maxRaise = Int32.MinValue
+        for i = 0 to raisesSum.Count - 1 do
+            if raisesSum.[i] > maxRaise then
                 ldsLine <- i
-                maxDrop <- dropsSum.[i]
-        Console.WriteLine("LDS line is " + (ldsLine * 4).ToString() + " bytes")
+                maxRaise <- raisesSum.[i]
+        Console.WriteLine("LDS line is " + (ldsLine * elSize).ToString() + " bytes")
         ldsLine * 4
 
     member private this.FindLDSBanksCount(stride: int, pIndex: int, dIndex: int) =
         // Create wavefront test
-        let o = Array.zeroCreate<int> (2 <<< 20)
         let localSize = 256L
+        let globalSize = 2 <<< 20
+        let tries = 100
+        let strideMax = 32
+        let o = Array.zeroCreate<int> (2 <<< 20)
         let localArr = Array.zeroCreate<int>((((stride / 4) * 1) * (localSize |> int)) + 255)
 
         // Ensure compilation overhead excluded
