@@ -9,12 +9,40 @@ open System
 open OpenCL
 open Microsoft.FSharp.Core.LanguagePrimitives
 
-type BufferStrategies() =
-    static member ToOpenCLMemoryFlags(flags: MemoryFlags) =
+module DataFeaturesEvaluation =
+    // Inline condition evaluation
+    let inline IsGlobalBuffer(space: AddressSpace) =
+        space <> AddressSpace.Private &&
+        space <> AddressSpace.Local
+        
+    let inline IsDeviceWriteableGlobalBuffer(space: AddressSpace) =
+        space <> AddressSpace.Local &&
+        space <> AddressSpace.Private &&
+        space <> AddressSpace.Constant
+
+    let inline IsBufferRead(analysis: AccessAnalysisResult) =
+        analysis &&& AccessAnalysisResult.ReadAccess |> int > 0
+        
+    let inline IsBufferWritten(analysis: AccessAnalysisResult) =
+        analysis &&& AccessAnalysisResult.WriteAccess |> int > 0
+        
+    let inline IsUsingHostPtr(flags: OpenCLMemoryFlags) =
+        (flags &&& (OpenCLMemoryFlags.UseHostPointer) |> int = 0)
+        
+    let inline IsCopyingHostPtr(flags: OpenCLMemoryFlags) =
+        (flags &&& (OpenCLMemoryFlags.CopyHostPointer) |> int = 0)
+        
+    let inline IsHostPtrRequiredForBuffer(flags: OpenCLMemoryFlags) =
+        IsUsingHostPtr(flags) || IsCopyingHostPtr(flags)
+
+open DataFeaturesEvaluation
+
+module BufferStrategies =
+    let inline ToOpenCLMemoryFlags(flags: MemoryFlags) =
         // Zero out the MemoryFlags.None cause in OpenCL this flag is 0L
         EnumOfValue<int64, OpenCL.OpenCLMemoryFlags> ((flags &&& (~~~ MemoryFlags.None)) |> int64)
 
-    static member AreMemoryFlagsCompatible(given: MemoryFlags, required: MemoryFlags, sharePriority: BufferSharePriority) =
+    let AreMemoryFlagsCompatible(given: MemoryFlags, required: MemoryFlags, sharePriority: BufferSharePriority) =
         if given = required then
             true
         else
@@ -47,17 +75,17 @@ type BufferStrategies() =
                         MemoryFlagsUtil.OnlyHostAccessFlags(given) = MemoryFlagsUtil.OnlyHostAccessFlags(required)                    
                 kernelAccessOk && hostAccessOk
                     
-    static member DetermineBestFlagsAndReadWriteMode(space: AddressSpace, 
-                                                     accessMode: AccessAnalysisResult, 
-                                                     readMode: BufferReadMode, 
-                                                     writeMode: BufferWriteMode, 
-                                                     htdTransferMode: TransferMode,
-                                                     dthTransferMode: TransferMode,
-                                                     flags: MemoryFlags, 
-                                                     isRoot: bool, 
-                                                     isReturn: bool,
-                                                     isVisibleToHost: bool,
-                                                     dev: OpenCLDevice) =
+    let DetermineBestFlagsAndReadWriteMode(space: AddressSpace, 
+                                            accessMode: AccessAnalysisResult, 
+                                            readMode: BufferReadMode, 
+                                            writeMode: BufferWriteMode, 
+                                            htdTransferMode: TransferMode,
+                                            dthTransferMode: TransferMode,
+                                            flags: MemoryFlags, 
+                                            isRoot: bool, 
+                                            isReturn: bool,
+                                            isVisibleToHost: bool,
+                                            dev: OpenCLDevice) =
 
         // Convert wrapper-independant flags to wrapper-dependant flags
         let mutable optFlags = flags
@@ -121,43 +149,33 @@ type BufferStrategies() =
 
         optFlags, optReadMode, optWriteMode
 
-    static member ShouldWriteBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        analysis &&& AccessAnalysisResult.ReadAccess |> int > 0 && 
-        space <> AddressSpace.Private &&
-        space <> AddressSpace.Local
-
-    static member ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (space <> AddressSpace.Private &&
-         space <> AddressSpace.Local &&
-         (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-         (transferMode = TransferMode.ForceTransfer)) ||
-        
-        (BufferStrategies.ShouldWriteBuffer(analysis, flags, space, transferMode) &&
-         (flags &&& (OpenCLMemoryFlags.CopyHostPointer ||| OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-         (transferMode <> TransferMode.NoTransfer))
+    let inline ShouldWriteBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        IsBufferRead(analysis) && IsGlobalBuffer(space) 
+            
+    let inline ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        (ShouldWriteBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer))
+                    
+    let inline IsBufferRequiringHostPtr(flags: OpenCLMemoryFlags) =
+        IsHostPtrRequiredForBuffer(flags)
+                    
+    let inline ShouldExplicitlyWriteToInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        (ShouldWriteBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer)) &&
+         (not (IsHostPtrRequiredForBuffer(flags)))
       
-    static member ShouldReadBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        analysis &&& AccessAnalysisResult.WriteAccess |> int > 0 &&
-        space <> AddressSpace.Local &&
-        space <> AddressSpace.Private &&
-        space <> AddressSpace.Constant &&
-        (flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0
-      
-    static member ShouldReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (space <> AddressSpace.Local &&
-         space <> AddressSpace.Private &&
-         ((flags &&& OpenCLMemoryFlags.UseHostPointer) |> int = 0) &&
-         (transferMode = TransferMode.ForceTransfer)) ||
-
-        (BufferStrategies.ShouldReadBuffer(analysis, flags, space, transferMode) &&
-         (transferMode <> TransferMode.NoTransfer))   
+    let inline ShouldReadBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        IsBufferWritten(analysis) &&
+        IsDeviceWriteableGlobalBuffer(space)
         
-    static member ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
+    let inline ShouldReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        (ShouldReadBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer))
+
+    let inline ShouldExplicitlyReadToReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        (ShouldReadBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer)) &&
+         (not (IsUsingHostPtr(flags)))      
+        
+    let inline ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
                                    toAnalysis: AccessAnalysisResult, toSpace: AddressSpace) =
-        fromAnalysis &&& AccessAnalysisResult.WriteAccess |> int > 0  && 
-        toAnalysis &&& AccessAnalysisResult.ReadAccess |> int > 0 &&
-        fromSpace <> AddressSpace.Local &&
-        fromSpace <> AddressSpace.Private &&
-        fromSpace <> AddressSpace.Constant &&
-        toSpace <> AddressSpace.Local &&
-        toSpace <> AddressSpace.Private 
+        IsBufferWritten(fromAnalysis)  && 
+        IsBufferRead(toAnalysis) &&
+        IsDeviceWriteableGlobalBuffer(fromSpace) &&
+        IsGlobalBuffer(toSpace)

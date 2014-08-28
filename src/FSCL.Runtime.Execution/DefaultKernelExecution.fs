@@ -107,25 +107,26 @@ type DefaultKernelExecutionProcessor() =
                              
                 // Foreach argument of the function
                 for par in node.KernelData.ParsedSignature.GetParameters() do      
-                    match nodeInput.[par.Name] with
-                    | ActualArgument(expr) ->
-                        // Input from an actual argument
-                        let o = LeafExpressionConverter.EvaluateQuotation(expr)
-                        // Store argument
-                        arguments.Add(o)
-                    | KernelOutput(othNode, a) ->
-                        // Copy the output buffer of the input kernel     
-                        match inputFromOtherKernels.[par.Name] with
-                        | ReturnedUntrackedBuffer(b)
-                        | ReturnedTrackedBuffer(b, _) ->
-                            // Must read buffer cause this is a regular function
-                            let arr = pool.BeginOperateOnBuffer(b)
-                            danglingBuffers.Add((b, arr))
-                            arguments.Add(arr)
-                        | ReturnedValue(o) ->
+                    if not (typeof<WorkItemInfo>.IsAssignableFrom(par.ParameterType)) then
+                        match nodeInput.[par.Name] with
+                        | ActualArgument(expr) ->
+                            // Input from an actual argument
+                            let o = LeafExpressionConverter.EvaluateQuotation(expr)
+                            // Store argument
                             arguments.Add(o)
-                    | _ ->
-                        raise (new KernelSetupException("A regular function cannot receive an input different from ActualArgument or KernelOutput"))
+                        | KernelOutput(othNode, a) ->
+                            // Copy the output buffer of the input kernel     
+                            match inputFromOtherKernels.[par.Name] with
+                            | ReturnedUntrackedBuffer(b)
+                            | ReturnedTrackedBuffer(b, _) ->
+                                // Must read buffer cause this is a regular function
+                                let arr = pool.BeginOperateOnBuffer(b, true)
+                                danglingBuffers.Add((b, arr))
+                                arguments.Add(arr)
+                            | ReturnedValue(o) ->
+                                arguments.Add(o)
+                        | _ ->
+                            raise (new KernelSetupException("A regular function cannot receive an input different from ActualArgument or KernelOutput"))
 
                 // Setup workitem info
                 let workSize = LeafExpressionConverter.EvaluateQuotation(node.WorkSize.Value) :?> WorkSize
@@ -149,20 +150,31 @@ type DefaultKernelExecutionProcessor() =
                                             let globalId = [| k; j; i |]
                                             yield globalId
                                 }
+                let tResult = 
+                    if methodToExecute.ReturnType <> typeof<unit> && methodToExecute.ReturnType <> typeof<System.Void> then
+                        Array.CreateInstance(methodToExecute.ReturnType, globalSize)
+                    else
+                        null
+
                 ids |> 
                 Seq.map(fun gid -> 
                             async {                            
                                 let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
                                 let data = args @ [ box workItemInfo ] |> List.toArray
-                                methodToExecute.Invoke(null, data) |> ignore
+                                let res = methodToExecute.Invoke(null, data) 
+                                if tResult <> null then
+                                    tResult.SetValue(res, gid)                                    
                             }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
                             
                 // End operating on buffers
                 for b, arr in danglingBuffers do
-                    pool.EndOperateOnBuffer(arr)
+                    pool.EndOperateOnBuffer(b, arr, true)
 
                 // Return
-                Some(ReturnedValue(()))
+                if tResult <> null then
+                    Some(ReturnedValue(tResult.GetValue([| 0; 0; 0 |])))
+                else
+                    Some(ReturnedValue(()))
                                   
             // Regular function
             | _ ->
@@ -200,7 +212,7 @@ type DefaultKernelExecutionProcessor() =
                         | ReturnedUntrackedBuffer(b)
                         | ReturnedTrackedBuffer(b, _) ->
                             // Must read buffer cause this is a regular function
-                            let arr = pool.BeginOperateOnBuffer(b)
+                            let arr = pool.BeginOperateOnBuffer(b, true)
                             danglingBuffers.Add((b, arr))
                             arguments.Add(arr)
                         | ReturnedValue(o) ->
@@ -217,7 +229,7 @@ type DefaultKernelExecutionProcessor() =
 
                 // End operating on buffers
                 for b, arr in danglingBuffers do
-                    pool.EndOperateOnBuffer(arr)
+                    pool.EndOperateOnBuffer(b, arr, true)
 
                 // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
                 Some(ReturnedValue(result))

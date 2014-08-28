@@ -165,34 +165,38 @@ type ReduceKernelExecutionProcessor() =
 
         // Operate final reduce on cpu
         let result = ref null        
-        pool.OperateOnBuffer(outputBuffer, 
-                             (if isRoot then AccessMode.ReadOnly else AccessMode.ReadWrite),
-                                fun arr ->
-                                    if finalReduceOnCPU then
-                                        // Do final iteration on CPU
-                                        let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
-                                        match reduceFunction with
-                                        | :? MethodInfo ->
-                                            result := arr.GetValue(0)
-                                            for i = 1 to arr.Length - 1 do
-                                                // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                                                result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
-                                        | _ ->
-                                            // WARNING:
-                                            // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
-                                            // It seems that converting to Linq expressions works, but it's less efficient 
-                                            let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
+        let arr = pool.BeginOperateOnBuffer(outputBuffer, true) 
+        let newArr =                           
+            if finalReduceOnCPU then
+                // Do final iteration on CPU
+                let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
+                match reduceFunction with
+                | :? MethodInfo ->
+                    result := arr.GetValue(0)
+                    for i = 1 to arr.Length - 1 do
+                        // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
+                        result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
+                | _ ->
+                    // WARNING:
+                    // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
+                    // It seems that converting to Linq expressions works, but it's less efficient 
+                    let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
                                         
-                                            result := arr.GetValue(0)
-                                            // Curried
-                                            for i = 1 to arr.Length - 1 do
-                                                let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
-                                                let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
-                                                result := r2
-                                        [| !result |] :> Array
-                                     else
-                                        result := arr.GetValue(0)
-                                        [| !result |] :> Array)
+                    result := arr.GetValue(0)
+                    // Curried
+                    for i = 1 to arr.Length - 1 do
+                        let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
+                        let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
+                        result := r2
+                let na = Array.CreateInstance(result.Value.GetType(), 1)
+                na.SetValue(!result, 0)
+                na
+            else
+                result := arr.GetValue(0)
+                let na = Array.CreateInstance(result.Value.GetType(), 1)
+                na.SetValue(!result, 0)
+                na
+        pool.EndOperateOnBuffer(outputBuffer, newArr, not isRoot)
 
         // Dispose input buffer
         pool.EndUsingBuffer(inputBuffer)
@@ -341,34 +345,34 @@ type ReduceKernelExecutionProcessor() =
         let outputPar = kernelData.Kernel.Parameters.[2]
         let result = ref null 
         let finalReduceOnCPU = currentDataSize > 1L
-        pool.OperateOnBuffer(outputBuffer, 
-                             (if isRoot then AccessMode.ReadOnly else AccessMode.ReadWrite),
-                                fun arr ->
-                                    if finalReduceOnCPU then
-                                        // Do final iteration on CPU
-                                        let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
-                                        match reduceFunction with
-                                        | :? MethodInfo ->
-                                            result := arr.GetValue(0)
-                                            for i = 1 to arr.Length - 1 do
-                                                // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                                                result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
-                                        | _ ->
-                                            // WARNING:
-                                            // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
-                                            // It seems that converting to Linq expressions works, but it's less efficient 
-                                            let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
+        let arr = pool.BeginOperateOnBuffer(outputBuffer, true)
+        let newArr =
+            if finalReduceOnCPU then
+                // Do final iteration on CPU
+                let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
+                match reduceFunction with
+                | :? MethodInfo ->
+                    result := arr.GetValue(0)
+                    for i = 1 to arr.Length - 1 do
+                        // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
+                        result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
+                | _ ->
+                    // WARNING:
+                    // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
+                    // It seems that converting to Linq expressions works, but it's less efficient 
+                    let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
                                         
-                                            result := arr.GetValue(0)
-                                            // Curried
-                                            for i = 1 to arr.Length - 1 do
-                                                let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
-                                                let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
-                                                result := r2
-                                        [| !result |] :> Array
-                                     else
-                                        result := arr.GetValue(0)
-                                        [| !result |] :> Array)
+                    result := arr.GetValue(0)
+                    // Curried
+                    for i = 1 to arr.Length - 1 do
+                        let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
+                        let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
+                        result := r2
+                [| !result |] :> Array
+                else
+                result := arr.GetValue(0)
+                [| !result |] :> Array
+        pool.EndOperateOnBuffer(outputBuffer, newArr, not isRoot)
 
         // Dispose input buffer
         pool.EndUsingBuffer(inputBuffer)

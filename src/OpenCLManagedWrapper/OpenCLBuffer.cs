@@ -36,6 +36,8 @@ namespace OpenCL
     using OpenCL.Bindings;
     using System.Collections.Generic;
 
+    /**/
+
     /// <summary>
     /// Represents an OpenCL buffer.
     /// </summary>
@@ -45,7 +47,13 @@ namespace OpenCL
     public class OpenCLBuffer : OpenCLBufferBase
     {
         #region Properties
+        /*
         public GCHandle ArrayHandle
+        {
+            get;
+            private set;
+        }
+        public IntPtr ArrayPtr
         {
             get;
             private set;
@@ -54,7 +62,7 @@ namespace OpenCL
         {
             get;
             private set;
-        }
+        }*/
         #endregion
 
         #region Constructors
@@ -96,7 +104,7 @@ namespace OpenCL
         /// <param name="flags"> A bit-field that is used to specify allocation and usage information about the <see cref="OpenCLBuffer{T}"/>. </param>
         /// <param name="data"> The data for the <see cref="OpenCLBuffer{T}"/>. </param>
         /// <remarks> Note, that <paramref name="data"/> cannot be an "immediate" parameter, i.e.: <c>new T[100]</c>, because it could be quickly collected by the GC causing OpenCL to send and invalid reference to OpenCL. </remarks>
-        public OpenCLBuffer(OpenCLContext context, OpenCLMemoryFlags flags, Array data)
+       /* public OpenCLBuffer(OpenCLContext context, OpenCLMemoryFlags flags, Array data)
             : base(context, flags, data.GetType().GetElementType(), OpenCLBuffer.GetArrayLengths(data))
         {
             GCHandle dataPtr = GCHandle.Alloc(data, GCHandleType.Pinned);
@@ -119,7 +127,7 @@ namespace OpenCL
                     dataPtr.Free(); 
             }
             Init();
-        }
+        }*/
 
         private OpenCLBuffer(CLMemoryHandle handle, OpenCLContext context, OpenCLMemoryFlags flags, Type elementType)
             : base(context, flags, elementType, null)
@@ -162,8 +170,8 @@ namespace OpenCL
 #endregion
         protected override void Dispose(bool manual)
         {
-            if (this.IsValidArrayHandle)
-                this.ArrayHandle.Free();
+            //if (this.IsValidArrayHandle)
+              //  this.ArrayHandle.Free();
             base.Dispose(manual);
         }
     }

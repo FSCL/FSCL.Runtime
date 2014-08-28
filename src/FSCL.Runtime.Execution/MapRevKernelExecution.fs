@@ -133,7 +133,7 @@ type MapRevKernelExecutionProcessor() =
                             | ReturnedUntrackedBuffer(b)
                             | ReturnedTrackedBuffer(b, _) ->
                                 // Must read buffer cause this is a regular function
-                                let arr = pool.BeginOperateOnBuffer(b)
+                                let arr = pool.BeginOperateOnBuffer(b, true)
                                 danglingBuffers.Add((b, arr))
                                 arguments.Add(arr)
                             | ReturnedValue(o) ->
@@ -173,7 +173,7 @@ type MapRevKernelExecutionProcessor() =
                             
                     // End operating on buffers
                     for b, arr in danglingBuffers do
-                        pool.EndOperateOnBuffer(arr)
+                        pool.EndOperateOnBuffer(b, arr, true)
 
                     // Return
                     Some(ReturnedValue(()))

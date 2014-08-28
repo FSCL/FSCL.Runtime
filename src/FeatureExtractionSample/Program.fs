@@ -28,8 +28,8 @@ let main argv =
     //let waveFrontBenchmark = new WavefrontBenchmark.WavefrontBenchmark()
     //waveFrontBenchmark.Execute(0, 1)
 
-    let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
-    ldsBenchmark.Execute(0, 1)
+    //let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
+    //ldsBenchmark.Execute(0, 1)
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
@@ -59,5 +59,5 @@ let main argv =
     for sample in samples do
         sample.Run(chain)
 
-    0 // return an integer exit code
+    50 // return an integer exit code
 

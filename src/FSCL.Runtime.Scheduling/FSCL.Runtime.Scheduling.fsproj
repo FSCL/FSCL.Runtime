@@ -105,31 +105,29 @@
     <Compile Include="QuotationUtil.fs" />
     <Compile Include="QuotationEvaluation.fs" />
     <Compile Include="ExpressionCounter.fs" />
-    <Compile Include="MemoryTransfer.Tools.fs" />
-    <Compile Include="MemoryTransfer.Test.fs" />
     <Compile Include="SchedulingMetric.fs" />
     <Compile Include="InterThreadMemoryAccessAnalyser.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Language.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.3.3\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Util.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />

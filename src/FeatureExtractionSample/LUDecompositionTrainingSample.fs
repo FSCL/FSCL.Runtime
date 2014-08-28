@@ -352,7 +352,7 @@ type LUDecompositionTrainingSample() =
                                 
             execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
         execResults
-         
+         (*
 type LUDecompositionOpenCLDirectTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
 
@@ -631,3 +631,4 @@ type LUDecompositionOpenCLDirectTrainingSample() =
 
 
 
+ *)

@@ -55,7 +55,7 @@ let CreateStructVectors size =
 let CreateRecordVectors size =
     let a = Array.create size ({ x = 1.0f; y = 2.0f })
     let b = Array.create size ({ x = 4.0f; y = 3.0f })
-    let c = Array.zeroCreate<MyRecord> size
+    let c = Array.create size ({ x = 0.0f; y = 0.0f })
     a, b, c
   
 // Tests            
@@ -88,7 +88,7 @@ let ``Can run vector addition with records``() =
         let worksize = new WorkSize(1024L, 64L)
         <@ VectorAddRecord(a, b, c, worksize) @>.Run() 
         let correctResult = (a, b) ||> Array.map2 (fun s1 s2 -> { x = s1.x + s2.x; y = s1.y + s2.y })
-        ()
+        Assert.AreEqual(correctResult, c)        
     else
         System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
     
