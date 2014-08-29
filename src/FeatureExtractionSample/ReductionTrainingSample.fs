@@ -86,7 +86,7 @@ type SimpleReductionTrainingSample() =
         let a = o :?> int[]
         Array.reduce (fun a b -> placeholderComp a b) a |> box
         
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly: bool) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])
@@ -186,8 +186,10 @@ type SimpleReductionTrainingSample() =
                                                         | _ ->
                                                             box((a :?> float) + (b :?> float))) features additFeatures
                            
-                            // Run           
-                            comp.Run(opts)
+                            // Run   
+                            if not featureOnly then            
+                                comp.Run(opts)
+
                             if pIndex = 0 && dIndex = 0 then
                                 kernelCallCount <- kernelCallCount + 1
 
@@ -201,79 +203,82 @@ type SimpleReductionTrainingSample() =
                                     currentBlockSize <- prevOutputSize
                                     currentOutputSize <- 1L
                             firstIteration <- false
-                            
-                        if not (this.Verify(c.[0], reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Force clear buffer pool, otherwise successive iterations reuse buffers
-                            Runtime.ForceClearPool(false)
-                            
-                            let c = Array.zeroCreate<int> (!size / blockSize |> int)
+                                                            
+                            if not featureOnly then
+                                if not (this.Verify(c.[0], reference)) then
+                                    Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                                else
+                                    // Force clear buffer pool, otherwise successive iterations reuse buffers
+                                    Runtime.ForceClearPool(false)
+                                    
+                                    let c = Array.zeroCreate<int> (!size / blockSize |> int)
 
-                            // Run                                                  
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                let mutable currentInputSize = !size
-                                let mutable currentOutputSize = !size / blockSize
-                                let mutable currentBlockSize = blockSize
-                                if currentOutputSize = 0L then
-                                    currentOutputSize <- 1L
-
-                                let mutable firstIteration = true
-                                while currentOutputSize > 0L do
-                                    let inputTransferMode =
-                                        if firstIteration then
-                                            TransferMode.TransferIfNeeded
-                                        else
-                                            TransferMode.NoTransfer     
-                                    let outputTransferMode =
-                                        if currentOutputSize = 1L then
-                                            TransferMode.TransferIfNeeded
-                                        else
-                                            TransferMode.NoTransfer     
-                                    let input = 
-                                        if firstIteration then
-                                            a
-                                        else
-                                            c
-
-                                    let ws = WorkSize(currentOutputSize, Math.Min(128L, currentOutputSize))
-                                    let comp = <@ DEVICE(pIndex, dIndex,
-                                                    SimpleReduction(
-                                                        TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
-                                                            BUFFER_READ_MODE(rm, 
-                                                                MEMORY_FLAGS(fl, 
-                                                                    input))),
-                                                        TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
-                                                            BUFFER_WRITE_MODE(wm, 
-                                                                MEMORY_FLAGS(fl, 
-                                                                    c))),
-                                                        currentBlockSize |> int,
-                                                        currentInputSize |> int,
-                                                        ws)) @>   
-                           
-                                    // Run           
-                                    comp.Run(opts)
-
-                                    if currentOutputSize = 1L then
-                                        currentOutputSize <- 0L
-                                    else
-                                        let prevOutputSize = currentOutputSize
-                                        currentInputSize <- prevOutputSize
-                                        currentOutputSize <- currentOutputSize / currentBlockSize    
+                                    // Run                                                  
+                                    let watch = new Stopwatch()
+                                    watch.Start()
+                                    for i = 0 to iterations - 1 do
+                                        let mutable currentInputSize = !size
+                                        let mutable currentOutputSize = !size / blockSize
+                                        let mutable currentBlockSize = blockSize
                                         if currentOutputSize = 0L then
-                                            currentBlockSize <- prevOutputSize
                                             currentOutputSize <- 1L
-                                    firstIteration <- false
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                                
+
+                                    let mutable firstIteration = true
+                                    while currentOutputSize > 0L do
+                                        let inputTransferMode =
+                                            if firstIteration then
+                                                TransferMode.TransferIfNeeded
+                                            else
+                                                TransferMode.NoTransfer     
+                                        let outputTransferMode =
+                                            if currentOutputSize = 1L then
+                                                TransferMode.TransferIfNeeded
+                                            else
+                                                TransferMode.NoTransfer     
+                                        let input = 
+                                            if firstIteration then
+                                                a
+                                            else
+                                                c
+
+                                        let ws = WorkSize(currentOutputSize, Math.Min(128L, currentOutputSize))
+                                        let comp = <@ DEVICE(pIndex, dIndex,
+                                                        SimpleReduction(
+                                                            TRANSFER_MODE(inputTransferMode, TransferMode.NoTransfer,
+                                                                BUFFER_READ_MODE(rm, 
+                                                                    MEMORY_FLAGS(fl, 
+                                                                        input))),
+                                                            TRANSFER_MODE(TransferMode.NoTransfer, outputTransferMode,
+                                                                BUFFER_WRITE_MODE(wm, 
+                                                                    MEMORY_FLAGS(fl, 
+                                                                        c))),
+                                                            currentBlockSize |> int,
+                                                            currentInputSize |> int,
+                                                            ws)) @>   
+                               
+                                        // Run           
+                                        comp.Run(opts)
+
+                                        if currentOutputSize = 1L then
+                                            currentOutputSize <- 0L
+                                        else
+                                            let prevOutputSize = currentOutputSize
+                                            currentInputSize <- prevOutputSize
+                                            currentOutputSize <- currentOutputSize / currentBlockSize    
+                                            if currentOutputSize = 0L then
+                                                currentBlockSize <- prevOutputSize
+                                                currentOutputSize <- 1L
+                                        firstIteration <- false
+                                    watch.Stop()
+                                    let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                    
+                                    // Dump
+                                    Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                    instanceResult <- instanceResult @ [ ttime ]
+                                    System.Threading.Thread.Sleep(500)
+                            else
+                                instanceResult <- instanceResult @ [ 0.0f ]
+
                 execResults <- execResults @ [ instanceResult @ [!size; blockSize; kernelCallCount] @ features ]  
                 blockSize <- blockSize * 2L
                               
@@ -301,7 +306,7 @@ type AdvancedReductionTrainingSample() =
             ids.Add("Number of kernel calls")
             ids |> List.ofSeq
 
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])

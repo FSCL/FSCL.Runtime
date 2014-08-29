@@ -121,7 +121,7 @@ type TransposeTrainingSample() =
             ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly: bool) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -155,6 +155,11 @@ type TransposeTrainingSample() =
                                                         let r = (i |> int64) / cols
                                                         r |> float32)                                    
             let block = Array.zeroCreate<float32> (blockSize * (blockSize + 1L) |> int)
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                else
+                    [||]
             //let rf = float4tofloat(reference)
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
@@ -183,31 +188,32 @@ type TransposeTrainingSample() =
                     features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)
                                                                                                           
                     // Run once to skip compilation time
-                    comp.Run()
-                    let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                    if not featureOnly then
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                    
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            instanceResult <- instanceResult @ [ ttime ]
+                            System.Threading.Thread.Sleep(500)
                     else
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run()
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                
-                        // Dump
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
-                                
+                        instanceResult <- instanceResult @ [ 0.0f ]     
             execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
         execResults
 
 type TransposeFloat4TrainingSample() =    
     inherit TransposeTrainingSample()
             
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])

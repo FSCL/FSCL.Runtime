@@ -16,6 +16,17 @@ open System.Runtime.InteropServices
 open FSCL.Runtime.Scheduling.ReflectionUtil
 open FSCL.Runtime
 
+type InterThreadMemoryAccessResult() =
+    member val Stride0OnXAccessCount = 0.0f with get, set
+    member val Stride0OnYAccessCount = 0.0f with get, set
+    member val Stride0OnZAccessCount = 0.0f with get, set
+    member val Stride1OnXAccessCount = 0.0f with get, set
+    member val Stride1OnYAccessCount = 0.0f with get, set
+    member val Stride1OnZAccessCount = 0.0f with get, set
+    member val StrideNOnXAccessCount = 0.0f with get, set
+    member val StrideNOnYAccessCount = 0.0f with get, set
+    member val StrideNOnZAccessCount = 0.0f with get, set
+
 // Work item info where global ID and local ID can be set
 type MutableWorkItemInfo(globalID: int64[], localID: int64[], globalSize: int64[], localSize: int64[], globalOffset: int64[]) =
     inherit WorkSize(globalSize, localSize, globalOffset)
@@ -140,21 +151,31 @@ type MemoryAccessPatternAnalyser() =
                 let count, strides = this.EvaluateStride(accessExprCount, accessExpr, dynDefArgs, args)
                 strideList.Add((count, strides))
 
+        // Now we group into stride-0, stride-1, stride > 1 for each dimension
         // Now we average using the count as weight and we replace tuple (intra, inter) with a 2-el array
-        let avgStrideList = Array.create 6 0.0f
-        let mutable totalCount = 0
+        let aggregatedStride = new InterThreadMemoryAccessResult()
         for itemCount, strides in strideList do
-            totalCount <- totalCount + itemCount
-            for sIndex = 0 to strides.Length - 1 do
-                match strides.[sIndex] with
-                | intra ->
-                    avgStrideList.[sIndex] <- (avgStrideList.[sIndex * 2] + (itemCount |> float32) * intra)
-        
-        for sIndex = 0 to avgStrideList.Length - 1 do
-            avgStrideList.[sIndex] <- avgStrideList.[sIndex] / (totalCount |> float32)          
+            if strides.[0] = 0.0f then
+                aggregatedStride.Stride0OnXAccessCount <- aggregatedStride.Stride0OnXAccessCount + (itemCount |> float32)
+            if strides.[1] = 0.0f then
+                aggregatedStride.Stride0OnYAccessCount <- aggregatedStride.Stride0OnYAccessCount + (itemCount |> float32)
+            if strides.[2] = 0.0f then
+                aggregatedStride.Stride0OnZAccessCount <- aggregatedStride.Stride0OnZAccessCount + (itemCount |> float32)
+            if strides.[0] = 1.0f then
+                aggregatedStride.Stride1OnXAccessCount <- aggregatedStride.Stride1OnXAccessCount + (itemCount |> float32)
+            if strides.[1] = 1.0f then
+                aggregatedStride.Stride1OnYAccessCount <- aggregatedStride.Stride1OnYAccessCount + (itemCount |> float32)
+            if strides.[2] = 1.0f then
+                aggregatedStride.Stride1OnZAccessCount <- aggregatedStride.Stride1OnZAccessCount + (itemCount |> float32)
+            if strides.[0] > 1.0f then
+                aggregatedStride.StrideNOnXAccessCount <- aggregatedStride.StrideNOnXAccessCount + (itemCount |> float32)
+            if strides.[1] > 1.0f then
+                aggregatedStride.StrideNOnYAccessCount <- aggregatedStride.StrideNOnYAccessCount + (itemCount |> float32)
+            if strides.[2] > 1.0f then
+                aggregatedStride.StrideNOnZAccessCount <- aggregatedStride.StrideNOnZAccessCount + (itemCount |> float32)
             
         // Average strides using access count as weight
-        avgStrideList |> List.ofArray |> List.map box
+        []
 
             
                 

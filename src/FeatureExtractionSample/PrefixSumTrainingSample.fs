@@ -255,7 +255,7 @@ type PrefixSumTrainingSample() =
         let a = o :?> float32[]
         Array.scan (fun sum el -> sum + el) 0.0f a |> box
 
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, onlyFeature) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])

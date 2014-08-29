@@ -143,7 +143,7 @@ type MatrixMultSimpleTrainingSample() =
             ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly: bool) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -173,7 +173,11 @@ type MatrixMultSimpleTrainingSample() =
                                           
             let a = Array2D.init (rows |> int) (cols |> int) (fun r c -> r |> float32)
             let b = Array2D.init (cols |> int) (rows |> int) (fun r c -> r |> float32)
-            let reference = this.CreateVerifiedOutput((a, b)) :?> float32[,]
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutput((a, b)) :?> float32[,]
+                else
+                    Array2D.zeroCreate<float32> 1 1
 
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
@@ -202,29 +206,32 @@ type MatrixMultSimpleTrainingSample() =
                         features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
 
                         // Run once to skip compilation time
-                        comp.Run()
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else                        
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                        
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                                
+                        if not featureOnly then    
+                            comp.Run()
+                            if not (this.Verify(c, reference)) then
+                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                            else                        
+                                // Run
+                                let watch = new Stopwatch()
+                                watch.Start()
+                                for i = 0 to iterations - 1 do
+                                    comp.Run()
+                                watch.Stop()
+                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                            
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                instanceResult <- instanceResult @ [ ttime ]
+                                System.Threading.Thread.Sleep(500)
+                        else
+                            instanceResult <- instanceResult @ [ 0.0f ] 
+                               
             execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
         execResults
 
 type MatrixMultAdvancedTrainingSample() =    
     inherit MatrixMultSimpleTrainingSample()
 
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -254,7 +261,11 @@ type MatrixMultAdvancedTrainingSample() =
                                           
             let a = Array.init (rows * cols |> int) (fun i -> rnd.Next() % 10 |> float32)
             let b = Array.init (cols * cols |> int) (fun i -> rnd.Next() % 10 |> float32)
-            let reference = this.CreateVerifiedOutput((a, b)) :?> float32[,]
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutput((a, b)) :?> float32[,]
+                else
+                    Array2D.zeroCreate<float32> 1 1
 
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
@@ -284,22 +295,24 @@ type MatrixMultAdvancedTrainingSample() =
                         features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
 
                         // Run once to skip compilation time
-                        comp.Run()
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else                        
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                        
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                                
+                        if not featureOnly then    
+                            comp.Run()
+                            if not (this.Verify(c, reference)) then
+                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                            else                        
+                                // Run
+                                let watch = new Stopwatch()
+                                watch.Start()
+                                for i = 0 to iterations - 1 do
+                                    comp.Run()
+                                watch.Stop()
+                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                            
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                instanceResult <- instanceResult @ [ ttime ]
+                                System.Threading.Thread.Sleep(500)
+                        else   
+                            instanceResult <- instanceResult @ [ 0.0f ]  
             execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
         execResults
          

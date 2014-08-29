@@ -15,7 +15,8 @@ type BranchCounter() =
     inherit IDefaultFeatureExtractor()
     override this.FeatureNameList 
         with get() =
-            [ "Branch count (per thread)"]
+            [ "Branch count" ]
+
     override this.Precompute(m: IKernelModule) =
         // Count branches
         let parameters = m.Kernel.OriginalParameters |> 
@@ -23,9 +24,9 @@ type BranchCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let count, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                parameters,
-                                                (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
+        let bcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                                 parameters,
+                                                 (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
                                                     match e with
                                                     | Patterns.IfThenElse(cond, ifb, elseb) ->
                                                         let ifc = continuation(ifb)
@@ -33,8 +34,9 @@ type BranchCounter() =
                                                         Value(<@ 1.0f + (0.5f * %ifc) + (0.5f * %elsec) @>)
                                                     | _ ->
                                                         Continue),
-                                                false)
+                                                 false)
+
         // Build lambda expr 
-        ([box count], (ph |> List.ofSeq)) :> obj
+        ([box bcount], (ph |> List.ofSeq)) :> obj
 
                 

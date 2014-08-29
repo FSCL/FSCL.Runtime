@@ -22,14 +22,14 @@ type IFeatureExtractionTrainingSample() =
     abstract member CreateVerifiedOutput: obj -> obj
     abstract member DefaultConfiguration: unit -> XDocument
     abstract member Configuration: unit -> XDocument
-    abstract member RunInternal: FeatureExtractionChain * XDocument -> obj list list
+    abstract member RunInternal: FeatureExtractionChain * XDocument * bool -> obj list list
 
-    member this.Run(fec:FeatureExtractionChain) =
+    member this.Run(fec:FeatureExtractionChain, extractFeaturesOnly: bool) =
         let conf = this.Configuration()
         let wr = new StreamWriter(this.TrainingSampleID + "_Features.csv", false)
         let fnl = String.concat ";" (this.ResultColumnIDs @ fec.FeatureNameList)
         wr.WriteLine(fnl)
-        let flist = this.RunInternal(fec, conf)
+        let flist = this.RunInternal(fec, conf, extractFeaturesOnly)
         for row in flist do
             let rowList = String.concat ";" (List.map (fun a -> a.ToString()) row)
             wr.WriteLine(rowList)

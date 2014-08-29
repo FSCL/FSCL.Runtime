@@ -130,7 +130,7 @@ type ConvolutionTrainingSample() =
             ids.Add("Filter Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly: bool) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -161,7 +161,11 @@ type ConvolutionTrainingSample() =
                 let inputSize = matSize + (filterSize |> int64) - 1L                          
                 let a = Array.init (inputSize * inputSize |> int) (fun it -> ((it |> int64) / inputSize) |> float32)
                 let filter = Array.create (filterSize * filterSize |> int) 2.0f  
-                let reference = this.CreateVerifiedOutput((a, filter, inputSize |> int, filterSize |> int)) :?> float32[]
+                let reference = 
+                    if not featureOnly then
+                        this.CreateVerifiedOutput((a, filter, inputSize |> int, filterSize |> int)) :?> float32[]
+                    else
+                        [||]
 
                 let mutable features: obj list = []
                 let mutable instanceResult: obj list = []
@@ -192,22 +196,24 @@ type ConvolutionTrainingSample() =
                         features <- chain.Evaluate(km, precomputedFeatures, [ a; filter; c; inputSize |> int; ws ],  opts)
 
                         // Run once to skip compilation time
-                        comp.Run(opts)
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else                            
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run(opts)
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-
+                        if not featureOnly then    
+                            comp.Run(opts)
+                            if not (this.Verify(c, reference)) then
+                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                            else                            
+                                // Run
+                                let watch = new Stopwatch()
+                                watch.Start()
+                                for i = 0 to iterations - 1 do
+                                    comp.Run(opts)
+                                watch.Stop()
+                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                        
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                instanceResult <- instanceResult @ [ ttime ]
+                                System.Threading.Thread.Sleep(500)
+                        else
+                            instanceResult <- instanceResult @ [ 0.0f ]
                     let featureValues = features |> List.map(fun (featV) -> featV.ToString()) |> String.concat ";"
 
                     execResults <- execResults @ [ instanceResult @ [matSize; matSize; filterSize; filterSize] @ features ]  

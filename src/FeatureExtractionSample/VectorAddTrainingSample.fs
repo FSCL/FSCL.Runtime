@@ -55,7 +55,7 @@ type VectorAddTrainingSample() =
             ids.Add("Vector Size (elements)")
             ids |> List.ofSeq
                 
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, featureOnly: bool) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])
@@ -81,7 +81,11 @@ type VectorAddTrainingSample() =
             for i = 0 to (!size |> int) - 1 do
                 a.[i] <- (float32)i
                 b.[i] <- (float32)((!size |> int) - i)
-            let reference = this.CreateVerifiedOutput((a, b))
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutput((a, b)) :?> float32[]
+                else
+                    Array.zeroCreate<float32> 1
 
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
@@ -107,24 +111,27 @@ type VectorAddTrainingSample() =
                     let km = compiler.Compile(comp, opts) :?> IKernelModule
                     let precomputedFeatures = chain.Precompute(km)
                     features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
-                                                     
-                    // Run once to skip compilation time
-                    comp.Run()
-                    if not (this.Verify(c, reference)) then
-                        Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+
+                    if not featureOnly then                                 
+                        // Run once to skip compilation time
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                    
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            instanceResult <- instanceResult @ [ ttime ]
+                            System.Threading.Thread.Sleep(500)
                     else
-                        // Run
-                        let watch = new Stopwatch()
-                        watch.Start()
-                        for i = 0 to iterations - 1 do
-                            comp.Run()
-                        watch.Stop()
-                        let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                
-                        // Dump
-                        Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                        instanceResult <- instanceResult @ [ ttime ]
-                        System.Threading.Thread.Sleep(500)
+                      instanceResult <- instanceResult @ [ 0.0f ]      
                                 
             execResults <- execResults @ [ instanceResult @ [!size] @ features ]                
             size := !size * 2L   

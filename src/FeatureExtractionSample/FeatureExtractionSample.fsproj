@@ -114,33 +114,28 @@
     <Compile Include="ReductionTrainingSample.fs" />
     <Compile Include="PrefixSumTrainingSample.fs" />
     <Compile Include="TransposeTrainingSample.fs" />
+    <Compile Include="MandelbrotTrainingSample.fs" />
     <Compile Include="LUDecompositionTrainingSample.fs" />
     <Compile Include="WavefrontBenchmark.fs" />
     <Compile Include="LDSBenchmark.fs" />
     <Compile Include="Program.fs" />
-    <None Include="Script1.fsx" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
       <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
       <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
       <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
       <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
       <HintPath>..\..\packages\FSCL.Compiler.1.3.4\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />

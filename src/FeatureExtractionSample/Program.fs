@@ -30,34 +30,36 @@ let main argv =
 
     //let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
     //ldsBenchmark.Execute(0, 1)
+    let onlyFeatures = true
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
-                                              //new BranchCounter();
-                                              //new MemoryAccessCounter();
-                                              //new ArithmeticOperationCounter();
-                                              //new DataSizeCounter();
-                                              //new WorkSizeCounter();
-                                              new MemoryAccessPatternAnalyser()
+                                              new BranchCounter();
+                                              new MemoryAccessCounter();
+                                              new ArithmeticOperationCounter();
+                                              new DataSizeCounter();
+                                              new WorkSizeCounter();
+                                              new TotalLoopIterationsCounter()
+                                              //new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|
-                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
-                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         // ERROR new TransposeFloat4TrainingSample() :> IFeatureExtractionTrainingSample;
                         //new LUDecompositionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 
     for sample in samples do
-        sample.Run(chain)
+        sample.Run(chain, onlyFeatures)
 
-    50 // return an integer exit code
+    0 // return an integer exit code
 

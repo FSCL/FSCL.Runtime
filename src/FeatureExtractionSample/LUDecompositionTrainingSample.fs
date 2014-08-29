@@ -119,7 +119,7 @@ type LUDecompositionTrainingSample() =
             ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf) = 
+    override this.RunInternal(chain, conf, onlyFeature) = 
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
