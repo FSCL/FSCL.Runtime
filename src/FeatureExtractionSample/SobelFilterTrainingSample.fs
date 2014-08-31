@@ -245,7 +245,11 @@ type SobelFilterTrainingSample() =
                 input.[0, i] <- uchar4(1 |> byte)
 
             // Compute reference for verification
-            let reference = this.CreateVerifiedOutputNoBorder((input))
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutputNoBorder((input))
+                else
+                    null  
 
             // Iterate on devices
             let mutable features: obj list = []

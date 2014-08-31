@@ -75,16 +75,16 @@ type LoopIterationCounter() =
                                    stack: VarStack,
                                    //workItemIdContainerPlaceholder: Quotations.Var,
                                    dynamicDefinesPlaceholders: Var list) =            
-        let rec EstimateInternal(expr: Expr, stack: VarStack, loopIterCount: Expr<float32>) =
+        let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
             match expr with
             | Patterns.Let(va, value, body) ->
-                let maybeOpRange: (Expr<float32> * VarStack) option = EstimateLoopWithOpRange(expr, stack, loopIterCount)
+                let maybeOpRange: (Expr<float32> * VarStack) option = EstimateLoopWithOpRange(expr, stack)
                 if maybeOpRange.IsSome then
                     maybeOpRange.Value
                 else
-                    let _, newStack = EstimateInternal(value, stack, loopIterCount)
-                    let bodyCount, newStack = EstimateInternal(body, push stack (va, value, false), loopIterCount)
+                    let _, newStack = EstimateInternal(value, stack)
+                    let bodyCount, newStack = EstimateInternal(body, push stack (va, value, false))
                     bodyCount, pop newStack
 
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
@@ -92,37 +92,38 @@ type LoopIterationCounter() =
 
                 let unfoldStart = UnfoldExpr(starte, stack)
                 let unfoldEnd = UnfoldExpr(ende, newStack)
-                let totalIterCount = 
+                let iterCount = 
                     <@
                         if ((%%unfoldStart : int) > (%%unfoldEnd : int)) then
-                            (((float32)(%%unfoldStart : int) - (float32)(%%unfoldEnd : int) + 1.0f)) * %loopIterCount
+                            (((float32)(%%unfoldStart : int) - (float32)(%%unfoldEnd : int) + 1.0f))
                         else
-                            (((float32)(%%unfoldEnd : int) - (float32)(%%unfoldStart : int) + 1.0f)) * %loopIterCount
+                            (((float32)(%%unfoldEnd : int) - (float32)(%%unfoldStart : int) + 1.0f))
                     @>      
-                let bodyCount, bodyStack = EstimateInternal(body, newStack, totalIterCount)
-                bodyCount, pop bodyStack
+                let bodyCount, bodyStack = EstimateInternal(body, newStack)
+
+                <@ (%iterCount) * Math.Max(%bodyCount, 1.0f) @>, pop bodyStack
                   
             | Patterns.WhileLoop(guard, body) ->
-                let totalIterCount = EstimateSimpleWhileLoop(guard, body, stack, loopIterCount)
+                let totalIterCount = EstimateSimpleWhileLoop(guard, body, stack)
                 totalIterCount, stack
 
             | ExprShape.ShapeVar(_) ->
-                loopIterCount, stack
+                <@ 0.0f @>, stack
 
             | ExprShape.ShapeLambda(v, l) ->
-                let totalIterCount, newStack = EstimateInternal(l, stack, loopIterCount)
-                totalIterCount, newStack
+                let bodyCount, newStack = EstimateInternal(l, stack)
+                bodyCount, newStack
             
             | ExprShape.ShapeCombination(o, l) ->
                 let mutable totalIterCount = <@ 0.0f @>
                 let mutable newStack = stack
                 for item in l do
-                    let itemCount, nStack = EstimateInternal(item, newStack, loopIterCount)
+                    let itemCount, nStack = EstimateInternal(item, newStack)
                     totalIterCount <- <@ %totalIterCount + %itemCount @>
                     newStack <- nStack
                 totalIterCount, newStack                 
               
-        and EstimateLoopWithOpRange(expr: Expr, stack: VarStack, loopIterCount: Expr<float32>) =
+        and EstimateLoopWithOpRange(expr: Expr, stack: VarStack) =
             match expr with
             | Patterns.Let (inputSequence, value, body) ->
                 match value with 
@@ -147,10 +148,10 @@ type LoopIterationCounter() =
                                                 let unfoldStep = UnfoldExpr(stepe, stack)
                                                 let unfoldEnd = UnfoldExpr(ende, stack)
                                                 let totalIterCount = <@
-                                                                        ((float32)(Math.Ceiling((float)(((float32)(%%unfoldEnd:int) - (float32)(%%unfoldStart:int) + 1.0f) / (float32)(%%unfoldStep:int))))) * %loopIterCount
+                                                                        ((float32)(Math.Ceiling((float)(((float32)(%%unfoldEnd:int) - (float32)(%%unfoldStart:int) + 1.0f) / (float32)(%%unfoldStep:int)))))
                                                                      @>
-                                                let bodyCount, subStack = EstimateInternal(body, newStack, totalIterCount)
-                                                Some(bodyCount, (subStack |> pop |> pop))
+                                                let bodyCount, subStack = EstimateInternal(body, newStack)
+                                                Some(<@ (%totalIterCount) * Math.Max(%bodyCount, 1.0f) @>, (subStack |> pop |> pop))
                                             | _ -> None
                                         | _ -> None
                                     | _ -> None
@@ -236,7 +237,7 @@ type LoopIterationCounter() =
                 else
                     true
 
-        and EstimateSimpleWhileLoop(guard:Expr, body:Expr, stack: VarStack, loopIterCount: Expr<float32>) =
+        and EstimateSimpleWhileLoop(guard:Expr, body:Expr, stack: VarStack) =
             let rec findVarUpdate(v: Var, e: Expr) =
                 match e with
                 | Patterns.VarSet(ov, assExpr) ->
@@ -334,22 +335,22 @@ type LoopIterationCounter() =
                             let totalIterCount =
                                 match updateOp with
                                 | DerivedPatterns.SpecificCall <@ (+) @> (o, t, arguments) ->
-                                    <@ ((((%%unfoldCond |> float32) - (%%bindingValue.Value |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) * %loopIterCount @>
+                                    <@ ((((%%unfoldCond |> float32) - (%%bindingValue.Value |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) @>
                                 | DerivedPatterns.SpecificCall <@ (-) @> (o, t, arguments) ->
-                                    <@ ((((%%bindingValue.Value |> float32) - (%%unfoldCond |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) * %loopIterCount @>
+                                    <@ ((((%%bindingValue.Value |> float32) - (%%unfoldCond |> float32)) / (%%updateExpr |> float32)) + (increment |> float32)) @>
                                 | DerivedPatterns.SpecificCall <@ (*) @> (o, t, arguments) ->
-                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) - Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) + increment) |> float32) * %loopIterCount @> 
+                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) - Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) + increment) |> float32) @> 
                                 | DerivedPatterns.SpecificCall <@ (/) @> (o, t, arguments)-> 
-                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) - Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) + increment)  |> float32) * %loopIterCount @> 
+                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (%%updateExpr |> float)) - Math.Log((%%unfoldCond |> float), (%%updateExpr |> float)) + increment)  |> float32) @> 
                                 | DerivedPatterns.SpecificCall <@ (>>>) @> (o, t, arguments) ->
-                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) * %loopIterCount @>  
+                                    <@ (Math.Floor(Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) @>  
                                 | DerivedPatterns.SpecificCall <@ (<<<) @> (o, t, arguments) ->
-                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) * %loopIterCount @> 
+                                    <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) @> 
                                 | _ ->
                                     raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
 
-                            let bodyCount, subStack = EstimateInternal(body, stack, totalIterCount)
-                            bodyCount
+                            let bodyCount, subStack = EstimateInternal(body, stack)
+                            <@ (%totalIterCount) * Math.Max(%bodyCount, 1.0f) @>
                         | _ ->                            
                             raise (new ExpressionCounterError("Cannot find the variable update of a while loop"))                                
                     else
@@ -359,7 +360,7 @@ type LoopIterationCounter() =
             | _ ->
                 raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
                    
-        EstimateInternal(functionBody, stack, <@ 1.0f @>)            
+        EstimateInternal(functionBody, stack)            
             
     // Removes (0+0+0+0+0+) useless counts in the expression
     static member private CleanInstructionCount (expr: Expr<float32>) =
