@@ -34,22 +34,23 @@ let main argv =
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
-                                              new BranchCounter();
-                                              new MemoryAccessCounter();
-                                              new ArithmeticOperationCounter();
-                                              new DataSizeCounter();
-                                              new WorkSizeCounter();
-                                              new TotalLoopIterationsCounter()
+                                              //new BranchCounter();
+                                              //new MemoryAccessCounter();
+                                              //new ArithmeticOperationCounter();
+                                              //new DataSizeCounter();
+                                              //new WorkSizeCounter();
+                                              new OperationDensityAnalyser();
+                                              //new TotalLoopIterationsCounter()
                                               //new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|
-                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
-                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;

@@ -105,6 +105,7 @@
     <Compile Include="QuotationUtil.fs" />
     <Compile Include="QuotationEvaluation.fs" />
     <Compile Include="ExpressionCounter.fs" />
+    <Compile Include="OperationDensityCounter.fs" />
     <Compile Include="LoopIterationCounter.fs" />
     <Compile Include="SchedulingMetric.fs" />
     <Compile Include="InterThreadMemoryAccessAnalyser.fs" />
