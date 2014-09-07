@@ -27,10 +27,10 @@ module DataFeaturesEvaluation =
         analysis &&& AccessAnalysisResult.WriteAccess |> int > 0
         
     let inline IsUsingHostPtr(flags: OpenCLMemoryFlags) =
-        (flags &&& (OpenCLMemoryFlags.UseHostPointer) |> int = 0)
+        (flags &&& (OpenCLMemoryFlags.UseHostPointer) |> int > 0)
         
     let inline IsCopyingHostPtr(flags: OpenCLMemoryFlags) =
-        (flags &&& (OpenCLMemoryFlags.CopyHostPointer) |> int = 0)
+        (flags &&& (OpenCLMemoryFlags.CopyHostPointer) |> int > 0)
         
     let inline IsHostPtrRequiredForBuffer(flags: OpenCLMemoryFlags) =
         IsUsingHostPtr(flags) || IsCopyingHostPtr(flags)
