@@ -11,6 +11,7 @@ open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
 
+open SumRowsColsTrainingSample
 open VectorAddTrainingSample
 open MatrixMultTrainingSample
 open ConvolutionTrainingSample
@@ -30,26 +31,28 @@ let main argv =
 
     //let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
     //ldsBenchmark.Execute(0, 1)
-    let onlyFeatures = true
+    let onlyFeatures = false
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
-                                              //new BranchCounter();
-                                              //new MemoryAccessCounter();
-                                              //new ArithmeticOperationCounter();
-                                              //new DataSizeCounter();
-                                              //new WorkSizeCounter();
-                                              new OperationDensityAnalyser();
+                                              new BranchCounter();
+                                              new MemoryAccessCounter();
+                                              new ArithmeticOperationCounter();
+                                              new DataSizeCounter();
+                                              new WorkSizeCounter();
+                                              //new OperationDensityAnalyser();
                                               //new TotalLoopIterationsCounter()
                                               //new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|
+                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
