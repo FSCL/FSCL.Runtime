@@ -40,7 +40,7 @@ let main argv =
                                               new ArithmeticOperationCounter();
                                               new DataSizeCounter();
                                               new WorkSizeCounter();
-                                              new OperationDensityAnalyser();
+                                              //new OperationDensityAnalyser();
                                               //new TotalLoopIterationsCounter()
                                               //new MemoryAccessPatternAnalyser()
                                            |])

@@ -75,8 +75,8 @@ type SumColsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 
@@ -170,8 +170,8 @@ type SumRowsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 
