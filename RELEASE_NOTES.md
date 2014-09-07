@@ -1,3 +1,6 @@
+### 1.3.3 - 07 September 2014
+* Update to 1.3.7 FSCL Compiler
+
 ### 1.3.2 - 23 August 2014
 * Records and structs fully supported by both custom kernels and collection functions
 
