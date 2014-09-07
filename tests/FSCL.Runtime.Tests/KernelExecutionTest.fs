@@ -30,6 +30,15 @@ let sum(a, b) =
 let VectorAddWithUtilityFunction(a: float32[], b: float32[], c: float32[], wi:WorkItemInfo) =
     let gid = wi.GlobalID(0)
     c.[gid] <- sum(a.[gid], b.[gid])
+    
+// Vector addition with utility function inline  
+[<ReflectedDefinition>][<Inline>]
+let inline sumInline(a, b) =
+    a + b
+[<ReflectedDefinition>]
+let VectorAddWithUtilityFunctionInline(a: float32[], b: float32[], c: float32[], wi:WorkItemInfo) =
+    let gid = wi.GlobalID(0)
+    c.[gid] <- sum(a.[gid], b.[gid])
 
 // Vector4 addition
 [<ReflectedDefinition>]
@@ -148,6 +157,17 @@ let ``Can run vector addition with utility function``() =
         let a, b, c = CreateVectors 1024
         let worksize = new WorkSize(1024L, 64L)
         <@ VectorAddWithUtilityFunction(a, b, c, worksize) @>.Run() 
+        let correctResult = Array.map2 (+) a b
+        Assert.AreEqual(correctResult, c)
+    else
+        System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
+                
+[<Test>]
+let ``Can run vector addition with inline utility function``() =
+    if OpenCL.OpenCLPlatform.Platforms.Count > 0 then
+        let a, b, c = CreateVectors 1024
+        let worksize = new WorkSize(1024L, 64L)
+        <@ VectorAddWithUtilityFunctionInline(a, b, c, worksize) @>.Run() 
         let correctResult = Array.map2 (+) a b
         Assert.AreEqual(correctResult, c)
     else

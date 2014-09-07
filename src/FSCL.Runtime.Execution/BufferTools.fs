@@ -15,7 +15,9 @@ open Microsoft.FSharp.Reflection
 
 module internal MemoryUtil =     
     [<DllImport("msvcrt.dll", SetLastError=false, CallingConvention=CallingConvention.Cdecl)>]
-    extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr len);
+    extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr len)
+    [<DllImport("msvcrt.dll", EntryPoint = "memset", CallingConvention = CallingConvention.Cdecl, SetLastError = false)>]
+    extern IntPtr memset(IntPtr dest, int c, int count)
 
 open MemoryUtil
 

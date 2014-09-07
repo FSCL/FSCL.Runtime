@@ -48,29 +48,22 @@ type HostSideDataHandle(data: Array) =
                     if FSharpType.IsRecord(dataType) then
                         let size = Marshal.SizeOf(dataType)
                         let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
+                        MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
                         let mutable currentPtr = unmanagedPtr
                         for i = 0 to data.Length - 1 do
                             if data.GetValue(i) <> null then
                                 Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
-                                currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
-                            else
-                                let recDefValues = FSharpType.GetRecordFields(dataType) |> Array.map(fun (p:Reflection.PropertyInfo) -> Activator.CreateInstance(p.PropertyType))
-                                let defRec = FSharpValue.MakeRecord(dataType, recDefValues)
-                                Marshal.StructureToPtr(defRec, currentPtr, false)
-                                currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))  
+                            currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
                         ptr <- unmanagedPtr                          
                     else
                         let size = Marshal.SizeOf(dataType)
                         let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
+                        MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
                         let mutable currentPtr = unmanagedPtr
                         for i = 0 to data.Length - 1 do
                             if data.GetValue(i) <> null then
                                 Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
-                                currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
-                            else
-                                let defRec = Activator.CreateInstance(dataType)
-                                Marshal.StructureToPtr(defRec, currentPtr, false)
-                                currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))   
+                            currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
                         ptr <- unmanagedPtr 
     
     member this.BeforeTransferFromDevice() =
@@ -86,25 +79,23 @@ type HostSideDataHandle(data: Array) =
                 for i = 0 to data.Length - 1 do
                     if (data.GetValue(i) <> null) then
                         Marshal.PtrToStructure(currentPtr, data.GetValue(i))
-                        currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
                     else
                         let recDefValues = FSharpType.GetRecordFields(dataType) |> Array.map(fun (p:Reflection.PropertyInfo) -> Activator.CreateInstance(p.PropertyType))
                         let defRec = FSharpValue.MakeRecord(dataType, recDefValues)
                         Marshal.PtrToStructure(currentPtr, defRec)
                         data.SetValue(defRec, [| i |])
-                        currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
+                    currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
             else
                 let size = Marshal.SizeOf(dataType)
                 let mutable currentPtr = ptr
                 for i = 0 to data.Length - 1 do
                     if (data.GetValue(i) <> null) then
                         Marshal.PtrToStructure(currentPtr, data.GetValue(i))
-                        currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
                     else
                         let defRec = Activator.CreateInstance(dataType)
                         Marshal.PtrToStructure(currentPtr, defRec)
                         data.SetValue(defRec, [| i |])
-                        currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
+                    currentPtr <- new IntPtr(((int64)currentPtr) + ((int64)size))
 
     interface IDisposable with
         member this.Dispose() =
@@ -491,13 +482,13 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         // Read back tracked modified buffers
         for item in trackedBufferPool do
             let poolItem = item.Value
-            this.ReadBufferToEnsureHostAccess(poolItem)
+            this.ReadBufferToEnsureHostAccess(poolItem, false)
                     
     member this.ReadRootBuffer() =
         // Read back root return buffer
         if rootReturnBuffer.IsSome then
             let poolItem, arr = rootReturnBuffer.Value
-            this.ReadBufferToEnsureHostAccess(poolItem)
+            this.ReadBufferToEnsureHostAccess(poolItem, false)
             arr
         else
             null
@@ -508,13 +499,13 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             let poolItem = trackedBufferPool.[array]
             
             if willRead then
-                this.ReadBufferToEnsureHostAccess(poolItem)
+                this.ReadBufferToEnsureHostAccess(poolItem, false)
             array
         else if untrackedBufferPool.ContainsKey(b.Context) && untrackedBufferPool.[b.Context].ContainsKey(b) then
             let poolItem = untrackedBufferPool.[b.Context].[b]
             this.PromoteUntrackedToTracked(poolItem)
             if willRead then
-                this.ReadBufferToEnsureHostAccess(poolItem)
+                this.ReadBufferToEnsureHostAccess(poolItem, true)
             poolItem.HostDataHandle.Value.ManagedData
         else
             null      
@@ -688,11 +679,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         bf
 
     // Private methods    
-    member private this.ReadBufferToEnsureHostAccess(poolItem: BufferPoolItem) =
+    member private this.ReadBufferToEnsureHostAccess(poolItem: BufferPoolItem, hasBeenPromoted: bool) =
         let shouldReadBackBuffer = BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) 
         if shouldReadBackBuffer then
             poolItem.HostDataHandle.Value.BeforeTransferFromDevice()
-            if BufferStrategies.ShouldExplicitlyReadToReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
+            if hasBeenPromoted || BufferStrategies.ShouldExplicitlyReadToReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 // No need to READ to unmanaged pointer
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.HostDataHandle.Value.Ptr, poolItem.Buffer, poolItem.HostDataHandle.Value.Lenghts)                
             poolItem.HostDataHandle.Value.SyncManagedWithUnmanaged()

@@ -8,8 +8,8 @@
     open OpenCL
 
     // Vector addition with utility taking values
-    [<ReflectedDefinition>]
-    let sumValues(a, b) =
+    [<ReflectedDefinition>][<Inline>]
+    let inline sumValues(a, b) =
         a + b
 
     [<Device(0,0)>][<ReflectedDefinition>]
@@ -27,7 +27,7 @@
         let gid = wi.GlobalID(0)
         c.[gid] <- sumArrays(a, b, gid)
         
-    // Vector addition with nested utility
+    // Vector addition with nested and inline utility
     [<ReflectedDefinition>]
     let sumArraysNested(a:float32[], b:float32[], i:int) =
         sumValues(a.[i], b.[i])
