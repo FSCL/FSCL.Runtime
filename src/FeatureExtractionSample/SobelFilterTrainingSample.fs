@@ -81,27 +81,28 @@ let SobelFilter2DNoBorder(inputImage: uchar4[,],
     let x = wi.GlobalID(0)
     let y = wi.GlobalID(1)
 
-    let width = wi.GlobalSize(0)
-    let height = wi.GlobalSize(1)
+    let width = outputImage.GetLength(1)
+    let height = outputImage.GetLength(0)
 
     let mutable Gx = float4(0.0f)
     let mutable Gy = Gx
 
-    // Read each texel component and calculate the filtered value using neighbouring texel components 
-    let i00 = (inputImage.[y, x]).ToFloat4()
-    let i10 = (inputImage.[y, x + 1]).ToFloat4()
-    let i20 = (inputImage.[y, x + 2]).ToFloat4()
-    let i01 = (inputImage.[y + 1, x]).ToFloat4()
-    let i11 = (inputImage.[y + 1, x + 1]).ToFloat4()
-    let i21 = (inputImage.[y + 1, x + 2]).ToFloat4()
-    let i02 = (inputImage.[y + 2, x]).ToFloat4()
-    let i12 = (inputImage.[y + 2, x + 1]).ToFloat4()
-    let i22 = (inputImage.[y + 2, x + 2]).ToFloat4()
+    if x < width && y < height then
+        // Read each texel component and calculate the filtered value using neighbouring texel components 
+        let i00 = (inputImage.[y, x]).ToFloat4()
+        let i10 = (inputImage.[y, x + 1]).ToFloat4()
+        let i20 = (inputImage.[y, x + 2]).ToFloat4()
+        let i01 = (inputImage.[y + 1, x]).ToFloat4()
+        let i11 = (inputImage.[y + 1, x + 1]).ToFloat4()
+        let i21 = (inputImage.[y + 1, x + 2]).ToFloat4()
+        let i02 = (inputImage.[y + 2, x]).ToFloat4()
+        let i12 = (inputImage.[y + 2, x + 1]).ToFloat4()
+        let i22 = (inputImage.[y + 2, x + 2]).ToFloat4()
 
-    Gx <- i00 + float4(2.0f) * i10 + i20 - i02  - float4(2.0f) * i12 - i22
-    Gy <- i00 - i20  + float4(2.0f) * i01 - float4(2.0f) * i21 + i02 - i22
+        Gx <- i00 + float4(2.0f) * i10 + i20 - i02  - float4(2.0f) * i12 - i22
+        Gy <- i00 - i20  + float4(2.0f) * i01 - float4(2.0f) * i21 + i02 - i22
 
-    outputImage.[y, x] <- (float4.hypot(Gx, Gy)/float4(2.0f)).ToUChar4()
+        outputImage.[y, x] <- (float4.hypot(Gx, Gy)/float4(2.0f)).ToUChar4()
 
 type SobelFilterTrainingSample() =
    inherit IDefaultFeatureExtractionTrainingSample()
@@ -228,8 +229,8 @@ type SobelFilterTrainingSample() =
 
         let rm = BufferReadMode.MapBuffer
         let wm = BufferWriteMode.MapBuffer
-        let ifl = MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 
@@ -259,7 +260,7 @@ type SobelFilterTrainingSample() =
                     if dIndex > 0 then                                
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                         let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
-                        let ws = WorkSize([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                        let ws = WorkSize([| (((outputSize - 1) / 16) + 1) * 16 |> int64; (((outputSize - 1) / 16) + 1) * 16 |> int64 |], [| 16L; 16L |])
 
                         let comp = <@ DEVICE(pIndex, dIndex,
                                         SobelFilter2DNoBorder(
@@ -297,5 +298,5 @@ type SobelFilterTrainingSample() =
                         else   
                             instanceResult <- instanceResult @ [ 0.0f ]            
                 execResults <- execResults @ [ instanceResult @ [inputSize; !size] @ features ]                
-                size := !size * 2L   
+                size := !size + 2L   
         execResults 
