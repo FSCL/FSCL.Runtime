@@ -21,8 +21,8 @@
 
         let mutable accum = 0.0f
         for k = 0 to a.GetLength(1) - 1 do
-            accum <- accum + (a.[x,k] * b.[k,y])
-        c.[x,y] <- accum
+            accum <- accum + (a.[y,k] * b.[k,x])
+        c.[y,x] <- accum
 
     let Run() =    
         let FirstDeviceSupportMultiDimensionalWorkItems() =
@@ -44,13 +44,14 @@
         let correctReduceResult = Array.reduce (fun a b -> a + b) a
                 
         // Matrices
-        let matSize = 32
+        let matSize = 16
         let matSizel = matSize |> int64
-        let am = Array2D.create matSize matSize 2.0f
-        let bm = Array2D.create matSize matSize 3.0f
+        let am = Array2D.create matSize (matSize * 2) 2.0f
+        let bm = Array2D.create (matSize * 2) matSize 3.0f
         let dm = Array2D.zeroCreate<float32> matSize matSize
-        let correctMatMul = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32))
-        let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) + 116.0f)
+        let em = Array2D.create matSize matSize 1.0f
+        let correctMatMul = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) * 2.0f)
+        let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) * 2.0f + 1.0f)
 
         // ***************************************************************************************************
         // Simple vector add ****************************************************************************
