@@ -56,17 +56,14 @@ let MatrixAdd(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
 
 // Matrix multiplication
 [<ReflectedDefinition>]
-let MatrixMult(a: float32[,], b: float32[,], wi: WorkItemInfo) =
-    let result = Array2D.zeroCreate (a.GetLength(0)) (b.GetLength(1))
-    let x = wi.GlobalID(0)
-    let y = wi.GlobalID(1)
+let MatrixMult(a: float32[,], b: float32[,], result: float32[,], wi: WorkItemInfo) =
+    let col = wi.GlobalID(0)
+    let row = wi.GlobalID(1)
 
     let mutable accum = 0.0f
     for k = 0 to a.GetLength(1) - 1 do
-        accum <- accum + (a.[x,k] * b.[k,y])
-    result.[x,y] <- accum
-
-    result
+        accum <- accum + (a.[row, k] * b.[k, col])
+    result.[row, col] <- accum
     
 // Matrix multiplication with local and reference to global var (BLOCK_SIZE)
 [<ReflectedDefinition>]
@@ -121,6 +118,12 @@ let CreateVectors size =
     let b = Array.create size 3.5f
     let c = Array.zeroCreate<float32> size
     a, b, c
+    
+let CreateMatrices rows cols =
+    let a = Array2D.create rows cols 2.5f
+    let b = Array2D.create cols rows 3.5f
+    let c = Array2D.zeroCreate<float32> rows rows
+    a, b, c
 
 let Create4Vectors size =
     let a = Array.create size (float4(2.5f))
@@ -172,4 +175,25 @@ let ``Can run vector addition with inline utility function``() =
         Assert.AreEqual(correctResult, c)
     else
         System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
+        
+[<Test>]
+let ``Can run matrix multiplication``() =
+    if OpenCL.OpenCLPlatform.Platforms.Count > 0 && 
+       OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.Count > 1 &&
+       OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.[1] > 1L then
+        let a, b, c = CreateMatrices 256 128
+        let worksize = new WorkSize([| 128L; 128L |], [| 16L; 16L |])
+        <@ MatrixMult(a, b, c, worksize) @>.Run() 
+        let correctResult = 
+            let r = Array2D.zeroCreate<float32> 256 256
+            for r = 0 to a.GetLength(0) - 1 do
+                for c = 0 to b.GetLength(1) - 1 do
+                    let mutable accum = 0.0f
+                    for k = 0 to a.GetLength(1) - 1 do
+                        accum <- accum + a.[r, k] * b.[k, c]
+            r
+        Assert.AreEqual(correctResult, c)
+    else
+        System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
+
     
