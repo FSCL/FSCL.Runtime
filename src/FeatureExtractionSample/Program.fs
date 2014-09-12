@@ -46,12 +46,12 @@ let main argv =
                                            |])
     
     let samples = [|
-                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 

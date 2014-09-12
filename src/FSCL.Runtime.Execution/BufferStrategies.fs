@@ -27,10 +27,10 @@ module DataFeaturesEvaluation =
         analysis &&& AccessAnalysisResult.WriteAccess |> int > 0
         
     let inline IsUsingHostPtr(flags: OpenCLMemoryFlags) =
-        (flags &&& (OpenCLMemoryFlags.UseHostPointer) |> int = 0)
+        (flags &&& (OpenCLMemoryFlags.UseHostPointer) |> int > 0)
         
     let inline IsCopyingHostPtr(flags: OpenCLMemoryFlags) =
-        (flags &&& (OpenCLMemoryFlags.CopyHostPointer) |> int = 0)
+        (flags &&& (OpenCLMemoryFlags.CopyHostPointer) |> int > 0)
         
     let inline IsHostPtrRequiredForBuffer(flags: OpenCLMemoryFlags) =
         IsUsingHostPtr(flags) || IsCopyingHostPtr(flags)
@@ -158,9 +158,10 @@ module BufferStrategies =
     let inline IsBufferRequiringHostPtr(flags: OpenCLMemoryFlags) =
         IsHostPtrRequiredForBuffer(flags)
                     
-    let inline ShouldExplicitlyWriteToInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (ShouldWriteBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer)) &&
-         (not (IsHostPtrRequiredForBuffer(flags)))
+    let ShouldExplicitlyWriteToInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
+        let toWrite = (ShouldWriteBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer)) 
+        let res = (not (IsHostPtrRequiredForBuffer(flags)))
+        toWrite && res
       
     let inline ShouldReadBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
         IsBufferWritten(analysis) &&

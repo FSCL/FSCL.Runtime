@@ -255,46 +255,47 @@ type SobelFilterTrainingSample() =
             let mutable features: obj list = []
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
-                for dIndex, dName, dType in pDevs do                                
-                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                    let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
-                    let ws = WorkSize([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
+                for dIndex, dName, dType in pDevs do
+                    if dIndex > 0 then                                
+                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                        let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
+                        let ws = WorkSize([| outputSize |> int64; outputSize |> int64 |], [| 16L; 16L |])
 
-                    let comp = <@ DEVICE(pIndex, dIndex,
-                                    SobelFilter2DNoBorder(
-                                        BUFFER_READ_MODE(rm, 
-                                            MEMORY_FLAGS(ifl, 
-                                                input)),
-                                        BUFFER_WRITE_MODE(wm, 
-                                            MEMORY_FLAGS(ofl, 
-                                                output)),
-                                        ws)) @>   
-                        
-                    // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ input; output; ws ], opts)
-                                                     
-                    // Run once to skip compilation time
-                    if not featureOnly then    
-                        comp.Run()
-                        if not (this.Verify(output, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                    else   
-                        instanceResult <- instanceResult @ [ 0.0f ]            
-            execResults <- execResults @ [ instanceResult @ [inputSize; !size] @ features ]                
-            size := !size * 2L   
+                        let comp = <@ DEVICE(pIndex, dIndex,
+                                        SobelFilter2DNoBorder(
+                                            BUFFER_READ_MODE(rm, 
+                                                MEMORY_FLAGS(ifl, 
+                                                    input)),
+                                            BUFFER_WRITE_MODE(wm, 
+                                                MEMORY_FLAGS(ofl, 
+                                                    output)),
+                                            ws)) @>   
+                            
+                        // Extract features
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        features <- chain.Evaluate(km, precomputedFeatures, [ input; output; ws ], opts)
+                                                         
+                        // Run once to skip compilation time
+                        if not featureOnly then    
+                            comp.Run()
+                            if not (this.Verify(output, reference)) then
+                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                            else
+                                // Run
+                                let watch = new Stopwatch()
+                                watch.Start()
+                                for i = 0 to iterations - 1 do
+                                    comp.Run()
+                                watch.Stop()
+                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                        
+                                // Dump
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                instanceResult <- instanceResult @ [ ttime ]
+                                System.Threading.Thread.Sleep(500)
+                        else   
+                            instanceResult <- instanceResult @ [ 0.0f ]            
+                execResults <- execResults @ [ instanceResult @ [inputSize; !size] @ features ]                
+                size := !size * 2L   
         execResults 

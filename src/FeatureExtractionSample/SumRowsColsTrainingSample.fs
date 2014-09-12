@@ -198,7 +198,7 @@ type SumRowsTrainingSample() =
 
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > -1 then
+                    if dIndex > 0 then
                         let c = Array.zeroCreate (rows |> int)
                         let ws = new WorkSize(cols, Math.Min(cols, 64L))                                    
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
