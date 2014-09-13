@@ -257,7 +257,7 @@ type SobelFilterTrainingSample() =
             let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > 0 then                                
+                    if dIndex > -1 then                                
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                         let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
                         let ws = WorkSize([| (((outputSize - 1) / 16) + 1) * 16 |> int64; (((outputSize - 1) / 16) + 1) * 16 |> int64 |], [| 16L; 16L |])
