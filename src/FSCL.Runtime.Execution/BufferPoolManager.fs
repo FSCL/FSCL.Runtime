@@ -276,6 +276,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     writeMode,
                                     parameter.IsReturned)            
             if BufferStrategies.ShouldExplicitlyWriteToInitBuffer(parameter.AccessAnalysis, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags), addressSpace.AddressSpace, transferMode.HostToDeviceMode) then
+                dataHandle.BeforeTransferToDevice()
                 BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, dataHandle.Ptr, arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr))    
                 //else
                 //Console.WriteLine("Buffer is NOT initialised")                           
@@ -515,6 +516,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         if trackedBufferPool.ContainsKey(array) then
             let poolItem = trackedBufferPool.[array]
             if hasWritten && BufferStrategies.ShouldWriteBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.HostToDeviceTransferMode) then
+                poolItem.HostDataHandle.Value.BeforeTransferToDevice()
                 BufferTools.WriteBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.Buffer, poolItem.HostDataHandle.Value.Ptr, poolItem.HostDataHandle.Value.ElementType, poolItem.HostDataHandle.Value.Lenghts)   
         else
             // Array ref changed

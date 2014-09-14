@@ -26,7 +26,7 @@ type VectorAddTrainingSample() =
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinVectorSize", 2048L)
-        dict.Add("MaxVectorSize", 16L <<< 20)
+        dict.Add("MaxVectorSize", 8L <<< 20)
         dict.Add("Iterations", 100)
         dict
         
@@ -134,5 +134,5 @@ type VectorAddTrainingSample() =
                       instanceResult <- instanceResult @ [ 0.0f ]      
                                 
             execResults <- execResults @ [ instanceResult @ [!size] @ features ]                
-            size := !size * 2L   
+            size := !size + minSize   
         execResults

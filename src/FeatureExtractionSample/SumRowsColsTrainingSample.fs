@@ -170,8 +170,8 @@ type SumRowsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UsePersistentMemAMD
+        let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UsePersistentMemAMD
 
         let mutable execResults: obj list list = []
                 
@@ -198,7 +198,7 @@ type SumRowsTrainingSample() =
 
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > 0 then
+                    if dIndex > -1 then
                         let c = Array.zeroCreate (rows |> int)
                         let ws = new WorkSize(cols, Math.Min(cols, 64L))                                    
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  

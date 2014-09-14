@@ -145,8 +145,8 @@ type ConvolutionTrainingSample() =
 
         let rm = BufferReadMode.MapBuffer
         let wm = BufferWriteMode.MapBuffer
-        let ifl = MemoryFlags.HostWriteOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.HostReadOnly ||| MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 
@@ -217,6 +217,6 @@ type ConvolutionTrainingSample() =
                     let featureValues = features |> List.map(fun (featV) -> featV.ToString()) |> String.concat ";"
 
                     execResults <- execResults @ [ instanceResult @ [matSize; matSize; filterSize; filterSize] @ features ]  
-                    matSize <- matSize * 2L
+                    matSize <- matSize + minSize
         execResults
 
