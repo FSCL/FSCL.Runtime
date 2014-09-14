@@ -31,7 +31,7 @@
         let timer = new Stopwatch()
 
         // Vectors
-        let size = 1 <<< 10
+        let size = 1 <<< 20
         let lsize = size |> int64
         let a = Array.create size 2.0f
         let b = Array.create size 3.0f
@@ -130,6 +130,8 @@
                                             comp.Run() |> ignore
                                             timer.Stop()
                                             Console.WriteLine("Test execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
+                                        
+                                        System.Threading.Thread.Sleep(3000)
                                         // ***************************************************************************************************
            
         // ***************************************************************************************************
