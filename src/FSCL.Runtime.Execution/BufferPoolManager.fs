@@ -103,7 +103,6 @@ type HostSideDataHandle(data: Array) =
             else
                 if ptr <> IntPtr.Zero then
                     Marshal.FreeHGlobal(ptr)
-            
 
 [<AllowNullLiteral>]
 type BufferPoolItem(buffer: OpenCLBuffer, 
@@ -253,10 +252,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 trackedBufferPool.[arr] <- bufferItem          
                 reverseTrackedBufferPool.Add(bufferItem.Buffer, arr)
                 bufferItem.Buffer
-        else
-            //Console.WriteLine("No buffer found, create it")   
+        else 
             // Create a buffer tracking the parameter
             let dataHandle = new HostSideDataHandle(arr)
+
+            // If the ptr to data is required to create the buffer, prepare it
             if BufferStrategies.IsBufferRequiringHostPtr(BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)) then
                 dataHandle.BeforeTransferToDevice()
 
@@ -273,12 +273,12 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     transferMode.DeviceToHostMode,                    
                                     readMode,
                                     writeMode,
-                                    parameter.IsReturned)            
+                                    parameter.IsReturned)   
+            // If we have to write the buffer explicitely to init it, do it         
             if BufferStrategies.ShouldExplicitlyWriteToInitBuffer(parameter.AccessAnalysis, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags), addressSpace.AddressSpace, transferMode.HostToDeviceMode) then
                 dataHandle.BeforeTransferToDevice()
                 BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, dataHandle.Ptr, arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr))    
-                //else
-                //Console.WriteLine("Buffer is NOT initialised")                           
+                              
             // If this is the return buffer for root kernel in a kernel expression, remember it cause we will need to read it somewhere at the end
             if parameter.IsReturned && isRoot then
                 rootReturnBuffer <- Some(bufferItem, arr)
@@ -442,11 +442,6 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     parameter.IsReturned,
                                     true,
                                     queue.Device)
-        //Console.WriteLine("Access analysis says this parameter is: " + parameter.AccessAnalysis.ToString())
-        //Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
-        //Console.WriteLine("Best Read Mode: " + readMode.ToString())
-        //Console.WriteLine("Best Write Mode: " + writeMode.ToString())
-        
         if retArr.IsSome then
             //Console.WriteLine("Returned buffer is TRACKED")
             // A tracked buffer remains tracked
@@ -687,6 +682,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             if hasBeenPromoted || BufferStrategies.ShouldExplicitlyReadToReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then
                 // No need to READ to unmanaged pointer
                 BufferTools.ReadBuffer(poolItem.Queue, poolItem.ReadMode = BufferReadMode.MapBuffer, poolItem.HostDataHandle.Value.Ptr, poolItem.Buffer, poolItem.HostDataHandle.Value.Lenghts)                
+            // Now make sure the managed data is in sync with the possible unmanaged ptr
             poolItem.HostDataHandle.Value.SyncManagedWithUnmanaged()
                 
     member private this.PromoteUntrackedToTracked(poolItem: BufferPoolItem) =
