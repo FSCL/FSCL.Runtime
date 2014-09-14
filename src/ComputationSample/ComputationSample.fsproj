@@ -111,6 +111,7 @@
     <Compile Include="AcceleratedCollectionSample.fs" />
     <Compile Include="AcceleratedCollectionDataTypeSample.fs" />
     <Compile Include="SequentialAndMultithreadSample.fs" />
+    <Compile Include="MemoryFlagsSample.fs" />
     <Compile Include="Program.fs" />
     <None Include="packages.config" />
   </ItemGroup>

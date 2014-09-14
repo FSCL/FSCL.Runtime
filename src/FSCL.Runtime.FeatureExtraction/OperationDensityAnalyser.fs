@@ -106,5 +106,13 @@ type OperationDensityAnalyser() =
                     features.Insert(i, newItem)
                     i <- i - 1  
             i <- i + 1
-        [] |> List.ofSeq
-                
+    
+        // Average ops
+        let mutable opSum = 0.0f
+        let mutable opCount = 0.0f
+        for item in features do
+            if item.Type = 1 then
+                opCount <- opCount + item.Weight
+                opSum <- opSum + (item.Count * item.Weight)
+        let result = opSum / opCount
+        [ result ]

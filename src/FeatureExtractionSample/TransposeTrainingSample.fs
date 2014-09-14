@@ -69,7 +69,7 @@ let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.L
 
     if((xIndex < width) && (yIndex < height)) then
         let index_in = yIndex * width + xIndex
-        block.[(wi.LocalID(1)*(BLOCK_DIM+1))+wi.LocalID(0)] <- 1.0f
+        block.[(wi.LocalID(1)*(BLOCK_DIM+1))+wi.LocalID(0)] <- input.[index_in]
 
     wi.Barrier(CLK_LOCAL_MEM_FENCE)
 
@@ -86,7 +86,7 @@ type TransposeTrainingSample() =
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinMatrixSize", 64L)
-        dict.Add("MaxMatrixSize", 2048L)
+        dict.Add("MaxMatrixSize", 4096L)
         dict.Add("Iterations", 100)
         dict
         

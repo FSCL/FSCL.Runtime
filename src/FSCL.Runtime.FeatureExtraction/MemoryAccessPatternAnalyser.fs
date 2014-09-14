@@ -93,6 +93,7 @@ type MemoryAccessPatternAnalyser() =
         // Precompute globalSize, localSize and globalOffset arrays
         let globalSize = Array.init (dims) (fun i -> workSize.GlobalSize(i) |> int64)
         let localSize = Array.init (dims) (fun i -> workSize.LocalSize(i) |> int64)
+        let numGroups = Array.init (dims) (fun i -> workSize.NumGroups(i) |> int64)
         let globalOffset = 
             try 
                 Array.init (dims) (fun i -> workSize.GlobalOffset(i) |> int64)
@@ -102,7 +103,7 @@ type MemoryAccessPatternAnalyser() =
                  
         // Now compute delta of accesses from other threads compared to the baseLine. 
         // We take into account threads of the same group and of different group in all the dimensions
-        let strides = Array.create 3 -1.0f
+        let strides = Array.create 3 (-1.0f, -1.0f)
         for dim = 0 to dims - 1 do
             // Compute the stride for two threads of the same group in this dimension
             let mutable strideIntraGroup = 0.0f
@@ -119,9 +120,22 @@ type MemoryAccessPatternAnalyser() =
                     access <- access.GetType().GetMethod("Invoke").Invoke(access, [| d |])
                 // Now compute delta
                 strideIntraGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32))
+            // Compute the stride for two threads of successive groups in this dimension
+            if workSize.NumGroups(dim) > 1 then
+                let globalID = Array.init (dims) (fun i -> if i = dim then workSize.LocalSize(i) |> int64 else 0L)
+                let localID = Array.zeroCreate<int64> (dims) 
+                let wi = new MutableWorkItemInfo(globalID, localID, globalSize, localSize, globalOffset)
+                let newArgs = replaceWorkItemInfo(args, wi)
+                let mutable access = evAccessExpr
+                for a in newArgs do
+                    access <- access.GetType().GetMethod("Invoke").Invoke(access, [| a |])
+                for d in dynDefArgs do
+                    access <- access.GetType().GetMethod("Invoke").Invoke(access, [| d |])
+                // Now compute delta
+                strideInterGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32))
 
             // Add item to strides
-            strides.[dim] <- strideIntraGroup
+            strides.[dim] <- (strideIntraGroup, strideInterGroup)
 
         evCount :?> int, strides
 
@@ -145,35 +159,18 @@ type MemoryAccessPatternAnalyser() =
                             } |> List.ofSeq     
                                                              
         // For each access we evaluate the stride, ignoring the particular array accessed
-        let strideList = new List<int * (float32)[]>()
+        let intraStrideList = new List<int * float32[]>()
+        let interStrideList = new List<int * float32[]>()
         for v in accessExpressions do
             for accessExprCount, accessExpr in v.Value do
                 let count, strides = this.EvaluateStride(accessExprCount, accessExpr, dynDefArgs, args)
-                strideList.Add((count, strides))
+                intraStrideList.Add((count, strides |> Array.unzip |> fst))
+                interStrideList.Add((count, strides |> Array.unzip |> snd))
 
         // Now we group into stride-0, stride-1, stride > 1 for each dimension
         // Now we average using the count as weight and we replace tuple (intra, inter) with a 2-el array
         let aggregatedStride = new InterThreadMemoryAccessResult()
-        for itemCount, strides in strideList do
-            if strides.[0] = 0.0f then
-                aggregatedStride.Stride0OnXAccessCount <- aggregatedStride.Stride0OnXAccessCount + (itemCount |> float32)
-            if strides.[1] = 0.0f then
-                aggregatedStride.Stride0OnYAccessCount <- aggregatedStride.Stride0OnYAccessCount + (itemCount |> float32)
-            if strides.[2] = 0.0f then
-                aggregatedStride.Stride0OnZAccessCount <- aggregatedStride.Stride0OnZAccessCount + (itemCount |> float32)
-            if strides.[0] = 1.0f then
-                aggregatedStride.Stride1OnXAccessCount <- aggregatedStride.Stride1OnXAccessCount + (itemCount |> float32)
-            if strides.[1] = 1.0f then
-                aggregatedStride.Stride1OnYAccessCount <- aggregatedStride.Stride1OnYAccessCount + (itemCount |> float32)
-            if strides.[2] = 1.0f then
-                aggregatedStride.Stride1OnZAccessCount <- aggregatedStride.Stride1OnZAccessCount + (itemCount |> float32)
-            if strides.[0] > 1.0f then
-                aggregatedStride.StrideNOnXAccessCount <- aggregatedStride.StrideNOnXAccessCount + (itemCount |> float32)
-            if strides.[1] > 1.0f then
-                aggregatedStride.StrideNOnYAccessCount <- aggregatedStride.StrideNOnYAccessCount + (itemCount |> float32)
-            if strides.[2] > 1.0f then
-                aggregatedStride.StrideNOnZAccessCount <- aggregatedStride.StrideNOnZAccessCount + (itemCount |> float32)
-            
+             
         // Average strides using access count as weight
         []
 

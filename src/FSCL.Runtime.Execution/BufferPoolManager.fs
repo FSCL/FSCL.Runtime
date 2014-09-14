@@ -37,34 +37,33 @@ type HostSideDataHandle(data: Array) =
 
     member this.BeforeTransferToDevice() =
         if gcHandle = None && ptr = IntPtr.Zero then
-            try
+            let dataType = data.GetType().GetElementType()
+            if dataType.IsValueType then
                 let dataPtr = GCHandle.Alloc(data, GCHandleType.Pinned)
                 gcHandle <- Some(dataPtr)
                 ptr <- gcHandle.Value.AddrOfPinnedObject()
-            with
-                :? Exception ->
-                    // Try alloc and copy to unmanaged ptr
-                    let dataType = data.GetType().GetElementType()
-                    if FSharpType.IsRecord(dataType) then
-                        let size = Marshal.SizeOf(dataType)
-                        let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
-                        MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
-                        let mutable currentPtr = unmanagedPtr
-                        for i = 0 to data.Length - 1 do
-                            if data.GetValue(i) <> null then
-                                Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
-                            currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
-                        ptr <- unmanagedPtr                          
-                    else
-                        let size = Marshal.SizeOf(dataType)
-                        let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
-                        MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
-                        let mutable currentPtr = unmanagedPtr
-                        for i = 0 to data.Length - 1 do
-                            if data.GetValue(i) <> null then
-                                Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
-                            currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
-                        ptr <- unmanagedPtr 
+            else
+                // Try alloc and copy to unmanaged ptr
+                if FSharpType.IsRecord(dataType) then
+                    let size = Marshal.SizeOf(dataType)
+                    let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
+                    MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
+                    let mutable currentPtr = unmanagedPtr
+                    for i = 0 to data.Length - 1 do
+                        if data.GetValue(i) <> null then
+                            Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
+                        currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
+                    ptr <- unmanagedPtr                          
+                else
+                    let size = Marshal.SizeOf(dataType)
+                    let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)
+                    MemoryUtil.memset(unmanagedPtr, 0, size * data.Length) |> ignore
+                    let mutable currentPtr = unmanagedPtr
+                    for i = 0 to data.Length - 1 do
+                        if data.GetValue(i) <> null then
+                            Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
+                        currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
+                    ptr <- unmanagedPtr 
     
     member this.BeforeTransferFromDevice() =
         this.BeforeTransferToDevice()
