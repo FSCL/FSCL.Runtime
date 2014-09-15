@@ -66,13 +66,13 @@ let main argv =
             for dIndex, dName, dType in devs do
                 Console.WriteLine("  - Device " + ": " + dName + "(" + dType.ToString() + ")")
             
-        MemoryFlagsSample.Run()
         AlgorithmSample.Run()
         UtilityFunctionSample.Run() 
         DataTypeSample.Run()
         ReturnTypeSample.Run()
         AcceleratedCollectionSample.Run()
         AcceleratedCollectionDataTypeSample.Run()
+        MemoryFlagsSample.Run()
         SequentialAndMultithreadSample.Run()
 
             (*

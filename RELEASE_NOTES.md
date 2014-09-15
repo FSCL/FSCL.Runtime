@@ -1,3 +1,6 @@
+### 1.3.4 - 15 September 2014
+* Improved data transfer of reference types (records). Fixed bug in memory pinning. Added sample/test to verify correctness of all possible data transfer modes (map, enqueueRead/Write) and flags
+
 ### 1.3.2 - 23 August 2014
 * Records and structs fully supported by both custom kernels and collection functions
 

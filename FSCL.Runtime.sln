@@ -45,15 +45,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.CompilerSteps"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.Scheduling", "src\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj", "{266E7303-23E0-47AC-9324-4B9705FC61F1}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.FeatureExtraction", "src\FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj", "{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.Execution", "src\FSCL.Runtime.Execution\FSCL.Runtime.Execution.fsproj", "{81F4CE2D-FEB3-4189-999A-F024C19019FE}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime", "src\FSCL.Runtime\FSCL.Runtime.fsproj", "{0972DAF2-5AAF-4D52-B0C6-4B51F00BE03C}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ComputationSample", "src\ComputationSample\ComputationSample.fsproj", "{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FeatureExtractionSample", "src\FeatureExtractionSample\FeatureExtractionSample.fsproj", "{C7906474-A269-4A86-80DF-806371288760}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -137,18 +133,6 @@ Global
 		{266E7303-23E0-47AC-9324-4B9705FC61F1}.Release|x64.Build.0 = Release|x64
 		{266E7303-23E0-47AC-9324-4B9705FC61F1}.Release|x86.ActiveCfg = Release|x86
 		{266E7303-23E0-47AC-9324-4B9705FC61F1}.Release|x86.Build.0 = Release|x86
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|x64.ActiveCfg = Debug|x64
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|x64.Build.0 = Debug|x64
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|x86.ActiveCfg = Debug|x86
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Debug|x86.Build.0 = Debug|x86
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|x64.ActiveCfg = Release|x64
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|x64.Build.0 = Release|x64
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|x86.ActiveCfg = Release|x86
-		{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}.Release|x86.Build.0 = Release|x86
 		{81F4CE2D-FEB3-4189-999A-F024C19019FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{81F4CE2D-FEB3-4189-999A-F024C19019FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81F4CE2D-FEB3-4189-999A-F024C19019FE}.Debug|x64.ActiveCfg = Debug|x64
@@ -185,18 +169,6 @@ Global
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|x64.Build.0 = Release|x64
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|x86.ActiveCfg = Release|x86
 		{C0B2BBA9-BE9D-4DC5-9470-748B6427BEE8}.Release|x86.Build.0 = Release|x86
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|x64.ActiveCfg = Debug|x64
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|x64.Build.0 = Debug|x64
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|x86.ActiveCfg = Debug|x86
-		{C7906474-A269-4A86-80DF-806371288760}.Debug|x86.Build.0 = Debug|x86
-		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C7906474-A269-4A86-80DF-806371288760}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C7906474-A269-4A86-80DF-806371288760}.Release|x64.ActiveCfg = Release|x64
-		{C7906474-A269-4A86-80DF-806371288760}.Release|x64.Build.0 = Release|x64
-		{C7906474-A269-4A86-80DF-806371288760}.Release|x86.ActiveCfg = Release|x86
-		{C7906474-A269-4A86-80DF-806371288760}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
