@@ -22,7 +22,6 @@
     <file src="..\bin\FSCL.Runtime.Core.dll" target="lib/net45" />
     <file src="..\bin\FSCL.Runtime.Language.dll" target="lib/net45" />
     <file src="..\bin\FSCL.Runtime.Scheduling.dll" target="lib/net45" />
-    <file src="..\bin\FSCL.Runtime.FeatureExtraction.dll" target="lib/net45" />
     <file src="..\bin\FSCL.Runtime.CompilerSteps.dll" target="lib/net45" />
     <file src="..\bin\FSCL.Runtime.Execution.dll" target="lib/net45" />
     <file src="..\bin\OpenCLManagedWrapper.dll" target="lib/net45" />

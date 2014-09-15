@@ -181,17 +181,18 @@ let ``Can run matrix multiplication``() =
     if OpenCL.OpenCLPlatform.Platforms.Count > 0 && 
        OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.Count > 1 &&
        OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.[1] > 1L then
-        let a, b, c = CreateMatrices 256 128
+        let a, b, c = CreateMatrices 128 256
         let worksize = new WorkSize([| 128L; 128L |], [| 16L; 16L |])
         <@ MatrixMult(a, b, c, worksize) @>.Run() 
         let correctResult = 
-            let r = Array2D.zeroCreate<float32> 256 256
-            for r = 0 to a.GetLength(0) - 1 do
-                for c = 0 to b.GetLength(1) - 1 do
+            let res = Array2D.zeroCreate<float32> 128 128
+            for row = 0 to a.GetLength(0) - 1 do
+                for col = 0 to b.GetLength(1) - 1 do
                     let mutable accum = 0.0f
                     for k = 0 to a.GetLength(1) - 1 do
-                        accum <- accum + a.[r, k] * b.[k, c]
-            r
+                        accum <- accum + a.[row, k] * b.[k, col]
+                    res.[row, col] <- accum
+            res
         Assert.AreEqual(correctResult, c)
     else
         System.Console.WriteLine("Skipping test cause no OpenCL device has been found")
