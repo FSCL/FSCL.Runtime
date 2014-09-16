@@ -112,11 +112,7 @@
     <Compile Include="MatrixMultTrainingSample.fs" />
     <Compile Include="SobelFilterTrainingSample.fs" />
     <Compile Include="ConvolutionTrainingSample.fs" />
-    <Compile Include="ReductionTrainingSample.fs" />
-    <Compile Include="PrefixSumTrainingSample.fs" />
     <Compile Include="TransposeTrainingSample.fs" />
-    <Compile Include="MandelbrotTrainingSample.fs" />
-    <Compile Include="LUDecompositionTrainingSample.fs" />
     <Compile Include="Program.fs" />
     <None Include="packages.config" />
   </ItemGroup>

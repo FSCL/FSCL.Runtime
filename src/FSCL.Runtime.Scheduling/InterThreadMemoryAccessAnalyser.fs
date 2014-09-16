@@ -213,7 +213,7 @@ type InterThreadMemoryAccessAnalyser() =
                 for loopVar, loopInit, loopTripCount in loopVars do
                     totalTripCount <- <@ (%totalTripCount) * %loopTripCount @>   
                 // Now check inside loop             
-                EstimateExpr(body, newStack, totalTripCount, loopVars @ [ (v, unfoldStart, tripCountExpr) ])
+                EstimateExpr(body, push newStack (v, starte), totalTripCount, loopVars @ [ (v, unfoldStart, tripCountExpr) ])
 
             | Patterns.Let (v, value, body) ->
                 let maybeOpRange: VarStack option = EstimateLoopWithOpRange(expr, stack, tripCount, loopVars)
@@ -221,7 +221,7 @@ type InterThreadMemoryAccessAnalyser() =
                     maybeOpRange.Value
                 else
                     let newStack = EstimateExpr(value, stack, tripCount, loopVars)
-                    let newStack = EstimateExpr(body, push newStack (v, value, v.IsMutable), tripCount, loopVars)
+                    let newStack = EstimateExpr(body, push newStack (v, value), tripCount, loopVars)
                     pop newStack
 
             | Patterns.VarSet (v, e) ->

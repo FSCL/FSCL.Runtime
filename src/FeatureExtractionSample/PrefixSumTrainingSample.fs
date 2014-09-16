@@ -274,11 +274,13 @@ type PrefixSumTrainingSample() =
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
         let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
         let blockFlags = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let size = ref minSize
         while !size <= maxSize do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
                 
             let localSize = 128L        

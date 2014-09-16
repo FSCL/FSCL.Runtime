@@ -12,6 +12,7 @@ open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
 open OpenCL
+open System.Linq
 
 [<ReflectedDefinition>]
 let TransposeFloat4(output: float4[], input: float4[], [<AddressSpace(AddressSpace.Local)>] block: float4[], wi: WorkItemInfo) =
@@ -135,8 +136,10 @@ type TransposeTrainingSample() =
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.None ||| MemoryFlags.ReadOnly
         let ofl = MemoryFlags.None ||| MemoryFlags.WriteOnly
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
 
-        let mutable execResults: obj list list = []
         let blockSize = 16L
         let elementsPerThread = 4L
                 
@@ -149,6 +152,7 @@ type TransposeTrainingSample() =
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array.init (rows * cols |> int) (fun i -> 
@@ -161,8 +165,6 @@ type TransposeTrainingSample() =
                 else
                     [||]
             //let rf = float4tofloat(reference)
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
@@ -183,9 +185,10 @@ type TransposeTrainingSample() =
                                         ws)) @>   
                         
                     // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)
+                    if pIndex = 0 && dIndex = 0 then
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)))
                                                                                                           
                     // Run once to skip compilation time
                     if not featureOnly then
@@ -203,12 +206,11 @@ type TransposeTrainingSample() =
                                     
                             // Dump
                             Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                    else
-                        instanceResult <- instanceResult @ [ 0.0f ]     
-            execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
-        execResults
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)  
+                               
+            executionResults.Last().AddRange([ rows; cols ])
+        executionResults, featureValues
 
 type TransposeFloat4TrainingSample() =    
     inherit TransposeTrainingSample()
@@ -231,6 +233,9 @@ type TransposeFloat4TrainingSample() =
         let mutable execResults: obj list list = []
         let blockSize = 16L
         let elementsPerThread = 4L
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
 
         let sizes = (seq {
                             let s = ref minSize
@@ -248,8 +253,6 @@ type TransposeFloat4TrainingSample() =
                                                         r |> float32)                                    
             let block = Array.zeroCreate<float32> (blockSize * blockSize * elementsPerThread * elementsPerThread  |> int)
             //let rf = float4tofloat(reference)
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
             Console.Write(GetOpenCLPlatforms().Count.ToString());
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 
@@ -273,28 +276,30 @@ type TransposeFloat4TrainingSample() =
                                             ws)) @>   
                                 
                         // Extract features
-                        let km = compiler.Compile(comp, opts) :?> IKernelModule
-                        let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block); ws ], opts)
+                        if pIndex = 0 && dIndex = 0 then
+                            let km = compiler.Compile(comp, opts) :?> IKernelModule
+                            let precomputedFeatures = chain.Precompute(km)
+                            featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block); ws ], opts)))
                                                                                                                   
                         // Run once to skip compilation time
-                        comp.Run()
-                        let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
-                        if not (this.Verify(c, reference)) then
-                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else
-                            // Run
-                            let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
-                                comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                        if not featureOnly then
+                            comp.Run()
+                            let reference = this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                            if not (this.Verify(c, reference)) then
+                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                            else
+                                // Run
+                                let watch = new Stopwatch()
+                                watch.Start()
+                                for i = 0 to iterations - 1 do
+                                    comp.Run()
+                                watch.Stop()
+                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                         
-                            // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
+                                // Dump
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                                executionResults.Last().Add(ttime)
+                                System.Threading.Thread.Sleep(500)
                                     
-            execResults <- execResults @ [ instanceResult @ [ rows; cols ] @ features ]     
-        execResults
+            executionResults.Last().AddRange([ rows; cols ]) 
+        executionResults, featureValues

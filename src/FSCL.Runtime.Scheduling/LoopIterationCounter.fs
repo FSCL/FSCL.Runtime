@@ -84,11 +84,11 @@ type LoopIterationCounter() =
                     maybeOpRange.Value
                 else
                     let _, newStack = EstimateInternal(value, stack)
-                    let bodyCount, newStack = EstimateInternal(body, push stack (va, value, false))
+                    let bodyCount, newStack = EstimateInternal(body, push stack (va, value))
                     bodyCount, pop newStack
 
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
-                let newStack = push stack (v, starte, false)
+                let newStack = push stack (v, starte)
 
                 let unfoldStart = UnfoldExpr(starte, stack)
                 let unfoldEnd = UnfoldExpr(ende, newStack)
@@ -133,7 +133,7 @@ type LoopIterationCounter() =
                         let starte, stepe, ende = a.[0], a.[1], a.[2]
                         match body with
                         | Patterns.Let(enumerator, value, body) ->
-                            let newStack = push stack (enumerator, value, false)
+                            let newStack = push stack (enumerator, value)
                             match body with
                             | Patterns.TryFinally (trye, fine) ->
                                 match trye with
@@ -143,7 +143,7 @@ type LoopIterationCounter() =
                                             match value with
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
-                                                let newStack = push newStack (v, starte, false)
+                                                let newStack = push newStack (v, starte)
                                                 let unfoldStart = UnfoldExpr(starte, stack)
                                                 let unfoldStep = UnfoldExpr(stepe, stack)
                                                 let unfoldEnd = UnfoldExpr(ende, stack)

@@ -5,6 +5,7 @@ open System.Reflection
 open Microsoft.FSharp.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Collections.Generic
+open System.Collections.ObjectModel
 //open QuotEval.QuotationEvaluation
 
 open Microsoft.FSharp.Linq
@@ -142,7 +143,7 @@ type OperationDensityCounter() =
 
     // Build an expression that contains the number of interesting items
     static member private Estimate(functionBody: Expr, 
-                                   parameters: (ParameterInfo * Var)[],
+                                   parameters: ReadOnlyCollection<IOriginalFunctionParameter>,
                                    stack: VarStack,
                                    //workItemIdContainerPlaceholder: Quotations.Var,
                                    dynamicDefinesPlaceholders: Var list) =            
@@ -162,14 +163,18 @@ type OperationDensityCounter() =
                             | _ -> 
                                 None
                         if arrayVar.IsSome then
-                            let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
-                            if matchingParam.IsSome then
+                            let matchingParam = parameters |> Seq.tryFind (fun (p) -> p.OriginalPlaceholder = arrayVar.Value)                                    
+                            if matchingParam.IsSome && 
+                               matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Local &&
+                               matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Private then
                                 // Count ops in value
-                                let (opsBefore: List<OperationTraceItem>), _ = EstimateInternal(l.[1], stack)
+                                let (opsBefore: List<OperationTraceItem>), _ = EstimateList((l |> List.tail), stack)
                                 opsBefore.Add(MemoryAccess(<@ 1.0f @>))
                                 opsBefore, stack
                             else
-                                raise (new MetricEvaluationError("Cannot take into account accesses to memory not reference to kernel parameters"))
+                                // May be an access to local or private array, do not care
+                                let (opsBefore: List<OperationTraceItem>), _ = EstimateList((l |> List.tail), stack)
+                                opsBefore, stack                                
                         else
                             raise (new MetricEvaluationError("Cannot take into account accesses to memory not reference through a var"))
                     else
@@ -180,7 +185,7 @@ type OperationDensityCounter() =
                     maybeOpRange.Value
                 else
                     let first, newStack = EstimateInternal(value, stack)
-                    let second, newStack = EstimateInternal(body, push newStack (v, value, false))
+                    let second, newStack = EstimateInternal(body, push newStack (v, value))
                     // Merge first and second
                     OperationDensityCounter.MergeOpDensityData(first, second), pop newStack
                     
@@ -202,7 +207,7 @@ type OperationDensityCounter() =
                 // Check that startv is an expression of constants and fers to parameters
                 let es, _ = EstimateInternal(starte, stack)
                 let ee, _ = EstimateInternal(ende, stack)
-                let newStack = push stack (v, starte, false)
+                let newStack = push stack (v, starte)
                 let subexpr, subStack = EstimateInternal(body, newStack)
 
                 let unfoldStart = UnfoldExpr(starte, stack)
@@ -279,7 +284,7 @@ type OperationDensityCounter() =
                         let starte, stepe, ende = a.[0], a.[1], a.[2]
                         match body with
                         | Patterns.Let(enumerator, value, body) ->
-                            let newStack = push stack (enumerator, value, false)
+                            let newStack = push stack (enumerator, value)
                             match body with
                             | Patterns.TryFinally (trye, fine) ->
                                 match trye with
@@ -289,7 +294,7 @@ type OperationDensityCounter() =
                                             match value with
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
-                                                let newStack = push newStack (v, starte, false)
+                                                let newStack = push newStack (v, starte)
                                                 let es, esStack = EstimateInternal(starte, stack)
                                                 let se, seStack = EstimateInternal(stepe, stack)
                                                 let ee, eeStack = EstimateInternal(ende, stack)
@@ -364,7 +369,7 @@ type OperationDensityCounter() =
                     raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
             // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
             | ExprShape.ShapeVar(v) ->
-                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
+                let isParameterReference = (Seq.tryFind (fun (p:IOriginalFunctionParameter) -> p.OriginalPlaceholder = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
                 //let isWorkSizeFunctionReference = (v = workItemIdContainerPlaceholder)
                 let isDynamicDefineReference = (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
                 if isParameterReference || isDynamicDefineReference then
@@ -582,7 +587,7 @@ type OperationDensityCounter() =
         <@ (%%result:float32) @>
     
     static member Count(body: Expr,
-                        parameters: (ParameterInfo * Var)[]) = 
+                        parameters: ReadOnlyCollection<IOriginalFunctionParameter>) = 
         // Create a lambda to evaluate instruction count
         //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
         let dynamicDefinePlaceholders = new List<Var>()

@@ -11,6 +11,7 @@ open System.IO
 open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
+open System.Linq
 
 [<ReflectedDefinition>]
 let sum(a, b) =
@@ -25,8 +26,8 @@ type VectorAddTrainingSample() =
 
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
-        dict.Add("MinVectorSize", 2048L)
-        dict.Add("MaxVectorSize", 8L <<< 20)
+        dict.Add("MinVectorSize", 16L <<< 10)
+        dict.Add("MaxVectorSize", 16L <<< 20)
         dict.Add("Iterations", 100)
         dict
         
@@ -69,11 +70,13 @@ type VectorAddTrainingSample() =
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
         let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let size = ref minSize
         while !size <= maxSize do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
                         
             let a = Array.zeroCreate<float32> (!size |> int)
@@ -87,8 +90,6 @@ type VectorAddTrainingSample() =
                 else
                     Array.zeroCreate<float32> 1
 
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
@@ -108,9 +109,10 @@ type VectorAddTrainingSample() =
                                         ws)) @>   
                         
                     // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
+                    if (dIndex = 0 && pIndex = 0) then
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)))
 
                     if not featureOnly then                                 
                         // Run once to skip compilation time
@@ -128,11 +130,9 @@ type VectorAddTrainingSample() =
                                     
                             // Dump
                             Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
-                            System.Threading.Thread.Sleep(500)
-                    else
-                      instanceResult <- instanceResult @ [ 0.0f ]      
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)   
                                 
-            execResults <- execResults @ [ instanceResult @ [!size] @ features ]                
+            executionResults.Last().Add(!size)
             size := !size + minSize   
-        execResults
+        executionResults, featureValues

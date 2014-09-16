@@ -105,11 +105,13 @@ type SimpleReductionTrainingSample() =
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let fl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let size = ref minSize
         while !size <= maxSize do
+            
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
                         
             let a = Array.init (!size |> int) (fun i -> 1)
@@ -323,11 +325,13 @@ type AdvancedReductionTrainingSample() =
         let rm = BufferReadMode.MapBuffer
         let wm = BufferWriteMode.MapBuffer
         let fl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadWrite
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let size = ref minSize
         while !size <= maxSize do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
                         
             let a = Array.init (!size |> int) (fun i -> 1)

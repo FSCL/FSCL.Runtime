@@ -11,24 +11,27 @@ open System.IO
 open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
+open System.Linq
 
 // Matrix rows sum
 [<ReflectedDefinition>]
 let SumCols(matA: float32[,], c: float32[], wi: WorkItemInfo) =
     let r = wi.GlobalID(0)
     let mutable accum = 0.0f
-    for i = 0 to matA.GetLength(1) - 1 do
-        accum <- accum + matA.[r, i]
-    c.[r] <- accum
+    if r < matA.GetLength(0) then
+        for i = 0 to matA.GetLength(1) - 1 do
+            accum <- accum + matA.[r, i]
+        c.[r] <- accum
 
 // Matrix cols sum
 [<ReflectedDefinition>]
 let SumRows(matA: float32[,], c: float32[], wi: WorkItemInfo) =
     let col = wi.GlobalID(0)
     let mutable accum = 0.0f
-    for i = 0 to matA.GetLength(0) - 1 do
-        accum <- accum + matA.[i, col]
-    c.[col] <- accum
+    if col < matA.GetLength(1) then
+        for i = 0 to matA.GetLength(0) - 1 do
+            accum <- accum + matA.[i, col]
+        c.[col] <- accum
 
 type SumColsTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
@@ -78,17 +81,19 @@ type SumColsTrainingSample() =
         let ifl = MemoryFlags.ReadOnly
         let ofl = MemoryFlags.WriteOnly
 
-        let mutable execResults: obj list list = []
-                
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                s := !s + 2L
                         }) |> Array.ofSeq
 
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
+
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array2D.init (rows |> int) (cols |> int) (fun r c -> r |> float32)
@@ -97,52 +102,47 @@ type SumColsTrainingSample() =
                     this.CreateVerifiedOutput(a) :?> float32[]
                 else
                     [||]
-
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
-
+                    
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > -1 then
-                        let c = Array.zeroCreate (rows |> int)
-                        let ws = new WorkSize(rows, Math.Min(rows, 64L))                                    
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        SumCols(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    a)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    c)),
-                                            ws)) @>
-                        // Extract features
+                    let c = Array.zeroCreate (rows |> int)
+                    let ws = new WorkSize((((rows - 1L) / 64L) + 1L) * 64L, 64L)                                    
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    SumCols(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        ws)) @>
+                    // Extract features
+                    if (pIndex = 0 && dIndex = 0) then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)
-
-                        // Run once to skip compilation time
-                        if not featureOnly then    
-                            comp.Run()
-                            if not (this.Verify(c, reference)) then
-                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                            else                        
-                                // Run
-                                let watch = new Stopwatch()
-                                watch.Start()
-                                for i = 0 to iterations - 1 do
-                                    comp.Run()
-                                watch.Stop()
-                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)))
+                        
+                    // Run once to skip compilation time
+                    if not featureOnly then    
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else                        
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                             
-                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                                instanceResult <- instanceResult @ [ ttime ]
-                                System.Threading.Thread.Sleep(500)
-                        else
-                            instanceResult <- instanceResult @ [ 0.0f ] 
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)
                                
-            execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
-        execResults
+            executionResults.Last().AddRange([rows; cols])       
+        executionResults, featureValues
 
 
 type SumRowsTrainingSample() =    
@@ -175,15 +175,19 @@ type SumRowsTrainingSample() =
 
         let mutable execResults: obj list list = []
                 
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
+
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                s := !s + 2L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array2D.init (rows |> int) (cols |> int) (fun r c -> r |> float32)
@@ -192,49 +196,44 @@ type SumRowsTrainingSample() =
                     this.CreateVerifiedOutput(a) :?> float32[]
                 else
                     [||]
-
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
-
+                    
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > -1 then
-                        let c = Array.zeroCreate (rows |> int)
-                        let ws = new WorkSize(cols, Math.Min(cols, 64L))                                    
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        SumRows(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    a)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    c)),
-                                            ws)) @>
-                        // Extract features
+                    let c = Array.zeroCreate (rows |> int)
+                    let ws = new WorkSize((((cols - 1L) / 64L) + 1L) * 64L, 64L)                                   
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    SumRows(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        ws)) @>
+                    // Extract features
+                    if (pIndex = 0 && dIndex = 0) then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)))
 
-                        // Run once to skip compilation time
-                        if not featureOnly then    
-                            comp.Run()
-                            if not (this.Verify(c, reference)) then
-                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                            else                        
-                                // Run
-                                let watch = new Stopwatch()
-                                watch.Start()
-                                for i = 0 to iterations - 1 do
-                                    comp.Run()
-                                watch.Stop()
-                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    if not featureOnly then    
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else                        
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                             
-                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                                instanceResult <- instanceResult @ [ ttime ]
-                                System.Threading.Thread.Sleep(500)
-                        else
-                            instanceResult <- instanceResult @ [ 0.0f ] 
-                               
-            execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
-        execResults
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)
+                         
+            executionResults.Last().AddRange([rows; cols])       
+        executionResults, featureValues

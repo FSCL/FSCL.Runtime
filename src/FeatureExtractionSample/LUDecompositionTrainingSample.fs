@@ -133,8 +133,10 @@ type LUDecompositionTrainingSample() =
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.None ||| MemoryFlags.ReadWrite
         let ofl = MemoryFlags.None ||| MemoryFlags.ReadWrite
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
 
-        let mutable execResults: obj list list = []
         let sizes = (seq {
                         let s = ref minSize
                         while !s <= maxSize do
@@ -144,6 +146,7 @@ type LUDecompositionTrainingSample() =
                     }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                             
             let blockSize = rows / (VECTOR_SIZE |> int64)

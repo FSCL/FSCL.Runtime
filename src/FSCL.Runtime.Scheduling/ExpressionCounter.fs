@@ -137,7 +137,7 @@ type ExpressionCounter() =
                         maybeOpRange.Value
                     else
                         let first, newStack = EstimateInternal(value, stack)
-                        let second, newStack = EstimateInternal(body, push newStack (v, value, false))
+                        let second, newStack = EstimateInternal(body, push newStack (v, value))
                         <@ %first + %second @>, pop newStack
 
                 | Patterns.VarSet (v, e) ->
@@ -156,7 +156,7 @@ type ExpressionCounter() =
                     // Check that startv is an expression of constants and fers to parameters
                     let es, _ = EstimateInternal(starte, stack)
                     let ee, _ = EstimateInternal(ende, stack)
-                    let newStack = push stack (v, starte, false)
+                    let newStack = push stack (v, starte)
                     let subexpr, subStack = EstimateInternal(body, newStack)
 
                     let unfoldStart = UnfoldExpr(starte, stack)
@@ -245,7 +245,7 @@ type ExpressionCounter() =
                         let starte, stepe, ende = a.[0], a.[1], a.[2]
                         match body with
                         | Patterns.Let(enumerator, value, body) ->
-                            let newStack = push stack (enumerator, value, false)
+                            let newStack = push stack (enumerator, value)
                             match body with
                             | Patterns.TryFinally (trye, fine) ->
                                 match trye with
@@ -255,7 +255,7 @@ type ExpressionCounter() =
                                             match value with
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
-                                                let newStack = push newStack (v, starte, false)
+                                                let newStack = push newStack (v, starte)
                                                 let es, esStack = EstimateInternal(starte, stack)
                                                 let se, seStack = EstimateInternal(stepe, stack)
                                                 let ee, eeStack = EstimateInternal(ende, stack)

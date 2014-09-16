@@ -29,8 +29,8 @@ module VarStack =
  
     let rec push x y =
         match x with
-        | EmptyStack -> StackNode(y, EmptyStack)
-        | StackNode(hd, tl) -> StackNode(y, StackNode(hd, tl))
+        | EmptyStack -> StackNode((y |> fst, y |> snd, false), EmptyStack)
+        | StackNode(hd, tl) -> StackNode((y |> fst, y |> snd, false), StackNode(hd, tl))
  
     let rec contains x = function
         | EmptyStack -> false

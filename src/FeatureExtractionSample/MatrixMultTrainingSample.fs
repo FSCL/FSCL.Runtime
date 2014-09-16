@@ -11,13 +11,14 @@ open System.IO
 open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
+open System.Linq
 
 [<ReflectedDefinition>]
 let BLOCK_SIZE = 16
 
 // Matrix multiplication
 [<ReflectedDefinition>]
-let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) =
+let MatMul(matA: float32[], matB: float32[], matC: float32[], matAWidth: int, matBWidth: int, wi: WorkItemInfo) =
     // Block index
     let bx = wi.GroupID(0);
     let by = wi.GroupID(1);
@@ -28,11 +29,11 @@ let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) 
  
     // Index of the first sub-matrix of A processed 
     // by the block
-    let aBegin = matA.GetLength(1) * BLOCK_SIZE * by;
+    let aBegin = matAWidth * BLOCK_SIZE * by;
  
     // Index of the last sub-matrix of A processed 
     // by the block
-    let aEnd   = aBegin + matA.GetLength(1) - 1;
+    let aEnd   = aBegin + matAWidth - 1;
  
     // Step size used to iterate through the 
     // sub-matrices of A
@@ -44,7 +45,7 @@ let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) 
  
     // Step size used to iterate through the 
     // sub-matrices of B
-    let bStep  = BLOCK_SIZE * matB.GetLength(1);
+    let bStep  = BLOCK_SIZE * matBWidth;
  
     let mutable b = bBegin
     let mutable Csub = 0.0f
@@ -60,8 +61,8 @@ let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) 
         // Load the matrices from global memory
         // to local memory; each thread loads
         // one element of each matrix
-        As.[ty, tx] <- matA.[a + (matA.GetLength(1) * ty) + tx]
-        Bs.[ty, tx] <- matB.[b + (matB.GetLength(1) * ty) + tx]
+        As.[ty, tx] <- matA.[a + (matAWidth * ty) + tx]
+        Bs.[ty, tx] <- matB.[b + (matBWidth * ty) + tx]
  
         // Synchronize to make sure the matrices 
         // are loaded
@@ -82,8 +83,8 @@ let MatMul(matA: float32[], matB: float32[], matC: float32[], wi: WorkItemInfo) 
  
     // Write the block sub-matrix to device memory;
     // each thread writes one element
-    let c = (matB.GetLength(1) * BLOCK_SIZE * by) + (BLOCK_SIZE * bx)
-    matC.[c + (matB.GetLength(1) * ty) + tx] <- Csub
+    let c = (matBWidth * BLOCK_SIZE * by) + (BLOCK_SIZE * bx)
+    matC.[c + (matBWidth * ty) + tx] <- Csub
     
 // Matrix multiplication
 [<ReflectedDefinition>]
@@ -157,18 +158,20 @@ type MatrixMultSimpleTrainingSample() =
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
         let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
-                                yield (!s + 1L, !s + 1L)
+                                yield (!s, !s)
                                 //yield (!s, !s * 2L)
                                 s := !s + 64L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array2D.init (rows |> int) (cols |> int) (fun r c -> r |> float32)
@@ -179,54 +182,49 @@ type MatrixMultSimpleTrainingSample() =
                 else
                     Array2D.zeroCreate<float32> 1 1
 
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
-
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > -1 then
-                        let c = Array2D.zeroCreate (rows |> int) (cols |> int)
-                        let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        MatMulCPU(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    a)),
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    b)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    c)),
-                                            ws)) @>
-                        // Extract features
+                    let c = Array2D.zeroCreate (rows |> int) (cols |> int)
+                    let ws = new WorkSize([| (((cols - 1L) / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64); (((rows - 1L) / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    MatMulCPU(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                b)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        ws)) @>
+                    // Extract features
+                    if pIndex = 0 && dIndex = 0 then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)))
 
-                        // Run once to skip compilation time
-                        if not featureOnly then    
-                            comp.Run()
-                            if not (this.Verify(c, reference)) then
-                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                            else                        
-                                // Run
-                                let watch = new Stopwatch()
-                                watch.Start()
-                                for i = 0 to iterations - 1 do
-                                    comp.Run()
-                                watch.Stop()
-                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    if not featureOnly then    
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else                        
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                             
-                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                                instanceResult <- instanceResult @ [ ttime ]
-                                System.Threading.Thread.Sleep(500)
-                        else
-                            instanceResult <- instanceResult @ [ 0.0f ] 
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)
                                
-            execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
-        execResults
+            executionResults.Last().AddRange([rows; cols])       
+        executionResults, featureValues
 
 type MatrixMultAdvancedTrainingSample() =    
     inherit MatrixMultSimpleTrainingSample()
@@ -245,18 +243,20 @@ type MatrixMultAdvancedTrainingSample() =
         let wm = BufferWriteMode.EnqueueWriteBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
         let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
-
-        let mutable execResults: obj list list = []
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
-                                yield (!s + 0L, !s + 0L)
+                                yield (!s, !s)
                                 //yield (!s, !s * 2L)
                                 s := !s + 64L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array.init (rows * cols |> int) (fun i -> rnd.Next() % 10 |> float32)
@@ -266,53 +266,51 @@ type MatrixMultAdvancedTrainingSample() =
                     this.CreateVerifiedOutput((a, b)) :?> float32[,]
                 else
                     Array2D.zeroCreate<float32> 1 1
-
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
-
+                    
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
-                    if dIndex > 0 then
-                        let c = Array.zeroCreate (rows * cols |> int)
-                        let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
+                    let c = Array.zeroCreate (rows * cols |> int)
+                    let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
                                         
-                        Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
-                        let comp = <@ DEVICE(pIndex, dIndex,
-                                        MatMul(
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    a)),
-                                            BUFFER_READ_MODE(rm, 
-                                                MEMORY_FLAGS(ifl, 
-                                                    b)),
-                                            BUFFER_WRITE_MODE(wm, 
-                                                MEMORY_FLAGS(ofl, 
-                                                    c)),
-                                            ws)) @>
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    MatMul(
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                b)),
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        cols |> int,
+                                        rows |> int,
+                                        ws)) @>
 
+                    if pIndex = 0 && dIndex = 0 then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        features <- chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; b; c; cols|> int; rows |> int; ws ], opts)))
 
-                        // Run once to skip compilation time
-                        if not featureOnly then    
-                            comp.Run()
-                            if not (this.Verify(c, reference)) then
-                                Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                            else                        
-                                // Run
-                                let watch = new Stopwatch()
-                                watch.Start()
-                                for i = 0 to iterations - 1 do
-                                    comp.Run()
-                                watch.Stop()
-                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                    // Run once to skip compilation time
+                    if not featureOnly then    
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else                        
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                             
-                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                                instanceResult <- instanceResult @ [ ttime ]
-                                System.Threading.Thread.Sleep(500)
-                        else   
-                            instanceResult <- instanceResult @ [ 0.0f ]  
-            execResults <- execResults @ [ instanceResult @ [rows; cols] @ features ]       
-        execResults
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)
+
+            executionResults.Last().AddRange([rows; cols])       
+        executionResults, featureValues
          

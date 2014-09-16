@@ -21,16 +21,12 @@ type OperationDensityAnalyser() =
     inherit IFeatureExtractor()
     override this.FeatureNameList 
         with get() =
-            [ "Average ops between memory accesses" ]
+            [ "Average ops between global memory accesses";  
+              "Average ops between local memory accesses" ]
 
     override this.Precompute(m: IKernelModule) =
-        // Count loop iters
-        let parameters = m.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
-                         Array.ofSeq               
-                                            
-        let lcount, ph = OperationDensityCounter.Count(m.Kernel.OriginalBody, parameters)
+        // Count loop iters                          
+        let lcount, ph = OperationDensityCounter.Count(m.Kernel.OriginalBody, m.Kernel.OriginalParameters)
 
         // Build lambda expr 
         (lcount, (ph |> List.ofSeq)) :> obj
@@ -107,7 +103,7 @@ type OperationDensityAnalyser() =
                     i <- i - 1  
             i <- i + 1
     
-        // Average ops
+        // Average ops crossed by mem accesses
         let mutable opSum = 0.0f
         let mutable opCount = 0.0f
         for item in features do

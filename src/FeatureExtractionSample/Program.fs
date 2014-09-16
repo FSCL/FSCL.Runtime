@@ -16,10 +16,10 @@ open VectorAddTrainingSample
 open MatrixMultTrainingSample
 open ConvolutionTrainingSample
 open SobelFilterTrainingSample
-open PrefixSumTrainingSample
-open ReductionTrainingSample
+//open PrefixSumTrainingSample
+//open ReductionTrainingSample
 open TransposeTrainingSample
-open LUDecompositionTrainingSample
+//open LUDecompositionTrainingSample
 
 [<EntryPoint>]
 let main argv = 
@@ -41,19 +41,19 @@ let main argv =
                                               new DataSizeCounter();
                                               new WorkSizeCounter();
                                               //new OperationDensityAnalyser();
-                                              //new TotalLoopIterationsCounter()
-                                              //new MemoryAccessPatternAnalyser()
+                                              new TotalLoopIterationsCounter();
+                                              new MemoryAccessPatternAnalyser()
                                            |])
     
     let samples = [|
-                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
-                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
@@ -63,7 +63,7 @@ let main argv =
                   |]
 
     for sample in samples do
-        sample.Run(chain, onlyFeatures)
+        sample.Run(chain, Some("regressionData3VectorAdd.csv"), onlyFeatures)
 
     0 // return an integer exit code
 

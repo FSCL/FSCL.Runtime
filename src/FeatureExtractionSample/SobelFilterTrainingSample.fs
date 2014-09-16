@@ -11,6 +11,7 @@ open System.IO
 open FSCL.Runtime
 open FSCL.Language
 open System.Diagnostics
+open System.Linq
 
 (*
 [<ReflectedDefinition>]
@@ -230,12 +231,15 @@ type SobelFilterTrainingSample() =
         let wm = BufferWriteMode.MapBuffer
         let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
         let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
-
-        let mutable execResults: obj list list = []
+                
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
                 
         let size = ref minSize
         while !size <= maxSize do
+            executionResults.Add(new List<obj>())
             Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
+
             let outputSize = (!size |> int)
             let inputSize = outputSize + 2
                         
@@ -252,10 +256,9 @@ type SobelFilterTrainingSample() =
                     null  
 
             // Iterate on devices
-            let mutable features: obj list = []
-            let mutable instanceResult: obj list = []
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
-                for dIndex, dName, dType in pDevs do                   
+                for dIndex, dName, dType in pDevs do  
+                                     
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                     let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize)
                     let ws = WorkSize([| (((outputSize - 1) / 16) + 1) * 16 |> int64; (((outputSize - 1) / 16) + 1) * 16 |> int64 |], [| 16L; 16L |])
@@ -271,9 +274,10 @@ type SobelFilterTrainingSample() =
                                         ws)) @>   
                             
                     // Extract features
-                    let km = compiler.Compile(comp, opts) :?> IKernelModule
-                    let precomputedFeatures = chain.Precompute(km)
-                    features <- chain.Evaluate(km, precomputedFeatures, [ input; output; ws ], opts)
+                    if pIndex = 0 && dIndex = 0 then
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ input; output; ws ], opts)))
                                                          
                     // Run once to skip compilation time
                     if not featureOnly then    
@@ -291,10 +295,9 @@ type SobelFilterTrainingSample() =
                                         
                             // Dump
                             Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            instanceResult <- instanceResult @ [ ttime ]
+                            executionResults.Last().Add(ttime)
                             System.Threading.Thread.Sleep(500)
-                    else   
-                        instanceResult <- instanceResult @ [ 0.0f ]            
-                execResults <- execResults @ [ instanceResult @ [inputSize; !size] @ features ]                
+                                     
+                executionResults.Last().AddRange([inputSize; !size])               
                 size := !size + 2L   
-        execResults 
+        executionResults, featureValues
