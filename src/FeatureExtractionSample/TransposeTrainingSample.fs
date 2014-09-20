@@ -118,11 +118,14 @@ type TransposeTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
-            ids.Add("Matrix Width (elements)")
-            ids.Add("Matrix Height (elements)")
+            //ids.Add("Matrix Width (elements)")
+            //ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf, featureOnly: bool) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -134,8 +137,8 @@ type TransposeTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.None ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.None ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -185,7 +188,7 @@ type TransposeTrainingSample() =
                                         ws)) @>   
                         
                     // Extract features
-                    if pIndex = 0 && dIndex = 0 then
+                    if pIndex = 0 && dIndex = 0 && not etOnly then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
                         featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)))
@@ -209,13 +212,16 @@ type TransposeTrainingSample() =
                             executionResults.Last().Add(ttime)
                             System.Threading.Thread.Sleep(500)  
                                
-            executionResults.Last().AddRange([ rows; cols ])
+            //executionResults.Last().AddRange([ rows; cols ])
         executionResults, featureValues
 
 type TransposeFloat4TrainingSample() =    
     inherit TransposeTrainingSample()
             
-    override this.RunInternal(chain, conf, featureOnly) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -253,7 +259,6 @@ type TransposeFloat4TrainingSample() =
                                                         r |> float32)                                    
             let block = Array.zeroCreate<float32> (blockSize * blockSize * elementsPerThread * elementsPerThread  |> int)
             //let rf = float4tofloat(reference)
-            Console.Write(GetOpenCLPlatforms().Count.ToString());
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 
                 for dIndex, dName, dType in pDevs do      
@@ -276,7 +281,7 @@ type TransposeFloat4TrainingSample() =
                                             ws)) @>   
                                 
                         // Extract features
-                        if pIndex = 0 && dIndex = 0 then
+                        if pIndex = 0 && dIndex = 0 && not etOnly then
                             let km = compiler.Compile(comp, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
                             featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ AsFloat4(c); AsFloat4(a); AsFloat4(block); ws ], opts)))
@@ -301,5 +306,5 @@ type TransposeFloat4TrainingSample() =
                                 executionResults.Last().Add(ttime)
                                 System.Threading.Thread.Sleep(500)
                                     
-            executionResults.Last().AddRange([ rows; cols ]) 
+            //executionResults.Last().AddRange([ rows; cols ]) 
         executionResults, featureValues

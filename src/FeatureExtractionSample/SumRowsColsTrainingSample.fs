@@ -62,11 +62,14 @@ type SumColsTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
-            ids.Add("Matrix Rows (elements)")
-            ids.Add("Matrix Cols (elements)")
+            //ids.Add("Matrix Rows (elements)")
+            //ids.Add("Matrix Cols (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf, featureOnly: bool) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -86,7 +89,7 @@ type SumColsTrainingSample() =
                             while !s <= maxSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + 2L
+                                s := !s + 64L
                         }) |> Array.ofSeq
 
         let executionResults = new List<List<obj>>()
@@ -118,7 +121,7 @@ type SumColsTrainingSample() =
                                                 c)),
                                         ws)) @>
                     // Extract features
-                    if (pIndex = 0 && dIndex = 0) then
+                    if (pIndex = 0 && dIndex = 0 && not etOnly) then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
                         featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)))
@@ -141,7 +144,7 @@ type SumColsTrainingSample() =
                             executionResults.Last().Add(ttime)
                             System.Threading.Thread.Sleep(500)
                                
-            executionResults.Last().AddRange([rows; cols])       
+            //executionResults.Last().AddRange([rows; cols])       
         executionResults, featureValues
 
 
@@ -158,7 +161,10 @@ type SumRowsTrainingSample() =
             res.[col] <- v
         box res
 
-    override this.RunInternal(chain, conf, featureOnly: bool) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -170,8 +176,8 @@ type SumRowsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UsePersistentMemAMD
-        let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UsePersistentMemAMD
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
 
         let mutable execResults: obj list list = []
                 
@@ -183,7 +189,7 @@ type SumRowsTrainingSample() =
                             while !s <= maxSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + 2L
+                                s := !s + 64L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
@@ -212,7 +218,7 @@ type SumRowsTrainingSample() =
                                                 c)),
                                         ws)) @>
                     // Extract features
-                    if (pIndex = 0 && dIndex = 0) then
+                    if (pIndex = 0 && dIndex = 0 && not etOnly) then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
                         featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; c; ws ], opts)))
@@ -235,5 +241,5 @@ type SumRowsTrainingSample() =
                             executionResults.Last().Add(ttime)
                             System.Threading.Thread.Sleep(500)
                          
-            executionResults.Last().AddRange([rows; cols])       
+            //executionResults.Last().AddRange([rows; cols])       
         executionResults, featureValues

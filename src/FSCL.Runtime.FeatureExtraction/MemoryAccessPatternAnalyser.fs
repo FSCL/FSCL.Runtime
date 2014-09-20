@@ -105,11 +105,12 @@ type MemoryAccessPatternAnalyser() =
         let localSize = Array.init (dims) (fun i -> workSize.LocalSize(i) |> int64)
         let numGroups = Array.init (dims) (fun i -> workSize.NumGroups(i) |> int64)
         let globalOffset = 
+            (*if workSize
             try 
                 Array.init (dims) (fun i -> workSize.GlobalOffset(i) |> int64)
             with 
             | :? System.NullReferenceException ->
-                Array.zeroCreate<int64> (dims)
+              *)  Array.zeroCreate<int64> (dims)
                  
         // Now compute delta of accesses from other threads compared to the baseLine. 
         // We take into account threads of the same group and of different group in all the dimensions
@@ -301,7 +302,7 @@ type MemoryAccessPatternAnalyser() =
             globalData @ localData
         else
             // Return feature values
-            globalData @ [ box 0.0f; box 0.0f; box 1.1f ]
+            globalData @ [ box 0.0f; box 0.0f; box 1.0f ]
             
 
             

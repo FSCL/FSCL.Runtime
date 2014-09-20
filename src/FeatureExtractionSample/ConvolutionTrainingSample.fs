@@ -125,13 +125,16 @@ type ConvolutionTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
-            ids.Add("Matrix Width (elements)")
-            ids.Add("Matrix Height (elements)")
-            ids.Add("Filter Width (elements)")
-            ids.Add("Filter Height (elements)")
+            //ids.Add("Matrix Width (elements)")
+            //ids.Add("Matrix Height (elements)")
+            //ids.Add("Filter Width (elements)")
+            //ids.Add("Filter Height (elements)")
             ids |> List.ofSeq
     
-    override this.RunInternal(chain, conf, featureOnly: bool) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinMatrixSize"])
         let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
@@ -144,10 +147,10 @@ type ConvolutionTrainingSample() =
         opts.Add(RuntimeOptions.ConstantDefines, [])     
         let rnd = System.Random()
 
-        let rm = BufferReadMode.MapBuffer
-        let wm = BufferWriteMode.MapBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let rm = BufferReadMode.EnqueueReadBuffer
+        let wm = BufferWriteMode.EnqueueWriteBuffer
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -191,7 +194,7 @@ type ConvolutionTrainingSample() =
                                             ws)) @>
 
                         // Extract features
-                        if pIndex = 0 && dIndex = 0 then
+                        if pIndex = 0 && dIndex = 0 && not etOnly then
                             let km = compiler.Compile(comp, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
                             featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; filter; c; inputSize |> int; ws ],  opts)))
@@ -214,7 +217,7 @@ type ConvolutionTrainingSample() =
                                 executionResults.Last().Add(ttime)
                                 System.Threading.Thread.Sleep(500)
 
-                    executionResults.Last().AddRange([matSize; matSize; filterSize; filterSize]) 
+                    //executionResults.Last().AddRange([matSize; matSize; filterSize; filterSize]) 
                     matSize <- matSize + minSize
         executionResults, featureValues
 

@@ -51,9 +51,9 @@ let main argv =
                         //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
@@ -62,8 +62,10 @@ let main argv =
                         //new LUDecompositionOpenCLDirectTrainingSample() :> IFeatureExtractionTrainingSample;
                   |]
 
+    let mutable index = 0
     for sample in samples do
-        sample.Run(chain, Some("regressionData3VectorAdd.csv"), onlyFeatures)
+        sample.Run(Some(index), chain, Some("Data.csv"), TrainingSampleRunningMode.FeaturesAndExecutionTime)
+        index <- index + 1
 
     0 // return an integer exit code
 

@@ -26,7 +26,7 @@ type VectorAddTrainingSample() =
 
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
-        dict.Add("MinVectorSize", 16L <<< 10)
+        dict.Add("MinVectorSize", 256L <<< 10)
         dict.Add("MaxVectorSize", 16L <<< 20)
         dict.Add("Iterations", 100)
         dict
@@ -53,10 +53,13 @@ type VectorAddTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
-            ids.Add("Vector Size (elements)")
+            //ids.Add("Vector Size (elements)")
             ids |> List.ofSeq
                 
-    override this.RunInternal(chain, conf, featureOnly: bool) = 
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
+
         let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
         let minSize = Int64.Parse(configuration.["MinVectorSize"])
         let maxSize = Int64.Parse(configuration.["MaxVectorSize"])
@@ -68,8 +71,8 @@ type VectorAddTrainingSample() =
         
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.UseHostPointer ||| MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.UseHostPointer ||| MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -109,7 +112,7 @@ type VectorAddTrainingSample() =
                                         ws)) @>   
                         
                     // Extract features
-                    if (dIndex = 0 && pIndex = 0) then
+                    if (dIndex = 0 && pIndex = 0 && not etOnly) then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
                         featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; b; c; ws ], opts)))
@@ -133,6 +136,6 @@ type VectorAddTrainingSample() =
                             executionResults.Last().Add(ttime)
                             System.Threading.Thread.Sleep(500)   
                                 
-            executionResults.Last().Add(!size)
+            //executionResults.Last().Add(!size)
             size := !size + minSize   
         executionResults, featureValues

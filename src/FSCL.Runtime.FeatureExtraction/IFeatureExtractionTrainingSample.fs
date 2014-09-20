@@ -14,6 +14,11 @@ open System.Xml.Linq
 open System.Linq
 open Microsoft.FSharp.Data
 
+type TrainingSampleRunningMode =
+| OnlyFeatures
+| OnlyExecutionTime
+| FeaturesAndExecutionTime
+
 [<AbstractClass>]
 type IFeatureExtractionTrainingSample() =
     abstract member TrainingSampleID: string with get
@@ -22,41 +27,59 @@ type IFeatureExtractionTrainingSample() =
     abstract member CreateVerifiedOutput: obj -> obj
     abstract member DefaultConfiguration: unit -> XDocument
     abstract member Configuration: unit -> XDocument
-    abstract member RunInternal: FeatureExtractionChain * XDocument * bool -> List<List<obj>> * List<List<obj>>
+    abstract member RunInternal: FeatureExtractionChain * XDocument * TrainingSampleRunningMode -> List<List<obj>> * List<List<obj>>
 
-    member this.Run(fec:FeatureExtractionChain, globalDataPath: string option, extractFeaturesOnly: bool) =
+    member this.Run(index: int option, fec:FeatureExtractionChain, globalDataPath: string option, runningMode: TrainingSampleRunningMode) =
         let conf = this.Configuration()
         let wr = new StreamWriter(this.TrainingSampleID + "_Features.csv", false)
         let gwr = if globalDataPath.IsSome then
                     new StreamWriter(globalDataPath.Value, true)
                   else
                     null
-        let fnl = 
-            if not extractFeaturesOnly then
-                String.concat ";" (this.ResultColumnIDs @ fec.FeatureNameList)
+        // Create data header
+        let mutable fnl = []
+        if runningMode <> TrainingSampleRunningMode.OnlyExecutionTime then
+            fnl <- fnl @ fec.FeatureNameList
+        if runningMode <> TrainingSampleRunningMode.OnlyFeatures then
+            fnl <- fnl @ this.ResultColumnIDs
+
+        let header = 
+            if index.IsSome then
+                String.concat ";" ([ "Training sample index" ] @ fnl)
             else
-                String.concat ";" (fec.FeatureNameList)                
-        wr.WriteLine(fnl)
-        let resultList, featureList = this.RunInternal(fec, conf, extractFeaturesOnly)
+                String.concat ";" fnl
+                       
+        wr.WriteLine(header)
+        if gwr <> null then
+            gwr.WriteLine(header) 
+
+        // Run sample
+        let resultList, featureList = this.RunInternal(fec, conf, runningMode)
+
         // Check cols
         for r in featureList do
             if r.Count <> fec.FeatureNameList.Length then
                 failwith "Error"
+
+        // Write data
         for r = 0 to featureList.Count - 1 do
-            if not extractFeaturesOnly then
-                for c = 0 to resultList.[r].Count - 1 do
-                    let item = resultList.[r].[c]
-                    wr.Write(item.ToString() + ";")  
-                    if gwr <> null then
-                        gwr.Write(item.ToString() + ";")          
-            for c = 0 to featureList.[r].Count - 2 do
-                let item = featureList.[r].[c]
-                wr.Write(item.ToString() + ";")
-                if gwr <> null then
-                    gwr.Write(item.ToString() + ";")   
-            wr.Write(featureList.[r].Last().ToString() + wr.NewLine)
+            let rowValues =
+                match runningMode with            
+                | TrainingSampleRunningMode.OnlyFeatures ->
+                   featureList.[r] |> Seq.toList
+                | TrainingSampleRunningMode.OnlyExecutionTime ->
+                   resultList.[r] |> Seq.toList
+                | _ ->
+                   (featureList.[r] |> Seq.toList) @ (resultList.[r] |> Seq.toList)
+            let rowValuesWithIndex =
+                if index.IsSome then
+                    [ box index.Value ] @ rowValues
+                else
+                    rowValues
+            let toPrint = rowValuesWithIndex |> List.map(fun i -> i.ToString()) |> String.concat ";"
+            wr.WriteLine(toPrint)
             if gwr <> null then
-                gwr.Write(featureList.[r].Last().ToString() + gwr.NewLine)  
+                gwr.WriteLine(toPrint)  
         wr.Close()
         if (gwr <> null) then
             gwr.Close()
