@@ -102,13 +102,14 @@
     <Compile Include="Exception.fs" />
     <Compile Include="Stack.fs" />
     <Compile Include="Tools.fs" />
-    <Compile Include="QuotationUtil.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="SchedulingMetric.fs" />
     <Compile Include="QuotationEvaluation.fs" />
     <Compile Include="ExpressionCounter.fs" />
     <Compile Include="OperationDensityCounter.fs" />
     <Compile Include="LoopIterationCounter.fs" />
-    <Compile Include="SchedulingMetric.fs" />
-    <Compile Include="InterThreadMemoryAccessAnalyser.fs" />
+    <Compile Include="InterThreadMemoryAccessCollector.fs" />
+    <Compile Include="SingleThreadMemoryAccessCollector.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

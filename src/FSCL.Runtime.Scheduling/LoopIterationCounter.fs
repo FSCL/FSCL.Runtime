@@ -22,59 +22,17 @@ type LoopIterationCountError(msg: string) =
     inherit System.Exception(msg)
 
 type LoopIterationCounter() = 
-    static member private ReplaceDynamicConstantDefines(expr: Expr, dynamicDefinesPlaceholders: List<Var>) =
-        let rec ReplaceInternal(expr: Expr) =
-            match expr with 
-            | Patterns.PropertyGet(o, pi, value) ->
-                // A property get can be handled only if the property has a reflected definition attribute
-                let isStatic =
-                    let attr = List.ofSeq (pi.GetCustomAttributes<DynamicConstantDefineAttribute>())
-                    attr.Length = 0
-                if not isStatic then
-                    // Check if var already created
-                    let prevVar = dynamicDefinesPlaceholders |> Seq.tryFind(fun p -> p.Name = pi.Name)
-                    if prevVar.IsNone then
-                        // Create a new var for this
-                        let v = Quotations.Var(pi.Name, pi.PropertyType)
-                        dynamicDefinesPlaceholders.Add(v)
-                        Expr.Var(v)
-                    else
-                        Expr.Var(prevVar.Value)
-                else
-                    if o.IsSome then
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(o.Value, pi, replList)
-                    else
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(pi, replList)
-            | ExprShape.ShapeVar(v) ->
-                expr
-            | ExprShape.ShapeLambda(v, b) ->
-                Expr.Lambda(v, ReplaceInternal(b))
-            | ExprShape.ShapeCombination(o, l) ->
-                let replList = l |> List.map(fun e -> ReplaceInternal(e))
-                ExprShape.RebuildShapeCombination(o, replList)
-
-        ReplaceInternal(expr)
-
-    static member private PrepareBody(body: Expr,
-                                     // workItemIdContainerPlaceholder: Quotations.Var,
-                                      dynamicDefinesPlaceholders: List<Var>) =
-        let replacedBody = LoopIterationCounter.ReplaceDynamicConstantDefines(
-                                //ExpressionCounter.ReplaceWorkSizeFunctions(
-                                    QuotationUtil.ToCurriedFunction(body), 
-                                    //workItemIdContainerPlaceholder,
-                                dynamicDefinesPlaceholders)
-               
-        let prep = AddParametersToCurriedFunction(replacedBody, (dynamicDefinesPlaceholders |> List.ofSeq))
-        prep
-
     // Build an expression that contains the number of interesting items
     static member private Estimate(functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
                                    stack: VarStack,
                                    //workItemIdContainerPlaceholder: Quotations.Var,
-                                   dynamicDefinesPlaceholders: Var list) =            
+                                   dynamicDefinesPlaceholders: Var list) =  
+        let isParameterReference v = 
+            (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
+        let isDynamicDefineReference v = 
+            (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
+                      
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
             match expr with
@@ -90,8 +48,8 @@ type LoopIterationCounter() =
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
                 let newStack = push stack (v, starte)
 
-                let unfoldStart = UnfoldExpr(starte, stack)
-                let unfoldEnd = UnfoldExpr(ende, newStack)
+                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
+                let unfoldEnd = KernelUtil.UnfoldExpression(ende, newStack, isParameterReference, isDynamicDefineReference)
                 let iterCount = 
                     <@
                         if ((%%unfoldStart : int) > (%%unfoldEnd : int)) then
@@ -144,9 +102,9 @@ type LoopIterationCounter() =
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
                                                 let newStack = push newStack (v, starte)
-                                                let unfoldStart = UnfoldExpr(starte, stack)
-                                                let unfoldStep = UnfoldExpr(stepe, stack)
-                                                let unfoldEnd = UnfoldExpr(ende, stack)
+                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
                                                 let totalIterCount = <@
                                                                         ((float32)(Math.Ceiling((float)(((float32)(%%unfoldEnd:int) - (float32)(%%unfoldStart:int) + 1.0f) / (float32)(%%unfoldStep:int)))))
                                                                      @>
@@ -164,39 +122,6 @@ type LoopIterationCounter() =
                     None  
             | _ -> 
                 None
-
-        and UnfoldExpr(expr:Expr, stack: VarStack) =
-            match expr with
-            // If getting a static var evaluate it
-            | Patterns.PropertyGet(e, pi, args) ->
-                match pi with
-                | DerivedPatterns.PropertyGetterWithReflectedDefinition(e) ->
-                    let freeVars = List.ofSeq(e.GetFreeVars())
-                    if freeVars.IsEmpty then
-                        let value = LeafExpressionConverter.EvaluateQuotation(e)
-                        Expr.Value (value, e.Type)
-                    else
-                        raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
-                | _ ->
-                    raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
-            // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
-            | ExprShape.ShapeVar(v) ->
-                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
-                //let isWorkSizeFunctionReference = (v = workItemIdContainerPlaceholder)
-                let isDynamicDefineReference = (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
-                if isParameterReference || isDynamicDefineReference then
-                   expr
-                else
-                    let varValue, stackTail = findAndTail v true stack
-                    if varValue.IsSome then
-                        UnfoldExpr(varValue.Value, stackTail)
-                    else
-                        raise (CountError("Cannot find variable " + v.Name + " to count expression"))
-            | ExprShape.ShapeLambda(v, b) ->
-                Expr.Lambda(v, UnfoldExpr(b, stack))
-            | ExprShape.ShapeCombination(o, l) ->
-                let replList = l |> List.map(fun e -> UnfoldExpr(e, stack))
-                ExprShape.RebuildShapeCombination(o, replList)
 
         and CheckModification(vs: Var list, expr: Expr, varModification: Dictionary<Var, List<Expr>>, validModificationContext: bool) =
             match expr with
@@ -256,7 +181,7 @@ type LoopIterationCounter() =
                                 | Patterns.Var(ov) ->
                                     if ov = v then
                                         // Ok, now make sure expr can be unfold to parameters and constants
-                                        let unfoldUpdate = UnfoldExpr(arguments.[1], stack)
+                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference, isDynamicDefineReference)
                                         Some(assExpr, unfoldUpdate)
                                     else
                                         raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
@@ -317,7 +242,7 @@ type LoopIterationCounter() =
                     let bindingValue, _ = findAndTail guardVar true stack
                     if bindingValue.IsSome then
                         // Unfold the guard expr
-                        let unfoldCond = UnfoldExpr(a.[1], stack)
+                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference, isDynamicDefineReference)
                         // Search in the body the ONLY update in the form v <- v +-*/>>><<< expr
                         let update = findVarUpdate(guardVar, body)
                         match update with
@@ -362,42 +287,17 @@ type LoopIterationCounter() =
                    
         EstimateInternal(functionBody, stack)            
             
-    // Removes (0+0+0+0+0+) useless counts in the expression
-    static member private CleanInstructionCount (expr: Expr<float32>) =
-        let rec cleanInstructionInternal(expr: Expr) =
-            let fv = expr.GetFreeVars() |> Array.ofSeq
-            if (Seq.isEmpty (expr.GetFreeVars())) && expr.Type = typeof<float32> then
-                let value = LeafExpressionConverter.EvaluateQuotation(expr) :?> float32 //expr.EvalUntyped() :?> float32
-                <@ value @> :> Expr
-            else
-                match expr with
-                | ExprShape.ShapeVar (v) ->
-                    expr
-                | ExprShape.ShapeLambda(v, e) ->
-                    Expr.Lambda(v, cleanInstructionInternal(e))
-                | ExprShape.ShapeCombination(o, l) ->
-                    let cleanedList = List.map (fun el -> cleanInstructionInternal(el)) l
-                    ExprShape.RebuildShapeCombination(o, cleanedList)
-        let result = cleanInstructionInternal(expr)
-        <@ (%%result:float32) @>
-    
     static member Count(body: Expr,
                         parameters: (ParameterInfo * Var)[]) = 
         // Create a lambda to evaluate instruction count
         //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
         let dynamicDefinePlaceholders = new List<Var>()
 
-        let prepBody = LoopIterationCounter.PrepareBody(body, dynamicDefinePlaceholders);
+        let prepBody = KernelUtil.PrepareBodyForAnalysis(body, dynamicDefinePlaceholders);
         let precExpr, newStack = LoopIterationCounter.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
-        let cleanCountExpr = LoopIterationCounter.CleanInstructionCount(precExpr)
-        (LoopIterationCounter.CloseCountExpression(prepBody.Value, cleanCountExpr), dynamicDefinePlaceholders)
+        let cleanCountExpr = KernelUtil.EvaluateClosedSubtrees(precExpr)
+        (KernelUtil.CloseExpression(prepBody.Value, cleanCountExpr).Value, dynamicDefinePlaceholders)
             
-    static member private CloseCountExpression(body: Expr, precExpr: Expr) = 
-        // We build an expression with args preparation preamble where
-        // each parameter is bound to the proper arg
-        let preparedExpr = ReplaceFunctionBody(body, precExpr).Value
-        // Return
-        preparedExpr
 
 
 

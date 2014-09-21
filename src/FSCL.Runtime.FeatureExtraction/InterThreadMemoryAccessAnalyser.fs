@@ -25,7 +25,7 @@ type MutableWorkItemInfo(globalID: int64[], localID: int64[], globalSize: int64[
     override this.LocalID(idx) =
         localID.[idx] |> int      
 
-type MemoryAccessPatternAnalyser() = 
+type InterThreadMemoryAccessAnalyser() = 
     inherit IDefaultFeatureExtractor()
 
     // Assumption on cache line size
@@ -50,8 +50,8 @@ type MemoryAccessPatternAnalyser() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq  
         
-        let acount, ph = InterThreadMemoryAccessAnalyser.EstimateMemoryAccessStride(m.Kernel.OriginalBody,
-                                                                                    parameters)
+        let acount, ph = InterThreadMemoryAccessCollector.EstimateMemoryAccessStride(m.Kernel.OriginalBody,
+                                                                                     parameters)
                                                                
         // Separate accesses to global/constant from accesses to local
         let glob = new Dictionary<Var, (Expr * Expr) list>()           
@@ -69,7 +69,7 @@ type MemoryAccessPatternAnalyser() =
     // 1) We use the thread 0-0-0 as reference
     // 2) We compute inter-group stride using the last thread of a group and the first of the successive
     // 3) We compute stride on all the dimensions, considered independent from each other
-    member private this.EvaluateStride(count: Expr, accessExpr: Expr, dynDefArgs: obj list, args: obj list) =
+    member private this.EvaluateStride(count: Expr, accessExpr: Expr, elementSize: int, dynDefArgs: obj list, args: obj list) =
         let rec replaceWorkItemInfo(args: obj list, wi: WorkSize) =
             match args with
             | [] -> 
@@ -130,7 +130,7 @@ type MemoryAccessPatternAnalyser() =
                 for d in dynDefArgs do
                     access <- access.GetType().GetMethod("Invoke").Invoke(access, [| d |])
                 // Now compute delta
-                strideIntraGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32))
+                strideIntraGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32)) * (elementSize |> float32)
             // Compute the stride for two threads of successive groups in this dimension
             if workSize.NumGroups(dim) > 1 then
                 let globalID = Array.init (dims) (fun i -> if i = dim then workSize.LocalSize(i) |> int64 else 0L)
@@ -143,7 +143,7 @@ type MemoryAccessPatternAnalyser() =
                 for d in dynDefArgs do
                     access <- access.GetType().GetMethod("Invoke").Invoke(access, [| d |])
                 // Now compute delta
-                strideInterGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32))
+                strideInterGroup <- Math.Abs((access :?> float32) - (baseLine :?> float32)) * (elementSize |> float32)
 
             // Add item to strides
             strides.[dim] <- (strideIntraGroup, strideInterGroup)
@@ -168,9 +168,9 @@ type MemoryAccessPatternAnalyser() =
                 let mutable dimInf = 1.0f
                 for dim in 0 .. workSize.WorkDim() - 1 do
                     match (item |> snd).[dim] with
-                    | 0.0f ->
+                    | x when x = wordSize ->
                          numConfItems <- numConfItems * (workSize.LocalSize(dim) |> float32)
-                    | x ->
+                    | _ ->
                         ()
                 averageInterCollision <- averageInterCollision + ((numConfItems - 1.0f) * (item |> fst |> float32))
                 interCollisionCountSum <- interCollisionCountSum + (fst item)
@@ -187,9 +187,9 @@ type MemoryAccessPatternAnalyser() =
             let mutable dimInf = 1.0f
             for dim in 0 .. workSize.WorkDim() - 1 do
                 match (item |> snd).[dim] with
-                | 0.0f ->
+                | x when x < wordSize ->
                      numConfItems <- numConfItems * (workSize.LocalSize(dim) |> float32)
-                | x ->
+                | _ ->
                     ()
             averageIntraCollision <- averageIntraCollision + ((numConfItems - 1.0f) * (item |> fst |> float32))
             intraCollisionCountSum <- intraCollisionCountSum + (fst item)
@@ -203,7 +203,7 @@ type MemoryAccessPatternAnalyser() =
         let mutable intraCohalCountSum = 0
         for item in intraStrideList do
             match (item |> snd).[0] with
-            | 1.0f ->
+            | x when x = wordSize ->
                 averageIntraCohaleshing <- ((item |> fst |> float32) * 1.0f)
             | _ ->
                 averageIntraCohaleshing <- ((item |> fst |> float32) * 0.0f)
@@ -224,7 +224,7 @@ type MemoryAccessPatternAnalyser() =
                     if (item |> snd).[dim] < 0.f then
                        lowerBound
                     else
-                       Math.Max(Math.Min((item |> snd).[dim] * wordSize / cacheLineSize, 1.f), lowerBound)
+                       Math.Max(Math.Min((item |> snd).[dim] / cacheLineSize, 1.f), lowerBound)
                     
                 itemIntraCacheUsage <- itemIntraCacheUsage * x
             averageIntraCacheUsage <- averageIntraCacheUsage + itemIntraCacheUsage 
@@ -243,7 +243,7 @@ type MemoryAccessPatternAnalyser() =
                         if (item |> snd).[dim] < 0.f then
                            lowerBound
                         else
-                           Math.Max(Math.Min((item |> snd).[dim] * wordSize / cacheLineSize, 1.f), lowerBound)
+                           Math.Max(Math.Min((item |> snd).[dim] / cacheLineSize, 1.f), lowerBound)
                     
                     itemInterCacheUsage <- itemInterCacheUsage * x
                 averageInterCacheUsage <- averageInterCacheUsage + itemInterCacheUsage 
@@ -283,12 +283,12 @@ type MemoryAccessPatternAnalyser() =
         let lIntraStrideList = new List<int * float32[]>()
         for v in globalAccessExpressions do
             for accessExprCount, accessExpr in v.Value do
-                let count, strides = this.EvaluateStride(accessExprCount, accessExpr, dynDefArgs, args)
+                let count, strides = this.EvaluateStride(accessExprCount, accessExpr, Marshal.SizeOf(v.Key.Type.GetElementType()), dynDefArgs, args)
                 gIntraStrideList.Add((count, strides |> Array.unzip |> fst))
                 gInterStrideList.Add((count, strides |> Array.unzip |> snd))
         for v in localAccessExpressions do
             for accessExprCount, accessExpr in v.Value do
-                let count, strides = this.EvaluateStride(accessExprCount, accessExpr, dynDefArgs, args)
+                let count, strides = this.EvaluateStride(accessExprCount, accessExpr, Marshal.SizeOf(v.Key.Type.GetElementType()), dynDefArgs, args)
                 lIntraStrideList.Add((count, strides |> Array.unzip |> fst))
 
         let workSize = 

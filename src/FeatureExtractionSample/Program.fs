@@ -31,7 +31,6 @@ let main argv =
 
     //let ldsBenchmark = new LDSBenchmark.LDSBenchmark()
     //ldsBenchmark.Execute(0, 1)
-    let onlyFeatures = false
 
     // Training samples profiling
     let chain = new FeatureExtractionChain([| 
@@ -42,18 +41,19 @@ let main argv =
                                               new WorkSizeCounter();
                                               //new OperationDensityAnalyser();
                                               new TotalLoopIterationsCounter();
-                                              new MemoryAccessPatternAnalyser()
+                                              new InterThreadMemoryAccessAnalyser();
+                                              new SingleThreadMemoryAccessAnalyser()
                                            |])
     
     let samples = [|
                         new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
-                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;
@@ -64,7 +64,7 @@ let main argv =
 
     let mutable index = 0
     for sample in samples do
-        sample.Run(Some(index), chain, Some("Data.csv"), TrainingSampleRunningMode.FeaturesAndExecutionTime)
+        sample.Run(Some(index), chain, Some("Data.csv"), TrainingSampleRunningMode.OnlyFeatures)
         index <- index + 1
 
     0 // return an integer exit code

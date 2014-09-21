@@ -19,67 +19,19 @@ open System.Linq
 type StrideEvaluationError(msg: string) =
     inherit System.Exception(msg)
 
-type InterThreadMemoryAccessAnalyser() = 
-    static member private ReplaceDynamicConstantDefines(expr: Expr, dynamicDefinesPlaceholders: List<Var>) =
-        let rec ReplaceInternal(expr: Expr) =
-            match expr with 
-            | Patterns.PropertyGet(o, pi, value) ->
-                // A property get can be handled only if the property has a reflected definition attribute
-                let isStatic =
-                    let attr = List.ofSeq (pi.GetCustomAttributes<DynamicConstantDefineAttribute>())
-                    attr.Length = 0
-                if not isStatic then
-                    // Check if var already created
-                    let prevVar = dynamicDefinesPlaceholders |> Seq.tryFind(fun p -> p.Name = pi.Name)
-                    if prevVar.IsNone then
-                        // Create a new var for this
-                        let v = Quotations.Var(pi.Name, pi.PropertyType)
-                        dynamicDefinesPlaceholders.Add(v)
-                        Expr.Var(v)
-                    else
-                        Expr.Var(prevVar.Value)
-                else
-                    if o.IsSome then
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(o.Value, pi, replList)
-                    else
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(pi, replList)
-            | ExprShape.ShapeVar(v) ->
-                expr
-            | ExprShape.ShapeLambda(v, b) ->
-                Expr.Lambda(v, ReplaceInternal(b))
-            | ExprShape.ShapeCombination(o, l) ->
-                let replList = l |> List.map(fun e -> ReplaceInternal(e))
-                ExprShape.RebuildShapeCombination(o, replList)
-
-        ReplaceInternal(expr)
-
-    static member private PrepareBody(body: Expr,
-                                      dynamicDefinesPlaceholders: List<Var>) =
-        let replacedBody = InterThreadMemoryAccessAnalyser.ReplaceDynamicConstantDefines(
-                                    QuotationUtil.ToCurriedFunction(body), 
-                                dynamicDefinesPlaceholders)
-               
-        let prep = AddParametersToCurriedFunction(replacedBody, (dynamicDefinesPlaceholders |> List.ofSeq))
-        prep
-
+type InterThreadMemoryAccessCollector() = 
     static member private ZeroRefsToLoopVars(iterVars: (Var * Expr * Expr<int>) list, e: Expr) =
-        match e with
-        | Patterns.Var(v) ->
-            let iterVar = iterVars |> List.tryFind (fun (ivar, ival, _) -> ivar = v)
-            match iterVar with
-            | Some(ivar, ival, _) ->
-                ival
-            | _ ->
-                e
-        | ExprShape.ShapeVar(var) ->
-            e
-        | ExprShape.ShapeLambda(var, lambda) ->
-            Expr.Lambda(var, InterThreadMemoryAccessAnalyser.ZeroRefsToLoopVars(iterVars, lambda))
-        | ExprShape.ShapeCombination(o, ex) ->   
-            let zeroed = ex |> List.map(fun exp -> InterThreadMemoryAccessAnalyser.ZeroRefsToLoopVars(iterVars, exp))    
-            ExprShape.RebuildShapeCombination(o, zeroed)
+        QuotationUtil.ReplaceExpr(e, fun it -> 
+                                        match it with
+                                        | Patterns.Var(v) ->
+                                            let iterVar = iterVars |> List.tryFind (fun (ivar, ival, _) -> ivar = v)
+                                            match iterVar with
+                                            | Some(ivar, ival, _) ->
+                                                Some(ival)
+                                            | _ ->
+                                                None
+                                        | _ ->
+                                            None)
 
     static member private CheckModification(vs: Var list, expr: Expr, varModification: Dictionary<Var, List<Expr>>, validModificationContext: bool) =
         match expr with
@@ -93,30 +45,30 @@ type InterThreadMemoryAccessAnalyser() =
                     if not (varModification.ContainsKey(v)) then
                         varModification.Add(v, new List<Expr>())
                     varModification.[v].Add(value)
-                    InterThreadMemoryAccessAnalyser.CheckModification(vs, value, varModification, true)
+                    InterThreadMemoryAccessCollector.CheckModification(vs, value, varModification, true)
             else
-                InterThreadMemoryAccessAnalyser.CheckModification(vs, value, varModification, true)
+                InterThreadMemoryAccessCollector.CheckModification(vs, value, varModification, true)
         | Patterns.WhileLoop(guard, body) ->
             // Not a valid modification context
-            let first = InterThreadMemoryAccessAnalyser.CheckModification(vs, guard, varModification, false)
-            first && InterThreadMemoryAccessAnalyser.CheckModification(vs, body, varModification, false)
+            let first = InterThreadMemoryAccessCollector.CheckModification(vs, guard, varModification, false)
+            first && InterThreadMemoryAccessCollector.CheckModification(vs, body, varModification, false)
         | Patterns.IfThenElse(guard, ifb, elseb) ->
             // Not a valid modification context
-            let first = InterThreadMemoryAccessAnalyser.CheckModification(vs, guard, varModification, false)
-            let snd = first && InterThreadMemoryAccessAnalyser.CheckModification(vs, ifb, varModification, false)
-            snd && InterThreadMemoryAccessAnalyser.CheckModification(vs, elseb, varModification, false)
+            let first = InterThreadMemoryAccessCollector.CheckModification(vs, guard, varModification, false)
+            let snd = first && InterThreadMemoryAccessCollector.CheckModification(vs, ifb, varModification, false)
+            snd && InterThreadMemoryAccessCollector.CheckModification(vs, elseb, varModification, false)
         | Patterns.ForIntegerRangeLoop(v, st, en, b) ->
             // Not a valid modification context
-            let first = InterThreadMemoryAccessAnalyser.CheckModification(vs, st, varModification, false)
-            let snd = first && InterThreadMemoryAccessAnalyser.CheckModification(vs, en, varModification, false)
-            snd && InterThreadMemoryAccessAnalyser.CheckModification(vs, b, varModification, false)
+            let first = InterThreadMemoryAccessCollector.CheckModification(vs, st, varModification, false)
+            let snd = first && InterThreadMemoryAccessCollector.CheckModification(vs, en, varModification, false)
+            snd && InterThreadMemoryAccessCollector.CheckModification(vs, b, varModification, false)
         | ExprShape.ShapeVar(v) ->
             true
         | ExprShape.ShapeLambda(v, b) ->                
-            InterThreadMemoryAccessAnalyser.CheckModification(vs, b, varModification, true)
+            InterThreadMemoryAccessCollector.CheckModification(vs, b, varModification, true)
         | ExprShape.ShapeCombination(o, bl) ->               
             if bl.Length > 0 then
-                bl |> List.map (fun it -> InterThreadMemoryAccessAnalyser.CheckModification(vs, it, varModification, true)) |> List.reduce(fun a b -> a && b)
+                bl |> List.map (fun it -> InterThreadMemoryAccessCollector.CheckModification(vs, it, varModification, true)) |> List.reduce(fun a b -> a && b)
             else
                 true
 
@@ -125,41 +77,14 @@ type InterThreadMemoryAccessAnalyser() =
                                    parameters: (ParameterInfo * Var)[],
                                    stack: VarStack,
                                    dynamicDefinesPlaceholders: Var list) = 
+        let isParameterReference v = 
+            (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
+        let isDynamicDefineReference v = 
+            (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
+
         // Access dataset contains for each array accessed the list of offsets inter-thread (one for each loop found)   
         let globalAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
                         
-        let rec UnfoldExpr(expr:Expr, stack: VarStack) =
-            match expr with
-            // If getting a static var evaluate it
-            | Patterns.PropertyGet(e, pi, args) ->
-                match pi with
-                | DerivedPatterns.PropertyGetterWithReflectedDefinition(e) ->
-                    let freeVars = List.ofSeq(e.GetFreeVars())
-                    if freeVars.IsEmpty then
-                        let value = LeafExpressionConverter.EvaluateQuotation(e)
-                        Expr.Value (value, e.Type)
-                    else
-                        raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
-                | _ ->
-                    raise (CountError("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]"))
-            // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
-            | ExprShape.ShapeVar(v) ->
-                let isParameterReference = (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
-                let isDynamicDefineReference = (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
-                if isParameterReference || isDynamicDefineReference then
-                   expr
-                else
-                    let varValue, stackTail = findAndTail v true stack
-                    if varValue.IsSome then
-                        UnfoldExpr(varValue.Value, stackTail)
-                    else
-                        raise (CountError("Cannot find variable " + v.Name + " to count expression"))
-            | ExprShape.ShapeLambda(v, b) ->
-                Expr.Lambda(v, UnfoldExpr(b, stack))
-            | ExprShape.ShapeCombination(o, l) ->
-                let replList = l |> List.map(fun e -> UnfoldExpr(e, stack))
-                ExprShape.RebuildShapeCombination(o, replList)
- 
         let rec EstimateExpr(expr: Expr, stack: VarStack, tripCount: Expr<int>, loopVars: (Var * Expr * Expr<int>) list) =
             match expr with        
             // Check if access to array            
@@ -181,10 +106,10 @@ type InterThreadMemoryAccessAnalyser() =
                     let mutable normalisedExpr = QuotationUtil.NormalizeArrayAccess(l.[0], accessExprs) :> Expr
 
                     // Zero (replace with loop var init value) each ref to an iteration var
-                    normalisedExpr <- InterThreadMemoryAccessAnalyser.ZeroRefsToLoopVars(loopVars, normalisedExpr) 
+                    normalisedExpr <- InterThreadMemoryAccessCollector.ZeroRefsToLoopVars(loopVars, normalisedExpr) 
 
                     // Unfold expr
-                    normalisedExpr <- UnfoldExpr(normalisedExpr, stack) 
+                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference, isDynamicDefineReference)
 
                     // Add this expression to the access dataset
                     if not (globalAccessDataset.ContainsKey(arrayVar)) then
@@ -195,8 +120,8 @@ type InterThreadMemoryAccessAnalyser() =
             // Loop: we check inside it
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
                 // Determine loop trip count
-                let unfoldStart = UnfoldExpr(starte, stack)
-                let unfoldEnd = UnfoldExpr(ende, stack)
+                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
+                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
                 // Check accesses in starte and ende
                 let newStack = EstimateExpr(starte, stack, tripCount, loopVars)
                 let newStack = EstimateExpr(ende, stack, tripCount, loopVars)
@@ -283,9 +208,9 @@ type InterThreadMemoryAccessAnalyser() =
                                                 let seStack = EstimateExpr(stepe, stack, tripCount, loopVars)
                                                 let eeStack = EstimateExpr(ende, stack, tripCount, loopVars)
 
-                                                let unfoldStart = UnfoldExpr(starte, stack)
-                                                let unfoldStep = UnfoldExpr(stepe, stack)
-                                                let unfoldEnd = UnfoldExpr(ende, stack)
+                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
                                                 let tripCountExpr = <@
                                                                         ((int)(Math.Ceiling((float)((%%unfoldEnd:int) - (%%unfoldStart:int) + 1) / (float)(%%unfoldStep:int)))) |> int
                                                                     @>
@@ -331,7 +256,7 @@ type InterThreadMemoryAccessAnalyser() =
                                 | Patterns.Var(ov) ->
                                     if ov = v then
                                         // Ok, now make sure expr can be unfold to parameters and constants
-                                        let unfoldUpdate = UnfoldExpr(arguments.[1], stack)
+                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference, isDynamicDefineReference)
                                         Some(assExpr, unfoldUpdate)
                                     else
                                         raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
@@ -395,7 +320,7 @@ type InterThreadMemoryAccessAnalyser() =
                     let bindingValue, _ = findAndTail guardVar true stack
                     if bindingValue.IsSome then
                         // Unfold the guard expr
-                        let unfoldCond = UnfoldExpr(a.[1], stack)
+                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference, isDynamicDefineReference)
                         // Search in the body the ONLY update in the form v <- v +-*/>>><<< expr
                         let update = findVarUpdate(guardVar, body)
                         match update with
@@ -473,45 +398,20 @@ type InterThreadMemoryAccessAnalyser() =
                 *) 
         let s = EstimateExpr(functionBody, stack, <@ 1 @>, [])
         globalAccessDataset
-            
-    // Removes (0+0+0+0+0+) useless counts in the expression
-    static member private CleanInstructionCount (expr: Expr<float32>) =
-        let rec cleanInstructionInternal(expr: Expr) =
-            let fv = expr.GetFreeVars() |> Array.ofSeq
-            if (Seq.isEmpty (expr.GetFreeVars())) && expr.Type = typeof<float32> then
-                let value = LeafExpressionConverter.EvaluateQuotation(expr) :?> float32 //expr.EvalUntyped() :?> float32
-                <@ value @> :> Expr
-            else
-                match expr with
-                | ExprShape.ShapeVar (v) ->
-                    expr
-                | ExprShape.ShapeLambda(v, e) ->
-                    Expr.Lambda(v, cleanInstructionInternal(e))
-                | ExprShape.ShapeCombination(o, l) ->
-                    let cleanedList = List.map (fun el -> cleanInstructionInternal(el)) l
-                    ExprShape.RebuildShapeCombination(o, cleanedList)
-        let result = cleanInstructionInternal(expr)
-        <@ (%%result:float32) @>
-    
+           
     static member EstimateMemoryAccessStride(body: Expr,
                                              parameters: (ParameterInfo * Var)[]) = 
         let dynamicDefinePlaceholders = new List<Var>()
 
-        let prepBody = InterThreadMemoryAccessAnalyser.PrepareBody(body, dynamicDefinePlaceholders);
-        let memAccesses = InterThreadMemoryAccessAnalyser.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
+        let prepBody = KernelUtil.PrepareBodyForAnalysis(body, dynamicDefinePlaceholders);
+        let memAccesses = InterThreadMemoryAccessCollector.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
         let memAccessesEvaluators = new Dictionary<Var, (Expr * Expr) list>()
         for item in memAccesses do
-            let evals = item.Value |> Seq.map(fun (a, b) -> (InterThreadMemoryAccessAnalyser.CloseExpression(prepBody.Value, a), InterThreadMemoryAccessAnalyser.CloseExpression(prepBody.Value, b)))
+            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(prepBody.Value, a).Value, KernelUtil.CloseExpression(prepBody.Value, b).Value))
             memAccessesEvaluators.Add(item.Key,
                                       evals |> Seq.toList)
         memAccessesEvaluators, dynamicDefinePlaceholders
             
-    static member private CloseExpression(body: Expr, precExpr: Expr) = 
-        // We build an expression with args preparation preamble where
-        // each parameter is bound to the proper arg
-        let preparedExpr = ReplaceFunctionBody(body, precExpr).Value
-        // Return
-        preparedExpr
 
 
 

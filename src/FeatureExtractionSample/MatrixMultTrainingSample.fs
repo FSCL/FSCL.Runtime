@@ -94,15 +94,15 @@ let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItem
     
     // Unroll 8
     let mutable accum = 0.0f
-    for i = 0 to (matA.GetLength(1) >>> 3) - 1 do
-        accum <- accum + matA.[r, (i * 8)] * matB.[(i * 8), c]
-        accum <- accum + matA.[r, (i * 8) + 1] * matB.[(i * 8) + 1, c]
-        accum <- accum + matA.[r, (i * 8) + 2] * matB.[(i * 8) + 2, c]
-        accum <- accum + matA.[r, (i * 8) + 3] * matB.[(i * 8) + 3, c]
-        accum <- accum + matA.[r, (i * 8) + 4] * matB.[(i * 8) + 4, c]
-        accum <- accum + matA.[r, (i * 8) + 5] * matB.[(i * 8) + 5, c]
-        accum <- accum + matA.[r, (i * 8) + 6] * matB.[(i * 8) + 6, c]
-        accum <- accum + matA.[r, (i * 8) + 7] * matB.[(i * 8) + 7, c]
+    for i in 0 .. 8 .. matA.GetLength(1) - 1 do
+        accum <- accum + matA.[r, i] * matB.[i, c]
+        accum <- accum + matA.[r, i + 1] * matB.[i + 1, c]
+        accum <- accum + matA.[r, i + 2] * matB.[i + 2, c]
+        accum <- accum + matA.[r, i + 3] * matB.[i + 3, c]
+        accum <- accum + matA.[r, i + 4] * matB.[i + 4, c]
+        accum <- accum + matA.[r, i + 5] * matB.[i + 5, c]
+        accum <- accum + matA.[r, i + 6] * matB.[i + 6, c]
+        accum <- accum + matA.[r, i + 7] * matB.[i + 7, c]
     matC.[r, c] <- accum
       
 let Verify(output: float32[,], expected: float32[,]) =
