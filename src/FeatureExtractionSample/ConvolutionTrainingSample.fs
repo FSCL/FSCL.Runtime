@@ -105,7 +105,15 @@ type ConvolutionTrainingSample() =
         dict
         
     override this.Verify(output: obj, reference: obj) =
-        (output :?> float32[]) = (reference :?> float32[])
+        let o = output :?> float32[]
+        let r = reference :?> float32[]
+        let mutable eq = true
+        for row = 0 to o.GetLength(0) - 1 do
+            let f = o.[row]
+            let s = r.[row]
+            if f <> s then
+                eq <- false
+        eq
     
     override this.CreateVerifiedOutput(o: obj) =
         let input, filter, mWidth, rWidth = o :?> float32[] * float32[] * int * int
@@ -218,6 +226,6 @@ type ConvolutionTrainingSample() =
                                 System.Threading.Thread.Sleep(500)
 
                     //executionResults.Last().AddRange([matSize; matSize; filterSize; filterSize]) 
-                    matSize <- matSize + minSize
+                matSize <- matSize + minSize
         executionResults, featureValues
 

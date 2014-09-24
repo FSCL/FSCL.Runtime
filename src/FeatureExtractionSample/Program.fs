@@ -46,11 +46,11 @@ let main argv =
                                            |])
     
     let samples = [|
-                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
-                        new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
@@ -64,7 +64,7 @@ let main argv =
 
     let mutable index = 0
     for sample in samples do
-        sample.Run(Some(index), chain, Some("Data.csv"), TrainingSampleRunningMode.OnlyFeatures)
+        sample.Run(Some(index), chain, Some("Data.csv"), TrainingSampleRunningMode.FeaturesAndExecutionTime)
         index <- index + 1
 
     0 // return an integer exit code
