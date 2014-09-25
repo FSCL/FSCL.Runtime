@@ -80,6 +80,15 @@ let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.L
     if((xIndex < height) && (yIndex < width)) then
         let index_out = (yIndex * height) + xIndex;
         output.[index_out] <- block.[(wi.LocalID(0)*(BLOCK_DIM+1))+wi.LocalID(1)]
+
+let TransposeNaive(output: float32[], input: float32[], width: int, height: int, wi: WorkItemInfo) =
+    let xIndex = wi.GlobalID(0)
+    let yIndex = wi.GlobalID(1)
+
+    if((xIndex < width) && (yIndex < height)) then
+        let index_in = yIndex * width + xIndex
+        let index_out = xIndex * height + yIndex;
+        output.[index_out] <- input.[index_in]
         
 type TransposeTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
@@ -214,7 +223,102 @@ type TransposeTrainingSample() =
                                
             //executionResults.Last().AddRange([ rows; cols ])
         executionResults, featureValues
+       
+type TransposeNaiveTrainingSample() =    
+    inherit TransposeTrainingSample()        
+    
+    override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
+        let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
+        let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
 
+        let configuration = IDefaultFeatureExtractionTrainingSample.ConfigurationToDictionary(conf)
+        let minSize = Int64.Parse(configuration.["MinMatrixSize"])
+        let maxSize = Int64.Parse(configuration.["MaxMatrixSize"])
+        let iterations = Int32.Parse(configuration.["Iterations"])
+
+        let compiler = new Compiler()
+        let opts = new Dictionary<string, obj>()        
+        let rnd = System.Random()
+
+        let rm = BufferReadMode.EnqueueReadBuffer
+        let wm = BufferWriteMode.EnqueueWriteBuffer
+        let ifl = MemoryFlags.ReadOnly
+        let ofl = MemoryFlags.WriteOnly
+        
+        let executionResults = new List<List<obj>>()
+        let featureValues = new List<List<obj>>()
+
+        let blockSize = 16L
+        let elementsPerThread = 4L
+                
+        let sizes = (seq {
+                            let s = ref minSize
+                            while !s <= maxSize do
+                                yield (!s, !s)
+                                //yield (!s, !s * 2L)
+                                s := !s + minSize
+                        }) |> Array.ofSeq
+
+        for rows, cols in sizes do
+            executionResults.Add(new List<obj>())
+            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
+                                          
+            let a = Array.init (rows * cols |> int) (fun i -> 
+                                                        let r = (i |> int64) / cols
+                                                        r |> float32)                                    
+            let block = Array.zeroCreate<float32> (blockSize * (blockSize + 1L) |> int)
+            let reference = 
+                if not featureOnly then
+                    this.CreateVerifiedOutput((a, cols |> int)) :?> float32[]
+                else
+                    [||]
+            //let rf = float4tofloat(reference)
+            for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
+                for dIndex, dName, dType in pDevs do                                
+                    Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
+                    let c = Array.zeroCreate<float32> (cols * rows |> int)
+                    
+                    let ws = WorkSize([| rows; cols |], [| blockSize; blockSize |])
+                    let comp = <@ DEVICE(pIndex, dIndex,
+                                    TransposeNaive(
+                                        BUFFER_WRITE_MODE(wm, 
+                                            MEMORY_FLAGS(ofl, 
+                                                c)),
+                                        BUFFER_READ_MODE(rm, 
+                                            MEMORY_FLAGS(ifl, 
+                                                a)),
+                                        cols |> int,
+                                        rows |> int,
+                                        ws)) @>   
+                        
+                    // Extract features
+                    if pIndex = 0 && dIndex = 0 && not etOnly then
+                        let km = compiler.Compile(comp, opts) :?> IKernelModule
+                        let precomputedFeatures = chain.Precompute(km)
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)))
+                                                                                                          
+                    // Run once to skip compilation time
+                    if not featureOnly then
+                        comp.Run()
+                        if not (this.Verify(c, reference)) then
+                            Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
+                        else
+                            // Run
+                            let watch = new Stopwatch()
+                            watch.Start()
+                            for i = 0 to iterations - 1 do
+                                comp.Run()
+                            watch.Stop()
+                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
+                                    
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
+                            executionResults.Last().Add(ttime)
+                            System.Threading.Thread.Sleep(500)  
+                               
+            //executionResults.Last().AddRange([ rows; cols ])
+        executionResults, featureValues
+        
 type TransposeFloat4TrainingSample() =    
     inherit TransposeTrainingSample()
             

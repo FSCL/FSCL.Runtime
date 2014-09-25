@@ -53,6 +53,7 @@ let main argv =
                         new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
                         new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
                         new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new TransposeNaiveTrainingSample() :> IFeatureExtractionTrainingSample;
                         new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;

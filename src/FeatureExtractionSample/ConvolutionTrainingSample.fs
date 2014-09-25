@@ -218,6 +218,6 @@ type ConvolutionTrainingSample() =
                                 System.Threading.Thread.Sleep(500)
 
                     //executionResults.Last().AddRange([matSize; matSize; filterSize; filterSize]) 
-                    matSize <- matSize + minSize
+                matSize <- matSize + minSize
         executionResults, featureValues
 
