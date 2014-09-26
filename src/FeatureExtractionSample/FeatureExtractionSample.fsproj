@@ -113,6 +113,7 @@
     <Compile Include="SobelFilterTrainingSample.fs" />
     <Compile Include="ConvolutionTrainingSample.fs" />
     <Compile Include="TransposeTrainingSample.fs" />
+    <Compile Include="LogisticMapTrainingSample.fs" />
     <Compile Include="Program.fs" />
     <None Include="packages.config" />
   </ItemGroup>

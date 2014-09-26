@@ -81,6 +81,7 @@ let Transpose(output: float32[], input: float32[], [<AddressSpace(AddressSpace.L
         let index_out = (yIndex * height) + xIndex;
         output.[index_out] <- block.[(wi.LocalID(0)*(BLOCK_DIM+1))+wi.LocalID(1)]
 
+[<ReflectedDefinition>]
 let TransposeNaive(output: float32[], input: float32[], width: int, height: int, wi: WorkItemInfo) =
     let xIndex = wi.GlobalID(0)
     let yIndex = wi.GlobalID(1)
@@ -295,7 +296,7 @@ type TransposeNaiveTrainingSample() =
                     if pIndex = 0 && dIndex = 0 && not etOnly then
                         let km = compiler.Compile(comp, opts) :?> IKernelModule
                         let precomputedFeatures = chain.Precompute(km)
-                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ], opts)))
+                        featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ c; a; cols |> int; rows |> int; ws ], opts)))
                                                                                                           
                     // Run once to skip compilation time
                     if not featureOnly then
