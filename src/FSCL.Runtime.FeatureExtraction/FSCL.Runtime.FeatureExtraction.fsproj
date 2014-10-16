@@ -111,7 +111,6 @@
     <Compile Include="MemoryAccessCounter.fs" />
     <Compile Include="WorkSizeCounter.fs" />
     <Compile Include="OperationDensityAnalyser.fs" />
-    <Compile Include="InterThreadMemoryAccessAnalyser.fs" />
     <Compile Include="SingleThreadMemoryAccessAnalyser.fs" />
     <Compile Include="TotalLoopIterationsCounter.fs" />
     <None Include="packages.config" />

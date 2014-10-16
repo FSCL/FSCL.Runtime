@@ -83,7 +83,8 @@ type InterThreadMemoryAccessCollector() =
             (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
 
         // Access dataset contains for each array accessed the list of offsets inter-thread (one for each loop found)   
-        let globalAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
+        let globalReadAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
+        let globalWriteAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
                         
         let rec EstimateExpr(expr: Expr, stack: VarStack, tripCount: Expr<int>, loopVars: (Var * Expr * Expr<int>) list) =
             match expr with        
@@ -112,10 +113,34 @@ type InterThreadMemoryAccessCollector() =
                     normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference, isDynamicDefineReference)
 
                     // Add this expression to the access dataset
-                    if not (globalAccessDataset.ContainsKey(arrayVar)) then
-                        globalAccessDataset.Add(arrayVar, new List<Expr<int> * Expr>())
-                    globalAccessDataset.[arrayVar].Add((tripCount, <@@ %%normalisedExpr |> float32 @@>))
+                    if not (globalReadAccessDataset.ContainsKey(arrayVar)) then
+                        globalReadAccessDataset.Add(arrayVar, new List<Expr<int> * Expr>())
+                    globalReadAccessDataset.[arrayVar].Add((tripCount, <@@ %%normalisedExpr |> float32 @@>))
+                                                         
+                else if i.DeclaringType.Name = "IntrinsicFunctions" && (i.Name = "SetArray" || i.Name = "SetArray2D" || i.Name = "SetArray3D") then
+                    let arrayVar = 
+                        match l.[0] with 
+                        | Patterns.Var(v) -> 
+                            v
+                        | _ -> 
+                            raise (new KernelSchedulingException("Cannot analyse inter-thread stride when array accessed is not a var ref"))
+                    let accessExprs = l |> List.tail |> List.rev |> List.tail |> List.rev
+
+                    // Normalise multi-dim access to 1D access  
+                    let mutable normalisedExpr = QuotationUtil.NormalizeArrayAccess(l.[0], accessExprs) :> Expr
+
+                    // Zero (replace with loop var init value) each ref to an iteration var
+                    normalisedExpr <- InterThreadMemoryAccessCollector.ZeroRefsToLoopVars(loopVars, normalisedExpr) 
+
+                    // Unfold expr
+                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference, isDynamicDefineReference)
+
+                    // Add this expression to the access dataset
+                    if not (globalWriteAccessDataset.ContainsKey(arrayVar)) then
+                        globalWriteAccessDataset.Add(arrayVar, new List<Expr<int> * Expr>())
+                    globalWriteAccessDataset.[arrayVar].Add((tripCount, <@@ %%normalisedExpr |> float32 @@>))
                 stack
+
 
             // Loop: we check inside it
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
@@ -397,20 +422,23 @@ type InterThreadMemoryAccessCollector() =
                 Expr.Value(0.0f)   
                 *) 
         let s = EstimateExpr(functionBody, stack, <@ 1 @>, [])
-        globalAccessDataset
+        globalReadAccessDataset, globalWriteAccessDataset
            
     static member EstimateMemoryAccessStride(body: Expr,
                                              parameters: (ParameterInfo * Var)[]) = 
         let dynamicDefinePlaceholders = new List<Var>()
 
         let prepBody = KernelUtil.PrepareBodyForAnalysis(body, dynamicDefinePlaceholders);
-        let memAccesses = InterThreadMemoryAccessCollector.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
-        let memAccessesEvaluators = new Dictionary<Var, (Expr * Expr) list>()
-        for item in memAccesses do
+        let readAcc, writeAcc = InterThreadMemoryAccessCollector.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
+        let readEval = new Dictionary<Var, (Expr * Expr) list>()
+        let writeEval = new Dictionary<Var, (Expr * Expr) list>()
+        for item in readAcc do
             let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(prepBody.Value, a).Value, KernelUtil.CloseExpression(prepBody.Value, b).Value))
-            memAccessesEvaluators.Add(item.Key,
-                                      evals |> Seq.toList)
-        memAccessesEvaluators, dynamicDefinePlaceholders
+            readEval.Add(item.Key, evals |> Seq.toList)
+        for item in writeAcc do
+            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(prepBody.Value, a).Value, KernelUtil.CloseExpression(prepBody.Value, b).Value))
+            writeEval.Add(item.Key, evals |> Seq.toList)
+        readEval, writeEval, dynamicDefinePlaceholders
             
 
 
