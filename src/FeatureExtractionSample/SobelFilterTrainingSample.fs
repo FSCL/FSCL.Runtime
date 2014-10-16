@@ -213,6 +213,7 @@ type SobelFilterTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do 
                     ids.Add(dName + " Completion Time (ms)")
+                    ids.Add(dName + " Completion Time STDDEV")
             //ids.Add("Matrix Width (elements)")
             //ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
@@ -232,24 +233,29 @@ type SobelFilterTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
                 
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
                 
-        let size = ref minSize
-        while !size <= maxSize do
-            executionResults.Add(new List<obj>())
-            Console.WriteLine("      Size: " + String.Format("{0,10:##########}", !size))
+        let sizes = (seq {
+                            let s = ref minSize
+                            while !s <= maxSize do
+                                yield (!s, !s)
+                                yield (!s + 1L, !s + 1L)
+                                s := !s + minSize
+                        }) |> Array.ofSeq
 
-            let outputSize = (!size |> int)
+        for size, _ in sizes do
+            executionResults.Add(new List<obj>())
+            Console.WriteLine("      Size: " + String.Format("{0,10:##########}", size))
+
+            let outputSize = (size |> int)
             let inputSize = outputSize + 2
                         
             // Create input
             let input = Array2D.init<uchar4> inputSize inputSize (fun r c -> uchar4(rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte, rnd.Next() % 5 |> byte))
-            for i = 0 to inputSize - 1 do
-                input.[0, i] <- uchar4(1 |> byte)
 
             // Compute reference for verification
             let reference = 
@@ -290,17 +296,20 @@ type SobelFilterTrainingSample() =
                         else
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                        
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
                             // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
                             System.Threading.Thread.Sleep(500)
                                      
-                //executionResults.Last().AddRange([inputSize; !size])               
-            size := !size + 64L   
+                //executionResults.Last().AddRange([inputSize; !size]) 
         executionResults, featureValues

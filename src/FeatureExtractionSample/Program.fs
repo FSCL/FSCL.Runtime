@@ -47,16 +47,17 @@ let main argv =
                                            |])
     
     let samples = [|
-                        //new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new VectorAddTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SumRowsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SumColsTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new MatrixMultSimpleTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new MatrixMultAdvancedTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
-                        //new TransposeNaiveTrainingSample() :> IFeatureExtractionTrainingSample;
-                        //new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new SobelFilterTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new ConvolutionTrainingSample() :> IFeatureExtractionTrainingSample; 
+                        new TransposeNaiveTrainingSample() :> IFeatureExtractionTrainingSample;
+                        new TransposeTrainingSample() :> IFeatureExtractionTrainingSample;
                         new LogisticMapTrainingSample() :> IFeatureExtractionTrainingSample;
+                        
                         //new SimpleReductionTrainingSample() :> IFeatureExtractionTrainingSample; 
                         //new AdvancedReductionTrainingSample() :> IFeatureExtractionTrainingSample;
                         //new PrefixSumTrainingSample() :>  IFeatureExtractionTrainingSample;

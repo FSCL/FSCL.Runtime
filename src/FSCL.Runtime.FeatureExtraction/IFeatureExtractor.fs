@@ -27,10 +27,9 @@ type IDefaultFeatureExtractor() =
         // evaluating the expression to obtain a function to then apply using the current args
         let precFeatures, dynDefPlaceholders = pfl :?> (obj list * Var list)
         let featureNames = this.FeatureNameList
-        let features = List.mapi(fun i (evaluablePrecomputedFeature:obj) ->
+        let features = List.mapi(fun i (evaluator:obj) ->
                                     // Then we evaluate the expr to get a function
                                     //let prc = (evaluablePrecomputedFeature :?> Expr).GetFreeVars()
-                                    let evaluator = LeafExpressionConverter.EvaluateQuotation(evaluablePrecomputedFeature :?> Expr)
                                     // Add work size function values to original arguments
                                     // Add dynamic defines additional arguments
                                    (*

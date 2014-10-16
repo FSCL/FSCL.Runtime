@@ -72,25 +72,25 @@ let Convolution4(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFil
     pOutput.[idxOut] <- sum4.x + sum4.y + sum4.z + sum4.w
     
 [<ReflectedDefinition>]
-let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int, wi: WorkItemInfo) =
-    let nWidth = wi.GlobalSize(0)
+let Convolution(pInput: float32[], [<AddressSpace(AddressSpace.Constant)>] pFilter: float32[], pOutput: float32[], nInWidth: int, nWidth: int, wi: WorkItemInfo) =
     let xOut = wi.GlobalID(0) 
     let yOut = wi.GlobalID(1)
     
-    let xInTopLeft = xOut
-    let yInTopLeft = yOut
-    let mutable sum = 0.0f 
-    for r = 0 to FILTER_WIDTH - 1 do
-        let idxFtmp = r * FILTER_WIDTH
-        let yIn = yInTopLeft + r
-        let idxIntmp = yIn * nInWidth + xInTopLeft
-        for cidx in 0 .. FILTER_WIDTH - 1 do
-            let filterValue = pFilter.[idxFtmp + cidx]
-            let inValue = pInput.[idxIntmp + cidx]
-            sum <- sum + inValue * filterValue
+    if xOut < nWidth && yOut < nWidth then
+        let xInTopLeft = xOut
+        let yInTopLeft = yOut
+        let mutable sum = 0.0f 
+        for r = 0 to FILTER_WIDTH - 1 do
+            let idxFtmp = r * FILTER_WIDTH
+            let yIn = yInTopLeft + r
+            let idxIntmp = yIn * nInWidth + xInTopLeft
+            for cidx in 0 .. FILTER_WIDTH - 1 do
+                let filterValue = pFilter.[idxFtmp + cidx]
+                let inValue = pInput.[idxIntmp + cidx]
+                sum <- sum + inValue * filterValue
 
-    let idxOut = yOut * nWidth + xOut
-    pOutput.[idxOut] <- sum
+        let idxOut = yOut * nWidth + xOut
+        pOutput.[idxOut] <- sum
 
 type ConvolutionTrainingSample() =    
     inherit IDefaultFeatureExtractionTrainingSample()
@@ -133,6 +133,7 @@ type ConvolutionTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
+                    ids.Add(dName + " Completion Time STDDEV")
             //ids.Add("Matrix Width (elements)")
             //ids.Add("Matrix Height (elements)")
             //ids.Add("Filter Width (elements)")
@@ -157,22 +158,29 @@ type ConvolutionTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
                 
+        let sizes = (seq {
+                            let s = ref minSize
+                            while !s <= maxSize do
+                                yield (!s, !s)
+                                yield (!s + 1L, !s + 1L)
+                                s := !s + minSize
+                        }) |> Array.ofSeq
+
         for filterSize in minFilterSize .. 2L .. maxFilterSize do
             opts.[RuntimeOptions.ConstantDefines] <- [ ("FILTER_WIDTH", box (filterSize |> int)) ]
             Console.WriteLine("     Filter Size: " + String.Format("{0,5:#####}", filterSize) + "x" + String.Format("{0,5:#####}", filterSize))
-
-            let mutable matSize = minSize
-            while matSize <= maxSize do
+            
+            for rows, cols in sizes do
                 executionResults.Add(new List<obj>())
-                Console.WriteLine("      Size: " + String.Format("{0,5:#####}", matSize) + "x" + String.Format("{0,5:#####}", matSize))
+                Console.WriteLine("      Size: " + String.Format("{0,5:#####}", cols) + "x" + String.Format("{0,5:#####}", cols))
            
-                let inputSize = matSize + (filterSize |> int64) - 1L                          
+                let inputSize = cols + (filterSize |> int64) - 1L                          
                 let a = Array.init (inputSize * inputSize |> int) (fun it -> ((it |> int64) / inputSize) |> float32)
                 let filter = Array.create (filterSize * filterSize |> int) 2.0f  
                 let reference = 
@@ -183,8 +191,8 @@ type ConvolutionTrainingSample() =
                                                 
                 for pIndex, pName, pDevs in GetOpenCLPlatforms() do        
                     for dIndex, dName, dType in pDevs do
-                        let c = Array.zeroCreate (matSize * matSize |> int)
-                        let ws = WorkSize([| matSize; matSize |], [| 16L; 16L |])
+                        let c = Array.zeroCreate (cols * rows |> int)
+                        let ws = WorkSize([| (((rows - 1L) / 16L) + 1L) * 16L; (((cols - 1L) / 16L) + 1L) * 16L |], [| 16L; 16L |])
 
                         Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                         let comp = <@ DEVICE(pIndex, dIndex,
@@ -199,33 +207,37 @@ type ConvolutionTrainingSample() =
                                                 MEMORY_FLAGS(ofl, 
                                                     c)),
                                             inputSize |> int,
+                                            cols |> int,
                                             ws)) @>
 
                         // Extract features
                         if pIndex = 0 && dIndex = 0 && not etOnly then
                             let km = compiler.Compile(comp, opts) :?> IKernelModule
                             let precomputedFeatures = chain.Precompute(km)
-                            featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; filter; c; inputSize |> int; ws ],  opts)))
+                            featureValues.Add(new List<obj>(chain.Evaluate(km, precomputedFeatures, [ a; filter; c; inputSize |> int; cols |> int; ws ],  opts)))
 
                         // Run once to skip compilation time
                         if not featureOnly then    
                             comp.Run(opts)
                             if not (this.Verify(c, reference)) then
                                 Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                            else                            
+                            else                           
                                 // Run
                                 let watch = new Stopwatch()
-                                watch.Start()
-                                for i = 0 to iterations - 1 do
-                                    comp.Run(opts)
-                                watch.Stop()
-                                let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                        
-                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                                executionResults.Last().Add(ttime)
+                                let data = Array.zeroCreate<double> iterations
+                                for i = 0 to iterations - 1 do   
+                                    watch.Restart()                   
+                                    comp.Run()
+                                    watch.Stop()
+                                    data.[i] <- (double)watch.ElapsedMilliseconds 
+                                let avg = data |> Array.average
+                                let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
+                                // Dump
+                                Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                                executionResults.Last().Add(avg)
+                                executionResults.Last().Add(stddev)
                                 System.Threading.Thread.Sleep(500)
 
-                    //executionResults.Last().AddRange([matSize; matSize; filterSize; filterSize]) 
-                matSize <- matSize + minSize
         executionResults, featureValues
 

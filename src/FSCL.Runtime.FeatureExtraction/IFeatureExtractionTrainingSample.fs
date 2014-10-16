@@ -31,7 +31,7 @@ type IFeatureExtractionTrainingSample() =
 
     member this.Run(index: int option, fec:FeatureExtractionChain, globalDataPath: string option, runningMode: TrainingSampleRunningMode) =
         let conf = this.Configuration()
-        let wr = new StreamWriter(this.TrainingSampleID + "_Features.csv", false)
+        let wr = new StreamWriter(this.TrainingSampleID + "_Features.csv", true)
         let gwr = if globalDataPath.IsSome then
                     new StreamWriter(globalDataPath.Value, true)
                   else

@@ -145,4 +145,10 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                                  false)       
                                               
-        ([ box acount; box lcount; box bcount; box ccount; box pcount; box scount; box hcount ], ph |> List.ofSeq) :> obj
+        ([ LeafExpressionConverter.EvaluateQuotation(acount) |> box; 
+           LeafExpressionConverter.EvaluateQuotation(lcount) |> box;
+           LeafExpressionConverter.EvaluateQuotation(bcount) |> box; 
+           LeafExpressionConverter.EvaluateQuotation(ccount) |> box; 
+           LeafExpressionConverter.EvaluateQuotation(pcount) |> box;
+           LeafExpressionConverter.EvaluateQuotation(scount) |> box; 
+           LeafExpressionConverter.EvaluateQuotation(hcount) |> box ], ph |> List.ofSeq) :> obj
