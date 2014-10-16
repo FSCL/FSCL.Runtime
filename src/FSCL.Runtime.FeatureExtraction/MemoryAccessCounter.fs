@@ -242,5 +242,9 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
                        
-        ([ box rgcount; box wgcount; box rlcount; box wlcount; box rccount; ], ph |> List.ofSeq) :> obj
+        ([ LeafExpressionConverter.EvaluateQuotation(rgcount) |> box;
+           LeafExpressionConverter.EvaluateQuotation(wgcount) |> box; 
+           LeafExpressionConverter.EvaluateQuotation(rlcount) |> box;
+           LeafExpressionConverter.EvaluateQuotation(wlcount) |> box;
+           LeafExpressionConverter.EvaluateQuotation(rccount) |> box; ], ph |> List.ofSeq) :> obj
         

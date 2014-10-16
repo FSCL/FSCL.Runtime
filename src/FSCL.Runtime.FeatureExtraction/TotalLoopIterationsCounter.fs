@@ -27,6 +27,6 @@ type TotalLoopIterationsCounter() =
         let lcount, ph = LoopIterationCounter.Count(m.Kernel.OriginalBody, parameters)
 
         // Build lambda expr 
-        ([box lcount], (ph |> List.ofSeq)) :> obj
+        ([LeafExpressionConverter.EvaluateQuotation(lcount) |> box], (ph |> List.ofSeq)) :> obj
 
                 

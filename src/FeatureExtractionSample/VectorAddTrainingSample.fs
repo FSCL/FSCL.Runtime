@@ -26,7 +26,7 @@ type VectorAddTrainingSample() =
 
     override this.DefaultConfigurationDictionary() =
         let dict = new Dictionary<string, obj>()
-        dict.Add("MinVectorSize", 256L <<< 10)
+        dict.Add("MinVectorSize", 128L <<< 10)
         dict.Add("MaxVectorSize", 16L <<< 20)
         dict.Add("Iterations", 100)
         dict
@@ -53,7 +53,8 @@ type VectorAddTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
-            //ids.Add("Vector Size (elements)")
+                    ids.Add(dName + " Completion Time STDDEV")
+            //ids.Add("Vector Size (elements)") 
             ids |> List.ofSeq
                 
     override this.RunInternal(chain, conf, rm: TrainingSampleRunningMode) = 
@@ -71,8 +72,8 @@ type VectorAddTrainingSample() =
         
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -125,15 +126,19 @@ type VectorAddTrainingSample() =
                         else
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
                             // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
                             System.Threading.Thread.Sleep(500)   
                                 
             //executionResults.Last().Add(!size)

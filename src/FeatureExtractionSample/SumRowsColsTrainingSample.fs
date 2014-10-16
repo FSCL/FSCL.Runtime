@@ -81,15 +81,16 @@ type SumColsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
 
         let sizes = (seq {
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
+                                yield (!s + 1L, !s + 1L)
                                 //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                s := !s + minSize
                         }) |> Array.ofSeq
 
         let executionResults = new List<List<obj>>()
@@ -134,14 +135,19 @@ type SumColsTrainingSample() =
                         else                        
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                            
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
                             System.Threading.Thread.Sleep(500)
                                
             //executionResults.Last().AddRange([rows; cols])       
@@ -176,8 +182,8 @@ type SumRowsTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
 
         let mutable execResults: obj list list = []
                 
@@ -188,8 +194,8 @@ type SumRowsTrainingSample() =
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
-                                //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                yield (!s + 1L, !s + 1L)
+                                s := !s + minSize
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
@@ -228,17 +234,23 @@ type SumRowsTrainingSample() =
                         comp.Run()
                         if not (this.Verify(c, reference)) then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else                        
+                        else      
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                            
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
+
                             System.Threading.Thread.Sleep(500)
                          
             //executionResults.Last().AddRange([rows; cols])       

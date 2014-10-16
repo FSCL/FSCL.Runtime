@@ -94,16 +94,10 @@ let MatMulCPU(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItem
     
     // Unroll 8
     let mutable accum = 0.0f
-    for i in 0 .. 8 .. matA.GetLength(1) - 1 do
-        accum <- accum + matA.[r, i] * matB.[i, c]
-        accum <- accum + matA.[r, i + 1] * matB.[i + 1, c]
-        accum <- accum + matA.[r, i + 2] * matB.[i + 2, c]
-        accum <- accum + matA.[r, i + 3] * matB.[i + 3, c]
-        accum <- accum + matA.[r, i + 4] * matB.[i + 4, c]
-        accum <- accum + matA.[r, i + 5] * matB.[i + 5, c]
-        accum <- accum + matA.[r, i + 6] * matB.[i + 6, c]
-        accum <- accum + matA.[r, i + 7] * matB.[i + 7, c]
-    matC.[r, c] <- accum
+    if r < matA.GetLength(0) && c < matB.GetLength(1) then
+        for i = 0 to matA.GetLength(1) - 1 do
+            accum <- accum + matA.[r, i] * matB.[i, c]
+        matC.[r, c] <- accum
       
 let Verify(output: float32[,], expected: float32[,]) =
     let mutable found = false
@@ -125,7 +119,7 @@ type MatrixMultSimpleTrainingSample() =
         let dict = new Dictionary<string, obj>()
         dict.Add("MinMatrixSize", 64L)
         dict.Add("MaxMatrixSize", 2048L)
-        dict.Add("Iterations", 10)
+        dict.Add("Iterations", 30)
         dict
         
     override this.Verify(output: obj, reference: obj) =
@@ -148,6 +142,7 @@ type MatrixMultSimpleTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
+                    ids.Add(dName + " Completion Time STDDEV")
             //ids.Add("Matrix Width (elements)")
             //ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
@@ -167,8 +162,8 @@ type MatrixMultSimpleTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -177,8 +172,8 @@ type MatrixMultSimpleTrainingSample() =
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
-                                //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                yield (!s + 1L, !s + 1L)
+                                s := !s + minSize
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
@@ -197,7 +192,8 @@ type MatrixMultSimpleTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
                     let c = Array2D.zeroCreate (rows |> int) (cols |> int)
-                    let ws = new WorkSize([| cols; rows |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
+                    let ws = new WorkSize([| ((((cols |> int) - 1) / BLOCK_SIZE) + 1) * BLOCK_SIZE |> int64; 
+                                             ((((rows |> int) - 1) / BLOCK_SIZE) + 1) * BLOCK_SIZE |> int64 |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])                                    
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                     let comp = <@ DEVICE(pIndex, dIndex,
                                     MatMulCPU(
@@ -222,17 +218,22 @@ type MatrixMultSimpleTrainingSample() =
                         comp.Run()
                         if not true then //(this.Verify(c, reference))  then
                             Console.WriteLine("---------------- COMPUTATION RESULT ERROR")
-                        else                        
+                        else          
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                            
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
+                            // Dump
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
                             System.Threading.Thread.Sleep(500)
                                
            // executionResults.Last().AddRange([rows; cols])       
@@ -270,8 +271,8 @@ type MatrixMultAdvancedTrainingSample() =
         
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -281,7 +282,7 @@ type MatrixMultAdvancedTrainingSample() =
                             while !s <= maxSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + 64L
+                                s := !s + minSize
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
@@ -300,7 +301,8 @@ type MatrixMultAdvancedTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do   
                 for dIndex, dName, dType in pDevs do
                     let c = Array.zeroCreate (rows * cols |> int)
-                    let ws = new WorkSize([| ((cols / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64); ((rows / (BLOCK_SIZE |> int64)) + 0L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
+                    let ws = new WorkSize([| (((cols - 1L) / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64);
+                                             (((rows - 1L) / (BLOCK_SIZE |> int64)) + 1L) * (BLOCK_SIZE |> int64) |], [| BLOCK_SIZE |> int64; BLOCK_SIZE |> int64 |])    
                                         
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")  
                     let comp = <@ DEVICE(pIndex, dIndex,
@@ -337,9 +339,21 @@ type MatrixMultAdvancedTrainingSample() =
                             watch.Stop()
                             let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
                                             
+                            // STD Dev
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
+                                comp.Run()
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - ttime, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))    
+                                                                                          
+                            // Dump
                             Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
                             executionResults.Last().Add(ttime)
-                            System.Threading.Thread.Sleep(500)
+                            executionResults.Last().Add(stddev)
+
+                        System.Threading.Thread.Sleep(500)
 
             //executionResults.Last().AddRange([rows; cols])       
         executionResults, featureValues

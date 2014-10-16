@@ -37,6 +37,6 @@ type BranchCounter() =
                                                  false)
 
         // Build lambda expr 
-        ([box bcount], (ph |> List.ofSeq)) :> obj
+        ([LeafExpressionConverter.EvaluateQuotation(bcount) |> box], (ph |> List.ofSeq)) :> obj
 
                 

@@ -128,6 +128,7 @@ type TransposeTrainingSample() =
             for pIndex, pName, pDevs in GetOpenCLPlatforms() do  
                 for dIndex, dName, dType in pDevs do  
                     ids.Add(dName + " Completion Time (ms)")
+                    ids.Add(dName + " Completion Time STDDEV")
             //ids.Add("Matrix Width (elements)")
             //ids.Add("Matrix Height (elements)")
             ids |> List.ofSeq
@@ -147,8 +148,8 @@ type TransposeTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -160,7 +161,7 @@ type TransposeTrainingSample() =
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
-                                //yield (!s, !s * 2L)
+                                yield (!s + 1L, !s + 1L)
                                 s := !s + minSize
                         }) |> Array.ofSeq
 
@@ -183,7 +184,7 @@ type TransposeTrainingSample() =
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
                     let c = Array.zeroCreate<float32> (cols * rows |> int)
                     
-                    let ws = WorkSize([| rows; cols |], [| blockSize; blockSize |])
+                    let ws = WorkSize([| (((rows - 1L) / blockSize) + 1L) * blockSize; (((cols - 1L) / blockSize) + 1L) * blockSize |], [| blockSize; blockSize |])
                     let comp = <@ DEVICE(pIndex, dIndex,
                                     Transpose(
                                         BUFFER_WRITE_MODE(wm, 
@@ -211,15 +212,19 @@ type TransposeTrainingSample() =
                         else
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
                             // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
                             System.Threading.Thread.Sleep(500)  
                                
             //executionResults.Last().AddRange([ rows; cols ])
@@ -243,8 +248,8 @@ type TransposeNaiveTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly
-        let ofl = MemoryFlags.WriteOnly
+        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
         
         let executionResults = new List<List<obj>>()
         let featureValues = new List<List<obj>>()
@@ -256,7 +261,7 @@ type TransposeNaiveTrainingSample() =
                             let s = ref minSize
                             while !s <= maxSize do
                                 yield (!s, !s)
-                                //yield (!s, !s * 2L)
+                                yield (!s + 1L, !s + 1L)
                                 s := !s + minSize
                         }) |> Array.ofSeq
 
@@ -278,8 +283,8 @@ type TransposeNaiveTrainingSample() =
                 for dIndex, dName, dType in pDevs do                                
                     Console.WriteLine(" Device " + ": " + dName.ToString() + "(" + dType.ToString() + ")")                                    
                     let c = Array.zeroCreate<float32> (cols * rows |> int)
-                    
-                    let ws = WorkSize([| rows; cols |], [| blockSize; blockSize |])
+
+                    let ws = WorkSize([| (((rows - 1L) / blockSize) + 1L) * blockSize; (((cols - 1L) / blockSize) + 1L) * blockSize |], [| blockSize; blockSize |])
                     let comp = <@ DEVICE(pIndex, dIndex,
                                     TransposeNaive(
                                         BUFFER_WRITE_MODE(wm, 
@@ -306,16 +311,20 @@ type TransposeNaiveTrainingSample() =
                         else
                             // Run
                             let watch = new Stopwatch()
-                            watch.Start()
-                            for i = 0 to iterations - 1 do
+                            let data = Array.zeroCreate<double> iterations
+                            for i = 0 to iterations - 1 do   
+                                watch.Restart()                   
                                 comp.Run()
-                            watch.Stop()
-                            let ttime, iters = ((double)watch.ElapsedMilliseconds) /((double)iterations), iterations
-                                    
+                                watch.Stop()
+                                data.[i] <- (double)watch.ElapsedMilliseconds 
+                            let avg = data |> Array.average
+                            let stddev  = Math.Sqrt(data |> Array.map(fun d -> Math.Pow(d - avg, 2.0)) |> Array.reduce(+) |> (fun a -> a/(double)iterations))  
+                                                                                          
                             // Dump
-                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", ttime) + "ms (" + String.Format("{0,10:#########0}", iters) + " iterations)")
-                            executionResults.Last().Add(ttime)
-                            System.Threading.Thread.Sleep(500)  
+                            Console.WriteLine("---------------- " + String.Format("{0,11:######0.0000}", avg) + "ms (" + String.Format("{0,10:#########0}", iterations) + " iterations)")
+                            executionResults.Last().Add(avg)
+                            executionResults.Last().Add(stddev)
+                            System.Threading.Thread.Sleep(500) 
                                
             //executionResults.Last().AddRange([ rows; cols ])
         executionResults, featureValues
