@@ -78,7 +78,7 @@ module Language =
             WorkSizeAttribute([| 0L |], [| 0L |], [| 0L |])   
       *)      
     // Functions matching attributes for dynamic marking of parameters
-    [<KernelMetadataFunction(typeof<DeviceAttribute>)>]
+    [<MetadataFunction(typeof<DeviceAttribute>, MetadataFunctionTarget.KernelFunction)>]
     let DEVICE(plat: int, dev: int, a) = 
         a
         (*
@@ -87,11 +87,11 @@ module Language =
         a
         *)
 
-    [<KernelMetadataFunction(typeof<RunningModeAttribute>)>]
+    [<MetadataFunction(typeof<RunningModeAttribute>, MetadataFunctionTarget.KernelFunction)>]
     let RUNNING_MODE(mode: RunningMode, a) = 
         a
                 
-    [<KernelMetadataFunction(typeof<MultithreadFallbackAttribute>)>]
+    [<MetadataFunction(typeof<MultithreadFallbackAttribute>, MetadataFunctionTarget.KernelFunction)>]
     let MULTITHREAD_FALLBACK(fallback: bool, a) = 
         a
 

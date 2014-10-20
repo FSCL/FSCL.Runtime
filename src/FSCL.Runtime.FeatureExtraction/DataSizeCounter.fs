@@ -9,6 +9,7 @@ open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 //open QuotEval.QuotationEvaluation
 open System
+open FSCL.Runtime
 open FSCL.Compiler.Util
 open FSCL.Compiler.FunctionPostprocessing
 open FSCL.Language
@@ -58,9 +59,23 @@ type DataSizeCounter() =
         // Check embedded local arrays
         for item in m.Kernel.LocalVars do
             embeddedLocalP <- embeddedLocalP @ [ item.Key ]
+
+        let embeddedLocalPExprs = new Dictionary<Var, obj list>()
+        for item in m.Kernel.LocalVars do
+            if (item.Value |> snd).IsSome then
+                let ev = ((item.Value |> snd).Value) |> List.map(fun (e:Expr) ->
+                    // Create function to evaluate the alloc exprs
+                    let ev = QuotationUtil.ReplaceFunctionBody(m.Kernel.OriginalBody, e)
+                    let res = LeafExpressionConverter.EvaluateQuotation(QuotationUtil.ToCurriedFunction(ev.Value))
+                    // Evaluate alloc exprs
+                    res) 
+                if embeddedLocalPExprs.ContainsKey(item.Key) then
+                    embeddedLocalPExprs.[item.Key] <- embeddedLocalPExprs.[item.Key] @ ev 
+                else
+                    embeddedLocalPExprs.Add(item.Key, ev)
                      
         // Build expr
-        [ globalHostToDevP :> obj; globalDevToHostP :> obj; localP :> obj; embeddedLocalP :> obj ] :> obj
+        [ globalHostToDevP :> obj; globalDevToHostP :> obj; localP :> obj; embeddedLocalP :> obj; embeddedLocalPExprs :> obj ] :> obj
 
     override this.Evaluate(m, prec, args, opts) =
         // Now use args to provide values
@@ -69,11 +84,12 @@ type DataSizeCounter() =
         let mutable localSize = 0L
 
         let precomputed = prec :?> obj list        
-        let globalHostToDevP, globalDevToHostP, localP, embeddedLocalP = 
+        let globalHostToDevP, globalDevToHostP, localP, embeddedLocalP, embeddedLocalPExprs = 
             precomputed.[0] :?> int list,
             precomputed.[1] :?> int list,
             precomputed.[2] :?> int list,
-            precomputed.[3] :?> Var list
+            precomputed.[3] :?> Var list,
+            precomputed.[4] :?> Dictionary<Var, obj list>
 
         // Compute size
         for index in globalHostToDevP do
@@ -91,24 +107,26 @@ type DataSizeCounter() =
             let arrElementSize = Marshal.SizeOf(args.[index].GetType().GetElementType()) |> int64
             localSize <- localSize + (arrSize * arrElementSize)
 
-        // Evaluate alloc expression for embedded locals
+        // Evaluate alloc expression for embedded locals          
+        let constantsDefines = 
+            if opts.ContainsKey(RuntimeOptions.ConstantDefines) then
+                Some(opts.[RuntimeOptions.ConstantDefines] :?> (string * obj) list)
+            else
+                None
+        let dynDefArgs = []                                                           
         for v in embeddedLocalP do
-            let vt, allocExpr = m.Kernel.LocalVars.[v]
-            let arrElementSize = Marshal.SizeOf(v.Type.GetElementType()) |> int64
-            let allocCounts = List.map(fun (e:Expr) ->
-                                        // Create function to evaluate the alloc exprs
-                                        let ev = QuotationUtil.ReplaceFunctionBody(m.Kernel.OriginalBody, e)
-                                        let res = LeafExpressionConverter.EvaluateQuotation(ev.Value) 
-                                        let tupledArg = ToTuple(args |> List.map (fun i -> 
-                                            if i :? WorkSize then 
-                                                box(i :?> WorkItemInfo) 
-                                            else 
-                                                i) |> List.toArray)
-                                        // Evaluate alloc exprs
-                                        let allocCountValue = res.GetType().GetMethod("Invoke").Invoke(res, [| tupledArg |])
-                                        allocCountValue :?> int) (allocExpr.Value)
+            let allocCounts = embeddedLocalPExprs.[v] |> List.map(fun ev ->
+                // Now we can apply the evaluator to obtain the value of the feature using actual args
+                let mutable fv = ev
+                for a in args do
+                    fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
+                //fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| workSizeArgs.[0] |])
+                for d in dynDefArgs do
+                    fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| d |])
+                //System.Console.WriteLine(fv.ToString())
+                fv :?> int)
             let allocSize = allocCounts |> List.reduce (fun a b -> a * b) |> int64
-            localSize <- localSize + (allocSize * arrElementSize)
+            localSize <- localSize + (allocSize * (Marshal.SizeOf(v.Type.GetElementType()) |> int64))
                 
         [ globalHostToDevSize :> obj; 
           globalDevToHostSize :> obj; 

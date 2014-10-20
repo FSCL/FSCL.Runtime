@@ -100,7 +100,7 @@ type ExpressionCounter() =
                     match mi with
                     | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                         // It's a reflected method
-                        match QuotationAnalysis.GetCurriedOrTupledArgs(b) with
+                        match QuotationAnalysis.FunctionsManipulation.GetCurriedOrTupledArgs(b) with
                         | Some(paramVars) ->       
                             let parameters = List.zip (mi.GetParameters() |> List.ofArray) paramVars
                             // Count inside arguments

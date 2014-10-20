@@ -9,8 +9,14 @@ open Microsoft.FSharp.Collections
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open OpenCL
+open System.Diagnostics
 
 // Matrix multiplication with local and reference to global var (BLOCK_SIZE)
+[<ReflectedDefinition>]
+let ZeroOp (wi: WorkItemInfo, a:float32[]) =
+    a.[0] <- a.[0] * a.[1]
+    a
+
 [<ReflectedDefinition>]
 let BLOCK_SIZE = 16
 [<ReflectedDefinition>]
@@ -60,12 +66,19 @@ let main argv =
     else
         // Show OpenCL devices
         Console.WriteLine("Your OpenCL-enabled devices are listed below")
-        
-        for pIndex, pName, devs in plats do
-            Console.WriteLine("- Platform " + pIndex.ToString())
-            for dIndex, dName, dType in devs do
-                Console.WriteLine("  - Device " + ": " + dName + "(" + dType.ToString() + ")")
-            
+        (*
+        let size = new WorkSize(64L, 64L)
+        let a = Array.zeroCreate<float32> 64
+        let comp = <@ ZeroOp(size, a) @>
+        let mutable r = null
+        let iter = 10000
+        let watch = new Stopwatch()
+        watch.Start()
+        for i = 1 to iter do
+            r <- comp.Run()
+        watch.Stop()
+        Console.WriteLine("Elapsed time: " + (((double)watch.ElapsedMilliseconds)/((double)iter)).ToString() + " ms")
+        *)
         MemoryFlagsSample.Run()
         AlgorithmSample.Run()
         UtilityFunctionSample.Run() 
@@ -74,7 +87,7 @@ let main argv =
         AcceleratedCollectionSample.Run()
         AcceleratedCollectionDataTypeSample.Run()
         SequentialAndMultithreadSample.Run()
-
+        
             (*
         // ***************************************************************************************************
         // Expression of multiple kernels ****************************************************************************
