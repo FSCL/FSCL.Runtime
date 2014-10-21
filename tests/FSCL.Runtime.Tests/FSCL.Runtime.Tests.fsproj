@@ -53,8 +53,10 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\fsharp_project_scaffold_tests.XML</DocumentationFile>
     <StartAction>Project</StartAction>
-    <StartProgram />
-    <StartArguments />
+    <StartProgram>
+    </StartProgram>
+    <StartArguments>
+    </StartArguments>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
@@ -77,8 +79,10 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\fsharp_project_scaffold_tests.XML</DocumentationFile>
     <StartAction>Project</StartAction>
-    <StartProgram />
-    <StartArguments />
+    <StartProgram>
+    </StartProgram>
+    <StartArguments>
+    </StartArguments>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
@@ -113,23 +117,18 @@
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="nunit.framework">
@@ -154,10 +153,6 @@
     <ProjectReference Include="..\..\src\FSCL.Runtime.Execution\FSCL.Runtime.Execution.fsproj">
       <Name>FSCL.Runtime.Execution</Name>
       <Project>{81F4CE2D-FEB3-4189-999A-F024C19019FE}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\FSCL.Runtime.FeatureExtraction\FSCL.Runtime.FeatureExtraction.fsproj">
-      <Name>FSCL.Runtime.FeatureExtraction</Name>
-      <Project>{CBCEE72C-FC8C-49F1-8E9D-F6EAD2B213DF}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\src\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>

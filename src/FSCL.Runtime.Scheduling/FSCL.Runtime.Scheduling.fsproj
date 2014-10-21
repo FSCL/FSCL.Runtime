@@ -99,38 +99,48 @@
     <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
   </Target>
   <ItemGroup>
-    <Compile Include="Exception.fs" />
     <Compile Include="Stack.fs" />
-    <Compile Include="Tools.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="SchedulingMetric.fs" />
-    <Compile Include="ExpressionCounter.fs" />
-    <Compile Include="OperationDensityCounter.fs" />
-    <Compile Include="LoopIterationCounter.fs" />
-    <Compile Include="InterThreadMemoryAccessCollector.fs" />
-    <Compile Include="SingleThreadMemoryAccessCollector.fs" />
     <None Include="packages.config" />
+    <Compile Include="FeatureExtraction\IFeatureExtractor.fs" />
+    <Compile Include="FeatureExtraction\FeatureExtractionChain.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\ArithmeticOperationCounter.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\BranchCounter.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\DataSizeCounter.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\MemoryAccessCounter.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\WorkSizeCounter.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\OperationDensityAnalyser.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\SingleThreadMemoryAccessAnalyser.fs" />
+    <Compile Include="FeatureExtraction\NativeFeatures\TotalLoopIterationsCounter.fs" />
+    <Compile Include="FeatureExtraction\LoopIterationCounter.fs" />
+    <Compile Include="FeatureExtraction\InterThreadMemoryAccessCollector.fs" />
+    <Compile Include="FeatureExtraction\SingleThreadMemoryAccessCollector.fs" />
+    <Compile Include="FeatureExtraction\ExpressionCounter.fs" />
+    <Compile Include="SampleTraining\NativeSamples\SumRowsColsTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\VectorAddTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\MatrixMultTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\SobelFilterTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\ConvolutionTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\TransposeTrainingSample.fs" />
+    <Compile Include="SampleTraining\NativeSamples\LogisticMapTrainingSample.fs" />
+    <Compile Include="SampleTraining\IFeatureExtractionTrainingSample.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
       <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
@@ -159,4 +169,10 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <Folder Include="FeatureExtraction\" />
+    <Folder Include="FeatureExtraction\NativeFeatures\" />
+    <Folder Include="SampleTraining\" />
+    <Folder Include="SampleTraining\NativeSamples\" />
+  </ItemGroup>
 </Project>
