@@ -2,10 +2,9 @@
 open System
 open MathNet
 open MathNet.Numerics
-open Microsoft.FSharp.Collections
 
 type FeretSchedulingEngine() = 
-    member this.Anlyze(features: Microsoft.FSharp.Collections.Array2D, times: Microsoft.FSharp.Collections.Array2D) =
+    member this.Analyze(features: float[,], times: float[,]) =
         let X = LinearAlgebra.Double.DenseMatrix.OfArray(features)
         let y = LinearAlgebra.Double.DenseMatrix.OfArray(times)
         let svd = X.Svd(true)
@@ -21,6 +20,6 @@ type FeretSchedulingEngine() =
         W.SetDiagonal(s)
 
         // (U * W * VT)T is equivalent with V * WT * UT 
-        (svd.U * W * svd.VT).Transpose()
+        (svd.U * W * svd.VT).Transpose().Multiply(y).ToArray()
 
     
