@@ -7,8 +7,70 @@ open System
 open FSCL.Language
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
-open VarStack 
 
+module VarStack =
+    type VarStack =
+        | EmptyStack
+        | StackNode of (Quotations.Var * Quotations.Expr * bool) * VarStack
+         
+    let head = function
+        | EmptyStack -> failwith "Empty stack"
+        | StackNode(hd, tl) -> hd
+ 
+    let tail = function
+        | EmptyStack -> failwith "Emtpy stack"
+        | StackNode(hd, tl) -> tl
+        
+    let pop = function
+        | EmptyStack -> failwith "Emtpy stack"
+        | StackNode(hd, tl) -> tl
+ 
+    let cons hd tl = StackNode(hd, tl)
+ 
+    let empty = EmptyStack
+ 
+    let rec update index value s =
+        match index, s with
+        | index, EmptyStack -> failwith "Index out of range"
+        | 0, StackNode(hd, tl) -> StackNode(value, tl)
+        | n, StackNode(hd, tl) -> StackNode(hd, update (index - 1) value tl)
+ 
+    let rec push x y =
+        match x with
+        | EmptyStack -> StackNode((y |> fst, y |> snd, false), EmptyStack)
+        | StackNode(hd, tl) -> StackNode((y |> fst, y |> snd, false), StackNode(hd, tl))
+ 
+    let rec contains x = function
+        | EmptyStack -> false
+        | StackNode((v, value, _), tl) -> v = x || contains x tl
+ 
+    let rec find x = function
+        | EmptyStack -> None
+        | StackNode((v, value, _), tl) -> 
+            if v = x then
+                Some(value)
+            else
+                find x tl
+                
+    let rec set x newValue = function
+        | EmptyStack -> EmptyStack
+        | StackNode((v, value, b), tl) -> 
+            if v = x then
+                StackNode((v, newValue, true), tl)
+            else
+                StackNode((v, value, b), set x newValue tl)
+
+    let rec findAndTail x restrictNonMutated = function
+        | EmptyStack -> None, EmptyStack
+        | StackNode((v, value, b), tl) -> 
+            if v = x then
+                if not (restrictNonMutated && b) then
+                    Some(value), tl
+                else
+                    failwith "Cannot tail the stack cause traceback is passing through a mutated variable"
+            else
+                findAndTail x restrictNonMutated tl 
+                    
 module ReflectionUtil =
     let ToTuple(args: obj[]) =
         let tupleType = FSharpType.MakeTupleType(Array.mapi(fun idx (i:obj) -> 
@@ -238,48 +300,7 @@ module QuotationUtil =
 
 
 module KernelUtil =
-    let ReplaceDynamicConstantDefines(expr: Expr, dynamicDefinesPlaceholders: List<Var>) =
-        let rec ReplaceInternal(expr: Expr) =
-            match expr with 
-            | Patterns.PropertyGet(o, pi, value) ->
-                // A property get can be handled only if the property has a reflected definition attribute
-                let isStatic =
-                    let attr = List.ofSeq (pi.GetCustomAttributes<DynamicConstantDefineAttribute>())
-                    attr.Length = 0
-                if not isStatic then
-                    // Check if var already created
-                    let prevVar = dynamicDefinesPlaceholders |> Seq.tryFind(fun p -> p.Name = pi.Name)
-                    if prevVar.IsNone then
-                        // Create a new var for this
-                        let v = Quotations.Var(pi.Name, pi.PropertyType)
-                        dynamicDefinesPlaceholders.Add(v)
-                        Expr.Var(v)
-                    else
-                        Expr.Var(prevVar.Value)
-                else
-                    if o.IsSome then
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(o.Value, pi, replList)
-                    else
-                        let replList = value |> List.map(fun e -> ReplaceInternal(e))
-                        Expr.PropertyGet(pi, replList)
-            | ExprShape.ShapeVar(v) ->
-                expr
-            | ExprShape.ShapeLambda(v, b) ->
-                Expr.Lambda(v, ReplaceInternal(b))
-            | ExprShape.ShapeCombination(o, l) ->
-                let replList = l |> List.map(fun e -> ReplaceInternal(e))
-                ExprShape.RebuildShapeCombination(o, replList)
-
-        ReplaceInternal(expr)
-
-    let PrepareBodyForAnalysis(body: Expr,
-                               dynamicDefinesPlaceholders: List<Var>) =
-        let replacedBody = ReplaceDynamicConstantDefines(
-                                    QuotationUtil.ToCurriedFunction(body), 
-                                dynamicDefinesPlaceholders)               
-        let prep = QuotationUtil.AddParametersToCurriedFunction(replacedBody, (dynamicDefinesPlaceholders |> List.ofSeq))
-        prep
+    open VarStack 
         
     let EvaluateClosedSubtrees(expr: Expr<float32>) =
         let rec cleanInstructionInternal(expr: Expr) =
@@ -302,7 +323,7 @@ module KernelUtil =
     let inline CloseExpression(body: Expr, precExpr: Expr) = 
         QuotationUtil.ReplaceFunctionBody(body, precExpr)
                     
-    let rec UnfoldExpression(expr:Expr, stack: VarStack, isParameterRef: Var -> bool, isDynamicDefineRef: Var -> bool) =
+    let rec UnfoldExpression(expr:Expr, stack: VarStack, isParameterRef: Var -> bool) =
         match expr with
         // If getting a static var evaluate it
         | Patterns.PropertyGet(e, pi, args) ->
@@ -310,26 +331,26 @@ module KernelUtil =
             | DerivedPatterns.PropertyGetterWithReflectedDefinition(e) ->
                 let freeVars = List.ofSeq(e.GetFreeVars())
                 if freeVars.IsEmpty then
-                    let value = LeafExpressionConverter.EvaluateQuotation(e)
-                    Expr.Value (value, e.Type)
+                    let value = LeafExpressionConverter.EvaluateQuotation(expr)
+                    Expr.Value (value, expr.Type)
                 else
                     failwith ("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]")
             | _ ->
                 failwith ("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]")
         // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
         | ExprShape.ShapeVar(v) ->
-            if isParameterRef v || isDynamicDefineRef v then
+            if isParameterRef v then
                 expr
             else
                 let varValue, stackTail = findAndTail v true stack
                 if varValue.IsSome then
-                    UnfoldExpression(varValue.Value, stackTail, isParameterRef, isDynamicDefineRef)
+                    UnfoldExpression(varValue.Value, stackTail, isParameterRef)
                 else
                     failwith ("Cannot find variable " + v.Name + " to count expression")
         | ExprShape.ShapeLambda(v, b) ->
-            Expr.Lambda(v, UnfoldExpression(b, stack, isParameterRef, isDynamicDefineRef))
+            Expr.Lambda(v, UnfoldExpression(b, stack, isParameterRef))
         | ExprShape.ShapeCombination(o, l) ->
-            let replList = l |> List.map(fun e -> UnfoldExpression(e, stack, isParameterRef, isDynamicDefineRef))
+            let replList = l |> List.map(fun e -> UnfoldExpression(e, stack, isParameterRef))
             ExprShape.RebuildShapeCombination(o, replList)
             
     let rec UnfoldExpressionPreservingLoopVars(expr:Expr, stack: VarStack, isParameterRef: Var -> bool, isDynamicDefineRef: Var -> bool, isLoopVar: Var -> bool) =

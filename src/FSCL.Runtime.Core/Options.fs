@@ -14,8 +14,6 @@ module RuntimeOptions =
     [<Literal>]
     let MultithreadFallback = "MultithreadFallback"
     [<Literal>]
-    let ConstantDefines = "ConstantDefines"
-    [<Literal>]
     let BufferSharePriority = "BufferSharePriority"
 
     // Internal options

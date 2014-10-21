@@ -111,21 +111,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.0\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -151,6 +136,21 @@
       <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
       <Name>OpenCLManagedWrapper</Name>
     </ProjectReference>
+    <Reference Include="FSCL.Compiler.Core">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Language">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Util">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="FSCL.Compiler.NativeComponents">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+    </Reference>
+    <Reference Include="FSCL.Compiler">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

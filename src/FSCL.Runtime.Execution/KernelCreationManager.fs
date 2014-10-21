@@ -11,7 +11,7 @@ open FSCL.Compiler.Util
 open FSCL.Compiler.Configuration
 open FSCL.Language
 open FSCL.Runtime
-open FSCL.Runtime.Scheduling.Metric
+open FSCL.Runtime.Scheduling
 open System
 open System.Reflection
 open FSCL.Runtime.CompilerSteps
@@ -19,12 +19,12 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 
 [<AllowNullLiteral>]
 type KernelCreationManager(compiler: Compiler, 
-                           metric: SchedulingMetric option) =  
+                           schedulingEngine: ISchedulingEngine option) =  
 
     // The data structure caching devices texts) and (queues, concompiled kernels 
     member val private GlobalCache = new RuntimeCache(compiler.IsInvariantToMetaCollection, fun(a,b) -> true) with get
     // The metric used to select the best devices for a kernel
-    member val SchedulingMetric = metric with get             
+    member val SchedulingEngine = schedulingEngine with get             
     // The FSCL compiler   
     // Add the additional steps for the compiler to skip kernel recompilation and produce separated source codes for kernels
     member val Compiler = new Compiler(
@@ -45,6 +45,7 @@ type KernelCreationManager(compiler: Compiler,
 
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.OpenCLBackendAndStore(runtimeKernel: RuntimeKernel,
+                                              dynamicDefines: IReadOnlyDictionary<string, Expr>,
                                               platformIndex, deviceIndex, opts: IReadOnlyDictionary<string, obj>) =
         let mutable device = null
         let mutable compiledKernel = null
@@ -65,49 +66,38 @@ type KernelCreationManager(compiler: Compiler,
         device <- this.GlobalCache.Devices.[platformIndex, deviceIndex]
                         
         //#2: Evaluate dynamic defines      
-        let dynDefines = new Dictionary<string, string>()
-        if opts.ContainsKey(RuntimeOptions.ConstantDefines) then
-            let defs = opts.[RuntimeOptions.ConstantDefines] :?> (string * obj) list            
-            for key, value in defs do
-                dynDefines.Add(key, value.ToString())
+        let dynDefineValues = new Dictionary<string, string>()   
+        let mutable dynDefValuesChain = ""             
+        for item in dynamicDefines do
+            let dynDefVal = item.Value.ToString()
+            dynDefValuesChain <- dynDefValuesChain + dynDefVal
+            dynDefineValues.Add(item.Key, dynDefVal)
 
-        //#3: Check if the device target code has been already generated with mathing values of dynamic defines          
-        let mustGenerateTargetCode = 
-            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex) then
-                // Check matching defines
-                let oldDynDefines = runtimeKernel.Instances.[(platformIndex, deviceIndex)].DynamicDefines
-                let mutable sameDefinesValues = true
-                for def in dynDefines do
-                    if def.Value <> oldDynDefines.[def.Key] then
-                        sameDefinesValues <- false
-                not sameDefinesValues
+        //#3: Check if the device target code has been already generated 
+        //Considering both the platform/device index and the values of dynamic defines        
+        let compiledKernel =
+            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex, dynDefValuesChain) then
+                let computeProgram = new OpenCLProgram(device.Context, runtimeKernel.OpenCLCode)
+                // Generate define options
+                let mutable definesOption = ""
+                for d in dynDefineValues do
+                    definesOption <- definesOption + "-D " + d.Key + "=" + d.Value + " "
+                try
+                    computeProgram.Build([| device.Device |], definesOption, null, System.IntPtr.Zero)
+                with
+                | ex -> 
+                    let log = computeProgram.GetBuildLog(device.Device)
+                    raise (new KernelCompilationException("Device code generation failed: " + log))
+                // Create kernel
+                let computeKernel = computeProgram.CreateKernel(runtimeKernel.Kernel.ParsedSignature.Name)
+                // Add kernel implementation to the list of implementations for the given kernel
+                let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel, dynDefineValues)
+                runtimeKernel.Instances.Add((platformIndex, deviceIndex, dynDefValuesChain), compiledKernel)
+                compiledKernel
             else
-                true
-        if mustGenerateTargetCode then
-            let computeProgram = new OpenCLProgram(device.Context, runtimeKernel.OpenCLCode)
-            // Generate define options
-            let mutable definesOption = ""
-            for d in dynDefines do
-                definesOption <- definesOption + "-D " + d.Key + "=" + d.Value + " "
-            try
-                computeProgram.Build([| device.Device |], definesOption, null, System.IntPtr.Zero)
-            with
-            | ex -> 
-                let log = computeProgram.GetBuildLog(device.Device)
-                raise (new KernelCompilationException("Device code generation failed: " + log))
-            // Create kernel
-            let computeKernel = computeProgram.CreateKernel(runtimeKernel.Kernel.ParsedSignature.Name)
-            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex) then
-                // Dispose and remove
-                (runtimeKernel.Instances.[platformIndex, deviceIndex] :> IDisposable).Dispose()
-                runtimeKernel.Instances.Remove((platformIndex, deviceIndex)) |> ignore            
-            // Add kernel implementation to the list of implementations for the given kernel
-            let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel, dynDefines)
-            runtimeKernel.Instances.Add((platformIndex, deviceIndex), compiledKernel)
-
-        compiledKernel <- runtimeKernel.Instances.[platformIndex, deviceIndex]
+                runtimeKernel.Instances.[platformIndex, deviceIndex, dynDefValuesChain]
           
-        //#3: Return device, kernel and compiled kernel
+        //#4: Return device, kernel and compiled kernel
         (device, compiledKernel)
         
     member this.Process(info: Expr,
@@ -169,21 +159,21 @@ type KernelCreationManager(compiler: Compiler,
                     cachedKernel.Kernel.CloneTo(parsedModule.Kernel)  
                                                
                     // Compiler backend and store
-                    let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, device.Platform, device.Device, opts) 
-                    Some(OpenCLKernel(OpenCLKernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode), ckData)))                    
+                    let devData, ckData = this.OpenCLBackendAndStore(cachedKernel, cachedKernel.DynamicDefines, device.Platform, device.Device, opts) 
+                    Some(OpenCLKernel(OpenCLKernelCreationResult(parsedModule.CallArgs.Value, devData, new RuntimeKernel(parsedModule.Kernel, cachedKernel.OpenCLCode, cachedKernel.DynamicDefines), ckData)))                    
                 // Else execute entire compiler pipeline
                 | None ->
                     parsedModule <- this.Compiler.Compile(parsedModule, opts) :?> IKernelModule
-                    
+
                     // Cache the kernel     
                     if not (this.GlobalCache.OpenCLKernels.ContainsKey(parsedModule.Kernel.ID)) then
                         // First of these kernels
                         this.GlobalCache.OpenCLKernels.Add(parsedModule.Kernel.ID, new List<ReadOnlyMetaCollection * RuntimeKernel>())
                         
                     // Compiler backend and store
-                    let runtimeKernel = new RuntimeKernel(parsedModule.Kernel, parsedModule.Code.Value)
+                    let runtimeKernel = new RuntimeKernel(parsedModule.Kernel, parsedModule.Code.Value, parsedModule.DynamicConstantDefines)
                     this.GlobalCache.OpenCLKernels.[parsedModule.Kernel.ID].Add(parsedModule.Kernel.Meta, runtimeKernel)
-                    let devData, ckData = this.OpenCLBackendAndStore(runtimeKernel, device.Platform, device.Device, opts)                     
+                    let devData, ckData = this.OpenCLBackendAndStore(runtimeKernel, parsedModule.DynamicConstantDefines, device.Platform, device.Device, opts)                     
                     Some(OpenCLKernel(OpenCLKernelCreationResult(parsedModule.CallArgs.Value, devData, runtimeKernel, ckData)))
             // Multithread running mode
             else

@@ -23,7 +23,7 @@ type RuntimeDevice(device: OpenCLDevice, context: OpenCLContext, queue: OpenCLCo
 type RuntimeCompiledKernel(program, kernel, defines) =
     member val Program:OpenCLProgram = program with get  
     member val Kernel:OpenCLKernel = kernel with get  
-    member val DynamicDefines: IReadOnlyDictionary<string, string> = defines with get
+    member val DynamicDefineValues: IReadOnlyDictionary<string, string> = defines with get
 
     interface IDisposable with
         member this.Dispose() =
@@ -31,11 +31,12 @@ type RuntimeCompiledKernel(program, kernel, defines) =
             this.Program.Dispose()
 
 [<AllowNullLiteral>]
-type RuntimeKernel(info, code) =
+type RuntimeKernel(info, code, defines) =
     member val Kernel:IKernelInfo = info with get 
     member val OpenCLCode:String = code with get, set
+    member val DynamicDefines: IReadOnlyDictionary<string, Expr> = defines with get
     // List of devices and kernel instances potentially executing the kernel
-    member val Instances:Dictionary<int * int, RuntimeCompiledKernel> = new Dictionary<int * int, RuntimeCompiledKernel>() with get 
+    member val Instances:Dictionary<int * int * string, RuntimeCompiledKernel> = new Dictionary<int * int * string, RuntimeCompiledKernel>() with get 
     
     interface IDisposable with
         member this.Dispose() =
