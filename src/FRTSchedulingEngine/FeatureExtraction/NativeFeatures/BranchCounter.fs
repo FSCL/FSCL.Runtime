@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open FSCL.Compiler
 open FSCL.Runtime.Scheduling
@@ -6,27 +6,29 @@ open System.Collections.Generic
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
-//open QuotEval.QuotationEvaluation
+open FSCL.Runtime.Scheduling.FRTSchedulingEngine
 open System
 open FSCL.Compiler.Util
 open FSCL.Compiler.AcceleratedCollections
 
+[<FRTFeatureExtractor("BranchCounter")>]
 type BranchCounter() = 
-    inherit IDefaultFeatureExtractor()
-    override this.FeatureNameList 
+    inherit FRTDefaultFeatureExtractor() 
+
+    override this.FeatureIDs
         with get() =
             [ "Branch count" ]
 
-    override this.Precompute(m: IKernelModule) =
+    override this.BuildFinalizers(m: IKernelModule) =
         // Count branches
         let parameters = m.Kernel.OriginalParameters |> 
                          Seq.map(fun (p: IOriginalFunctionParameter) -> 
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let bcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                 parameters,
-                                                 (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
+        let bcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
+                                             parameters,
+                                             (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
                                                     match e with
                                                     | Patterns.IfThenElse(cond, ifb, elseb) ->
                                                         let ifc = continuation(ifb)
@@ -34,9 +36,9 @@ type BranchCounter() =
                                                         Value(<@ 1.0f + (0.5f * %ifc) + (0.5f * %elsec) @>)
                                                     | _ ->
                                                         Continue),
-                                                 false)
+                                             false)
 
         // Build lambda expr 
-        ([LeafExpressionConverter.EvaluateQuotation(bcount) |> box], (ph |> List.ofSeq)) :> obj
+        [ LeafExpressionConverter.EvaluateQuotation(bcount) ] |> box
 
                 

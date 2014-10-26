@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open FSCL
 open FSCL.Compiler
@@ -7,7 +7,7 @@ open System.Collections.Generic
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
-//open QuotEval.QuotationEvaluation
+open FSCL.Runtime.Scheduling.FRTSchedulingEngine
 open System
 open FSCL.Runtime
 open FSCL.Compiler.Util
@@ -16,13 +16,17 @@ open FSCL.Language
 open System.Runtime.InteropServices
 open FSCL.Runtime.Scheduling.ReflectionUtil
 
+[<FRTFeatureExtractor("DataSizeCounter")>]
 type DataSizeCounter() = 
-    inherit IFeatureExtractor()
-    override this.FeatureNameList 
-        with get() =
-            [ "Data size transf from host to device (bytes)"; "Data size transf from device to host (bytes)"; "Data size allocated locally (bytes)" ]
+    inherit FRTFeatureExtractor() 
 
-    override this.Precompute(m: IKernelModule) =
+    override this.FeatureIDs
+        with get() =
+            [ "Data size transf from host to device (bytes)"; 
+               "Data size transf from device to host (bytes)"; 
+               "Data size allocated locally (bytes)" ]
+
+    override this.BuildFinalizers(m: IKernelModule) =
         // We have parameters in m with access analysis computed
         let mutable globalHostToDevP = []
         let mutable globalDevToHostP = []
@@ -75,15 +79,20 @@ type DataSizeCounter() =
                     embeddedLocalPExprs.Add(item.Key, ev)
                      
         // Build expr
-        [ globalHostToDevP :> obj; globalDevToHostP :> obj; localP :> obj; embeddedLocalP :> obj; embeddedLocalPExprs :> obj ] :> obj
+        [ globalHostToDevP |> box; 
+          globalDevToHostP |> box; 
+          localP |> box; 
+          embeddedLocalP |> box;
+          embeddedLocalPExprs |> box ] |> box
 
-    override this.Evaluate(m, prec, args, opts) =
+    override this.EvaluateFinalizers(m, p, args) =
+        let precomputed = p :?> obj list
+
         // Now use args to provide values
         let mutable globalHostToDevSize = 0L
         let mutable globalDevToHostSize = 0L
         let mutable localSize = 0L
-
-        let precomputed = prec :?> obj list        
+       
         let globalHostToDevP, globalDevToHostP, localP, embeddedLocalP, embeddedLocalPExprs = 
             precomputed.[0] :?> int list,
             precomputed.[1] :?> int list,
@@ -107,30 +116,20 @@ type DataSizeCounter() =
             let arrElementSize = Marshal.SizeOf(args.[index].GetType().GetElementType()) |> int64
             localSize <- localSize + (arrSize * arrElementSize)
 
-        // Evaluate alloc expression for embedded locals          
-        let constantsDefines = 
-            if opts.ContainsKey(RuntimeOptions.ConstantDefines) then
-                Some(opts.[RuntimeOptions.ConstantDefines] :?> (string * obj) list)
-            else
-                None
-        let dynDefArgs = []                                                           
+        // Evaluate alloc expression for embedded locals                                
         for v in embeddedLocalP do
             let allocCounts = embeddedLocalPExprs.[v] |> List.map(fun ev ->
                 // Now we can apply the evaluator to obtain the value of the feature using actual args
                 let mutable fv = ev
                 for a in args do
                     fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
-                //fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| workSizeArgs.[0] |])
-                for d in dynDefArgs do
-                    fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| d |])
-                //System.Console.WriteLine(fv.ToString())
                 fv :?> int)
             let allocSize = allocCounts |> List.reduce (fun a b -> a * b) |> int64
             localSize <- localSize + (allocSize * (Marshal.SizeOf(v.Type.GetElementType()) |> int64))
                 
-        [ globalHostToDevSize :> obj; 
-          globalDevToHostSize :> obj; 
-          localSize :> obj ]
+        [| globalHostToDevSize |> float32; 
+           globalDevToHostSize |> float32; 
+           localSize |> float32 |]
             
                 
 

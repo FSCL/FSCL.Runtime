@@ -13,7 +13,7 @@ open FSCL.Language
 type FlowGraphNodeInput =
 | KernelOutput of FlowGraphNode * int
 | ActualArgument of Expr
-| BufferAllocationSize of (Dictionary<string, obj> * int64[] * int64[] * int64[] -> int64[])
+| BufferAllocationSize of (Dictionary<string, obj> * WorkItemInfo option -> int64[])
 | ArraySizeArgument
 | IntrinsicArgument
 

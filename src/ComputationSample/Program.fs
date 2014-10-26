@@ -11,45 +11,6 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 open OpenCL
 open System.Diagnostics
 
-// Matrix multiplication with local and reference to global var (BLOCK_SIZE)
-[<ReflectedDefinition>]
-let ZeroOp (wi: WorkItemInfo, a:float32[]) =
-    a.[0] <- a.[0] * a.[1]
-    a
-
-[<ReflectedDefinition>]
-let BLOCK_SIZE = 16
-[<ReflectedDefinition>]
-let MatrixMultAdvanced(matA: float32[,], matB: float32[,], matC: float32[,], wi: WorkItemInfo) =
-    let bx = wi.GroupID(0)
-    let by = wi.GroupID(1) 
-    let tx = wi.LocalID(0)
-    let ty = wi.LocalID(1)
-    let wa = matA.GetLength(0)
-    let wb = matB.GetLength(0)
-
-    let bCol = bx * BLOCK_SIZE
-    let bBeginRow = 0
-    let bStep  = BLOCK_SIZE
-    let mutable bRow = bBeginRow
-    let mutable Csub = 0.0f
- 
-    let As = local(Array2D.zeroCreate<float32> BLOCK_SIZE BLOCK_SIZE)
-    let Bs = local(Array2D.zeroCreate<float32> BLOCK_SIZE BLOCK_SIZE)
-
-    for aCol in 0 .. BLOCK_SIZE .. (wa - 1) do
-        As.[ty, tx] <- matA.[by * BLOCK_SIZE, aCol]
-        Bs.[ty, tx] <- matB.[bRow, bCol]
-        wi.Barrier(CLK_LOCAL_MEM_FENCE)
- 
-        for k = 0 to BLOCK_SIZE - 1 do
-            Csub <- Csub + (As.[ty,k] * Bs.[k,tx])
-        wi.Barrier(CLK_LOCAL_MEM_FENCE)
-
-        bRow <- bRow + bStep
-    matC.[by * BLOCK_SIZE + ty, bx * BLOCK_SIZE + tx] <- Csub
- 
-
 let FirstDeviceSupportMultiDimensionalWorkItems() =
     let device = OpenCLPlatform.Platforms.[0].Devices.[0]
     if device.MaxWorkItemDimensions > 1L then
@@ -79,14 +40,31 @@ let main argv =
         watch.Stop()
         Console.WriteLine("Elapsed time: " + (((double)watch.ElapsedMilliseconds)/((double)iter)).ToString() + " ms")
         *)
-        MemoryFlagsSample.Run()
+        //MemoryFlagsSample.Run()
+        Console.WriteLine("::::::::::: Algorithms Sample :::::::::::")
         AlgorithmSample.Run()
+        Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Utility Functions Sample :::::::::::")
         UtilityFunctionSample.Run() 
+        Console.WriteLine("::::::::::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Static/Dynamic Defines Sample :::::::::::")
+        DynamicDefineSample.Run() 
+        Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Data Types Sample :::::::::::")
         DataTypeSample.Run()
+        Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Return Types Sample :::::::::::")
         ReturnTypeSample.Run()
+        Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Accelerated Collections Sample :::::::::::")
         AcceleratedCollectionSample.Run()
+        Console.WriteLine("::::::::::::::::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Collection Data Types Sample :::::::::::")
         AcceleratedCollectionDataTypeSample.Run()
+        Console.WriteLine("::::::::::::::::::::::::::::::::::::::::::::::::::::")
+        Console.WriteLine("\n::::::::::: Sequential and Multithread Sample :::::::::::")
         SequentialAndMultithreadSample.Run()
+        Console.WriteLine(":::::::::::::::::::::::::::::::::::::::::::::::::::::::::")
         
             (*
         // ***************************************************************************************************

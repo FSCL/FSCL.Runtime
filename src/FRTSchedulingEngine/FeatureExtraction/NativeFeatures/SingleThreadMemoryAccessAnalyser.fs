@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open FSCL
 open FSCL.Compiler
@@ -7,7 +7,6 @@ open System.Collections.Generic
 open Microsoft.FSharp.Quotations
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
-//open QuotEval.QuotationEvaluation
 open System
 open FSCL.Compiler.Util
 open FSCL.Compiler.FunctionPostprocessing
@@ -24,7 +23,7 @@ type SimplifiedMemoryAccessNode =
 *)
 
 type SingleThreadMemoryAccessAnalyser() = 
-    inherit IDefaultFeatureExtractor()
+    inherit OmogeneousDefaultFeatureExtractor<IKernelModule, float32>() 
            
     // Assumption on cache line size
     let cacheLineSize = 64.0f

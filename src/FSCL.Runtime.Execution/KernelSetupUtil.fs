@@ -86,7 +86,10 @@ module KernelSetupUtil =
                     let elementCount = 
                         try
                             sizeFunction(arguments, 
-                                         globalSize, localSize, globalOffset)                            
+                                         if workSize.IsNone then
+                                            None
+                                         else
+                                            Some(workSize.Value :> WorkItemInfo))                            
                         with 
                         | ex ->
                             raise (new KernelSetupException("Cannot evaluate a BufferAllocationSize input for kernels whose WorkSize is not explicit"))

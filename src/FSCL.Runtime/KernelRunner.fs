@@ -125,7 +125,7 @@ module Runtime =
                 raise (new KernelExecutionException("A multithread kernel cannot return a buffer"))
         
         // Run a kernel through a quoted kernel call        
-        member this.RunExpression(expr: Expr<'T>, 
+        member this.RunExpression(expr: Expr, 
                                   mode: RunningMode, 
                                   fallback: bool,
                                   opt: Dictionary<string, obj>) =
@@ -157,7 +157,7 @@ module Runtime =
                 this.isRunning <- false
             result       
                    
-        member this.IterateExpression(expr: Expr<'T>, 
+        member this.IterateExpression(expr: Expr, 
                                       itSetup: int -> obj list option,
                                       opt: Dictionary<string, obj>) =
             
@@ -256,8 +256,8 @@ module Runtime =
             let platform = OpenCLPlatform.Platforms.[p]
             let devs = new List<int * string * DeviceType>()
             for i = 0 to platform.Devices.Count - 1 do
-                devs.Add((i, platform.Devices.[i].Name, EnumOfValue<int, DeviceType> (platform.Devices.[i].Type |> int)))
-            plats.Add((p, platform.Name, devs.AsReadOnly()))
+                devs.Add((i, platform.Devices.[i].VendorID.ToString(), EnumOfValue<int, DeviceType> (platform.Devices.[i].Type |> int)))
+            plats.Add((p, platform.Vendor, devs.AsReadOnly()))
         plats.AsReadOnly()
                                
     // Extension methods to run a quoted kernel
@@ -302,6 +302,49 @@ module Runtime =
             kernelRunner.IterateExpression(this, 
                                            itSetup, 
                                            Dictionary<string, obj>()) :?> 'T
+                                              
+    type Expr with
+        member this.Run() =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.OpenCL, true, 
+                                        Dictionary<string, obj>())           
+        member this.Run(opts) =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.OpenCL, true, 
+                                        opts)                                
+        member this.Run([<ParamArray>] args:(string * obj)[]) =            
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.OpenCL, true, 
+                                        VarArgsToDictionary(args)) 
+        member this.RunMultithread() =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Multithread, true, 
+                                        Dictionary<string, obj>())             
+        member this.RunMultithread(opts) =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Multithread, true, 
+                                        opts)                             
+        member this.RunMultithread([<ParamArray>] args:(string * obj)[]) =            
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Multithread, true, 
+                                        VarArgsToDictionary(args))                                         
+        member this.RunSequential() =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Sequential, true, 
+                                        Dictionary<string, obj>())           
+        member this.RunSequential(opts) =
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Sequential, true, 
+                                        opts) :?> 'T                                        
+        member this.RunSequential([<ParamArray>] args:(string * obj)[]) =            
+            kernelRunner.RunExpression(this, 
+                                        RunningMode.Sequential, true, 
+                                        VarArgsToDictionary(args)) 
+        member this.Iterate(itSetup: int -> obj list option) =
+            kernelRunner.IterateExpression(this, 
+                                           itSetup, 
+                                           Dictionary<string, obj>()) 
+                                              
 
     // Extension methods to query info about a (single) quoted kernel
     type Expr<'T> with

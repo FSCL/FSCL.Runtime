@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open FSCL.Compiler
 open FSCL.Runtime.Scheduling
@@ -8,14 +8,21 @@ open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open FSCL.Compiler.Util
 open FSCL.Language
+open FSCL.Runtime.Scheduling.FRTSchedulingEngine
 
+[<FRTFeatureExtractor("MemoryAccessCounter")>]
 type MemoryAccessCounter() = 
-    inherit IDefaultFeatureExtractor()
-    override this.FeatureNameList 
-        with get() =
-            [ "Read accesses to global memory (per thread)"; "Write accesses to global memory (per thread)"; "Read accesses to local memory (per thread)"; "Write accesses to local memory (per thread)"; "Read accesses to constant memory (per thread)" ]
+    inherit FRTDefaultFeatureExtractor()
 
-    override this.Precompute(m: IKernelModule) =
+    override this.FeatureIDs 
+        with get() =
+            [ "Read accesses to global memory (per thread)"; 
+               "Write accesses to global memory (per thread)"; 
+               "Read accesses to local memory (per thread)"; 
+               "Write accesses to local memory (per thread)"; 
+               "Read accesses to constant memory (per thread)" ]
+
+    override this.BuildFinalizers(m: IKernelModule) =
         let parameters = m.Kernel.OriginalParameters |> 
                          Seq.map(fun (p: IOriginalFunctionParameter) -> 
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
@@ -48,7 +55,7 @@ type MemoryAccessCounter() =
             isLoadingOrStoringInternal(e)
                     
         // Count global read
-        let rgcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+        let rgcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
                                                   parameters,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
@@ -86,7 +93,7 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
         // Count global write
-        let wgcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+        let wgcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
                                                   parameters,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
@@ -125,7 +132,7 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)       
         // Count local read
-        let rlcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+        let rlcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
                                                   parameters,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
@@ -164,7 +171,7 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
         // Count local write
-        let wlcount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+        let wlcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
                                                   parameters,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
@@ -205,7 +212,7 @@ type MemoryAccessCounter() =
                                                   false)
                                         
         // Count constant read
-        let rccount, ph = ExpressionCounter.Count(m.Kernel.OriginalBody,
+        let rccount = ExpressionCounter.Count(m.Kernel.OriginalBody,
                                                   parameters,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
@@ -242,9 +249,9 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
                        
-        ([ LeafExpressionConverter.EvaluateQuotation(rgcount) |> box;
-           LeafExpressionConverter.EvaluateQuotation(wgcount) |> box; 
-           LeafExpressionConverter.EvaluateQuotation(rlcount) |> box;
-           LeafExpressionConverter.EvaluateQuotation(wlcount) |> box;
-           LeafExpressionConverter.EvaluateQuotation(rccount) |> box; ], ph |> List.ofSeq) :> obj
+        [ LeafExpressionConverter.EvaluateQuotation(rgcount);
+          LeafExpressionConverter.EvaluateQuotation(wgcount); 
+          LeafExpressionConverter.EvaluateQuotation(rlcount);
+          LeafExpressionConverter.EvaluateQuotation(wlcount);
+          LeafExpressionConverter.EvaluateQuotation(rccount) ] |> box
         

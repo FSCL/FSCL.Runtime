@@ -115,7 +115,7 @@ type AcceleratedFlowGraphBuildingProcessor() =
                         FlowGraphUtil.SetNodeInput(node,
                                                    parameters.[0].Name,
                                                    ActualArgument(input.CallArgs.[1]))
-                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) ->
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, wi) ->
                                                                                 // Same size of input
                                                                                 // This can be an array or a buffer (if the output of another kernel)
                                                                                 ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
@@ -151,7 +151,7 @@ type AcceleratedFlowGraphBuildingProcessor() =
                         FlowGraphUtil.SetNodeInput(node,
                                                    parameters.[1].Name,
                                                    ActualArgument(input.CallArgs.[2]))
-                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) ->
+                    FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, wi) ->
                                                                                 // Same size of input
                                                                                 // This can be an array or a buffer (if the output of another kernel)
                                                                                 ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))
@@ -196,10 +196,11 @@ type AcceleratedFlowGraphBuildingProcessor() =
                         FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, ArraySizeArgument)
                         FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, ArraySizeArgument)
                     else                                
-                        FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) -> localSize))
-                        FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) ->
+                        FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, wi) -> 
+                                                                                                        [| wi.Value.LocalSize(0) |> int64 |]))
+                        FlowGraphUtil.SetNodeInput(node, parameters.[2].Name, BufferAllocationSize(fun(args, wi) ->
                                                                                                         // Size is number of groups
-                                                                                                        [| globalSize.[0] / localSize.[0] |]))
+                                                                                                        [| wi.Value.NumGroups(0) |> int64 |]))
                         FlowGraphUtil.SetNodeInput(node, parameters.[3].Name, ArraySizeArgument)
                         FlowGraphUtil.SetNodeInput(node, parameters.[4].Name, ArraySizeArgument)
                         FlowGraphUtil.SetNodeInput(node, parameters.[5].Name, ArraySizeArgument)
@@ -221,7 +222,7 @@ type AcceleratedFlowGraphBuildingProcessor() =
                         FlowGraphUtil.SetNodeInput(node,
                                                    parameters.[0].Name,
                                                    ActualArgument(input.CallArgs.[0]))
-                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) ->
+                    FlowGraphUtil.SetNodeInput(node, parameters.[1].Name, BufferAllocationSize(fun(args, wi) ->
                                                                                 // Same size of input
                                                                                 // This can be an array or a buffer (if the output of another kernel)
                                                                                 ArrayUtil.GetArrayOrBufferLengths(args.[parameters.[0].Name])))

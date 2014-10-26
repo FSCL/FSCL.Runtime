@@ -69,14 +69,14 @@ type KernelCreationManager(compiler: Compiler,
         let dynDefineValues = new Dictionary<string, string>()   
         let mutable dynDefValuesChain = ""             
         for item in dynamicDefines do
-            let dynDefVal = item.Value.ToString()
+            let dynDefVal = LeafExpressionConverter.EvaluateQuotation(item.Value).ToString()
             dynDefValuesChain <- dynDefValuesChain + dynDefVal
             dynDefineValues.Add(item.Key, dynDefVal)
 
         //#3: Check if the device target code has been already generated 
         //Considering both the platform/device index and the values of dynamic defines        
         let compiledKernel =
-            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex, dynDefValuesChain) then
+            if runtimeKernel.Instances.ContainsKey(platformIndex, deviceIndex, dynDefValuesChain) |> not then
                 let computeProgram = new OpenCLProgram(device.Context, runtimeKernel.OpenCLCode)
                 // Generate define options
                 let mutable definesOption = ""

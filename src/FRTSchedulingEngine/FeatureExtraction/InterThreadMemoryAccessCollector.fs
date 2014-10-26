@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open Microsoft.FSharp.Quotations
 open System.Reflection
@@ -8,12 +8,12 @@ open System.Collections.Generic
 open Microsoft.FSharp.Linq
 open FSCL.Runtime
 open System
-open QuotationUtil
+open FSCL.Runtime.Scheduling
 open FSCL.Language
 open FSCL.Compiler
 open FSCL.Compiler.Util
 open Microsoft.FSharp.Reflection
-open VarStack
+open FSCL.Runtime.Scheduling.VarStack
 open System.Linq
 
 type StrideEvaluationError(msg: string) =
@@ -75,13 +75,10 @@ type InterThreadMemoryAccessCollector() =
     // Build an expression that contains the number of interesting items
     static member private Estimate(functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
-                                   stack: VarStack,
-                                   dynamicDefinesPlaceholders: Var list) = 
+                                   stack: VarStack) = 
         let isParameterReference v = 
             (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
-        let isDynamicDefineReference v = 
-            (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
-
+     
         // Access dataset contains for each array accessed the list of offsets inter-thread (one for each loop found)   
         let globalReadAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
         let globalWriteAccessDataset = new Dictionary<Var, List<Expr<int> * Expr>>()  
@@ -110,7 +107,7 @@ type InterThreadMemoryAccessCollector() =
                     normalisedExpr <- InterThreadMemoryAccessCollector.ZeroRefsToLoopVars(loopVars, normalisedExpr) 
 
                     // Unfold expr
-                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference, isDynamicDefineReference)
+                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference)
 
                     // Add this expression to the access dataset
                     if not (globalReadAccessDataset.ContainsKey(arrayVar)) then
@@ -133,7 +130,7 @@ type InterThreadMemoryAccessCollector() =
                     normalisedExpr <- InterThreadMemoryAccessCollector.ZeroRefsToLoopVars(loopVars, normalisedExpr) 
 
                     // Unfold expr
-                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference, isDynamicDefineReference)
+                    normalisedExpr <- KernelUtil.UnfoldExpression(normalisedExpr, stack, isParameterReference)
 
                     // Add this expression to the access dataset
                     if not (globalWriteAccessDataset.ContainsKey(arrayVar)) then
@@ -145,8 +142,8 @@ type InterThreadMemoryAccessCollector() =
             // Loop: we check inside it
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
                 // Determine loop trip count
-                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
-                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
+                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference)
+                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference)
                 // Check accesses in starte and ende
                 let newStack = EstimateExpr(starte, stack, tripCount, loopVars)
                 let newStack = EstimateExpr(ende, stack, tripCount, loopVars)
@@ -233,9 +230,9 @@ type InterThreadMemoryAccessCollector() =
                                                 let seStack = EstimateExpr(stepe, stack, tripCount, loopVars)
                                                 let eeStack = EstimateExpr(ende, stack, tripCount, loopVars)
 
-                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
-                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference, isDynamicDefineReference)
-                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference)
+                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference)
+                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference)
                                                 let tripCountExpr = <@
                                                                         ((int)(Math.Ceiling((float)((%%unfoldEnd:int) - (%%unfoldStart:int) + 1) / (float)(%%unfoldStep:int)))) |> int
                                                                     @>
@@ -281,35 +278,35 @@ type InterThreadMemoryAccessCollector() =
                                 | Patterns.Var(ov) ->
                                     if ov = v then
                                         // Ok, now make sure expr can be unfold to parameters and constants
-                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference, isDynamicDefineReference)
+                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference)
                                         Some(assExpr, unfoldUpdate)
                                     else
-                                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                                        raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
                                 | _ ->
-                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                                    raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
                             | _ ->
-                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                                raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
                         else
-                            raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once"))
+                            raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the same variable is updated more then once"))
                     else
                         findVarUpdate(v, assExpr)       
                 | Patterns.ForIntegerRangeLoop(_, starte, ende, body) ->
                     let update = findVarUpdate(v, body)
                     if update.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None  
                 | Patterns.WhileLoop(_, body) ->
                     let update = findVarUpdate(v, body)
                     if update.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None  
                 | Patterns.IfThenElse(_, ifb, elseb) ->
                     let update1 = findVarUpdate(v, ifb)
                     let update2 = findVarUpdate(v, elseb)
                     if update1.IsSome || update2.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None                        
                 | ExprShape.ShapeVar(ov) ->
@@ -326,7 +323,7 @@ type InterThreadMemoryAccessCollector() =
                                                                                                             | None, a ->
                                                                                                                 a
                                                                                                             | Some(a), Some(b) -> 
-                                                                                                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once")))
+                                                                                                                raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the same variable is updated more then once")))
                     else
                         None
                                         
@@ -345,7 +342,7 @@ type InterThreadMemoryAccessCollector() =
                     let bindingValue, _ = findAndTail guardVar true stack
                     if bindingValue.IsSome then
                         // Unfold the guard expr
-                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference, isDynamicDefineReference)
+                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference)
                         // Search in the body the ONLY update in the form v <- v +-*/>>><<< expr
                         let update = findVarUpdate(guardVar, body)
                         match update with
@@ -374,7 +371,7 @@ type InterThreadMemoryAccessCollector() =
                                 | DerivedPatterns.SpecificCall <@ (<<<) @> (o, t, arguments) ->
                                     <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment)) |> int @> 
                                 | _ ->
-                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                                    raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
                             // Compute total trip count
                             let mutable totalTripCount = tripCountExpr
                             for loopVar, loopInit, loopTripCount in loopVars do
@@ -382,13 +379,13 @@ type InterThreadMemoryAccessCollector() =
                             // Now check inside loop             
                             EstimateExpr(body, newStack, totalTripCount, loopVars @ [ (guardVar, bindingValue.Value, tripCountExpr) ])
                         | _ ->                            
-                            raise (new ExpressionCounterError("Cannot find the variable update of a while loop"))                                
+                            raise (new StrideEvaluationError("Cannot find the variable update of a while loop"))                                
                     else
-                        raise (new ExpressionCounterError("Cannot determine the original value of a while loop iteration variable"))                                                                
+                        raise (new StrideEvaluationError("Cannot determine the original value of a while loop iteration variable"))                                                                
                 | _ ->
-                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+                    raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
             | _ ->
-                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+                raise (new StrideEvaluationError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
                     
             (*            
             // Determine the free variables in guard
@@ -426,19 +423,17 @@ type InterThreadMemoryAccessCollector() =
            
     static member EstimateMemoryAccessStride(body: Expr,
                                              parameters: (ParameterInfo * Var)[]) = 
-        let dynamicDefinePlaceholders = new List<Var>()
-
-        let prepBody = KernelUtil.PrepareBodyForAnalysis(body, dynamicDefinePlaceholders);
-        let readAcc, writeAcc = InterThreadMemoryAccessCollector.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
+        
+        let readAcc, writeAcc = InterThreadMemoryAccessCollector.Estimate(body, parameters, EmptyStack)
         let readEval = new Dictionary<Var, (Expr * Expr) list>()
         let writeEval = new Dictionary<Var, (Expr * Expr) list>()
         for item in readAcc do
-            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(prepBody.Value, a).Value, KernelUtil.CloseExpression(prepBody.Value, b).Value))
+            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(body, a).Value, KernelUtil.CloseExpression(body, b).Value))
             readEval.Add(item.Key, evals |> Seq.toList)
         for item in writeAcc do
-            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(prepBody.Value, a).Value, KernelUtil.CloseExpression(prepBody.Value, b).Value))
+            let evals = item.Value |> Seq.map(fun (a, b) -> (KernelUtil.CloseExpression(body, a).Value, KernelUtil.CloseExpression(body, b).Value))
             writeEval.Add(item.Key, evals |> Seq.toList)
-        readEval, writeEval, dynamicDefinePlaceholders
+        readEval, writeEval
             
 
 

@@ -111,12 +111,37 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSCL.Compiler">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Core">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Language">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.NativeComponents">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Util">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
+    <ProjectReference Include="..\FRTSchedulingEngine\FRTSchedulingEngine.fsproj">
+      <Name>FRTSchedulingEngine</Name>
+      <Project>{4cdf26c4-0ca9-402c-a4af-9c6029886564}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
       <Name>FSCL.Runtime.Core</Name>
       <Project>{061550DB-589C-4DBC-94EF-6DF4EC751B71}</Project>
@@ -124,6 +149,11 @@
     <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
       <Name>FSCL.Runtime.Language</Name>
       <Project>{9692F3D3-7408-46F4-8429-B4E77D128849}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj">
+      <Name>FSCL.Runtime.Scheduling</Name>
+      <Project>{266e7303-23e0-47ac-9324-4b9705fc61f1}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\FSCL.Runtime\FSCL.Runtime.fsproj">
       <Name>FSCL.Runtime</Name>
@@ -136,21 +166,6 @@
       <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
       <Name>OpenCLManagedWrapper</Name>
     </ProjectReference>
-    <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

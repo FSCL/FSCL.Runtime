@@ -400,9 +400,10 @@ type ExpressionCounter() =
                         considerLoopIncr: bool) = 
         // Create a lambda to evaluate instruction count
         //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
-        let precExpr, newStack = ExpressionCounter.Estimate(body, parameters, action, EmptyStack, considerLoopIncr)
+        let prepBody = QuotationUtil.ToCurriedFunction(body)
+        let precExpr, newStack = ExpressionCounter.Estimate(prepBody, parameters, action, EmptyStack, considerLoopIncr)
         let cleanCountExpr = KernelUtil.EvaluateClosedSubtrees(precExpr)
-        KernelUtil.CloseExpression(body, cleanCountExpr).Value
+        KernelUtil.CloseExpression(prepBody, cleanCountExpr).Value
             
     static member ContinueCount (parameters: (ParameterInfo * Var)[])
                                 (action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction) 

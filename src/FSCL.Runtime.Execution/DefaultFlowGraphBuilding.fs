@@ -20,25 +20,39 @@ type DefaultFlowGraphBuildingProcessor() =
         
     member private this.LiftArgumentsAndKernelCalls(e: Expr,
                                                     args: Dictionary<string, obj>,
-                                                    localSize: int64 array,
-                                                    globalSize: int64 array) =
+                                                    wi: WorkItemInfo option) =
         match e with
         // Return allocation expression can contain a call to global_size, local_size, num_groups or work_dim
         | Patterns.Call(o, m, arguments) ->
-            if m.DeclaringType.Name = "Language" && (m.Name = "get_global_size") then
-                Expr.Value(globalSize.[LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int])
-            else if m.DeclaringType.Name = "Language" && (m.Name = "get_local_size") then
-                Expr.Value(localSize.[LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int])
-            else if m.DeclaringType.Name = "Language" && (m.Name = "get_num_groups") then
-                let gs = globalSize.[LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int]
-                let ls = localSize.[LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int]
-                Expr.Value(int (Math.Ceiling(float gs / float ls)))
-            else if m.DeclaringType.Name = "Language" && (m.Name = "get_work_dim") then
-                Expr.Value(globalSize.Rank)
+            if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "GlobalSize") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.GlobalSize(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new FSCL.Runtime.KernelFlowGraphException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "GlobalOffset") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.GlobalOffset(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new FSCL.Runtime.KernelFlowGraphException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "LocalSize") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.LocalSize(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new FSCL.Runtime.KernelFlowGraphException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "NumGroups") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.NumGroups(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))   
+                else
+                    raise (new FSCL.Runtime.KernelFlowGraphException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))         
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "WorkDim") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.WorkDim())
+                else
+                    raise (new FSCL.Runtime.KernelFlowGraphException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
             else
                 if o.IsSome then
-                    let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, localSize, globalSize)
-                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                    let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, wi)
+                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, wi)) arguments
                     // Check if we need to tranform array method to openclbuffer method
                     if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
                         Expr.Call(evaluatedInstance, evaluatedInstance.Type.GetMethod(m.Name), liftedArgs)
@@ -48,7 +62,7 @@ type DefaultFlowGraphBuildingProcessor() =
                             m, 
                             liftedArgs)
                 else
-                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                    let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, wi)) arguments
                     Expr.Call(m, liftedArgs) 
                     (*
                 if m.DeclaringType <> null && m.DeclaringType.Name = "Array" && m.Name = "GetLength" then
@@ -71,32 +85,31 @@ type DefaultFlowGraphBuildingProcessor() =
         // Array.Rank, Array.Length, Array.LongLength       
         | Patterns.PropertyGet(o, pi, arguments) ->
             if o.IsSome then
-                let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, localSize, globalSize)
-                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                let evaluatedInstance = this.LiftArgumentsAndKernelCalls(o.Value, args, wi)
+                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, wi)) arguments
                 // Check if we need to tranform array property to openclbuffer property
                 if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
                     Expr.PropertyGet(evaluatedInstance, evaluatedInstance.Type.GetProperty(pi.Name), liftedArgs)
                 else
                     Expr.PropertyGet(evaluatedInstance, pi, liftedArgs)
             else
-                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) arguments
+                let liftedArgs = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, wi)) arguments
                 Expr.PropertyGet(pi, liftedArgs)                
         | ExprShape.ShapeVar(v) ->
             e
         | ExprShape.ShapeLambda(l, b) ->
             failwith "Error in substituting parameters"
         | ExprShape.ShapeCombination(c, argsList) ->
-            let ev = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, localSize, globalSize)) argsList
+            let ev = List.map(fun (e: Expr) -> this.LiftArgumentsAndKernelCalls(e, args, wi)) argsList
             ExprShape.RebuildShapeCombination(c, ev)
 
     member private this.EvaluateBufferAllocationSize(t: Type,
                                                      sizes: Expr array,
                                                      args: Dictionary<string, obj>, 
-                                                     localSize: int64 array,
-                                                     globalSize: int64 array) =   
+                                                     wi: WorkItemInfo option) =   
         let intSizes = new List<int64>()    
         for exp in sizes do
-            let lifted = this.LiftArgumentsAndKernelCalls(exp, args, localSize, globalSize)
+            let lifted = this.LiftArgumentsAndKernelCalls(exp, args, wi)
             let evaluated = LeafExpressionConverter.EvaluateQuotation(lifted)
             if evaluated :? int32 then
                 intSizes.Add(evaluated :?> int32 |> int64)
@@ -148,8 +161,8 @@ type DefaultFlowGraphBuildingProcessor() =
                             | DynamicParameter(allocArgs) ->
                                 FlowGraphUtil.SetNodeInput(node, 
                                                             p.Name, 
-                                                            BufferAllocationSize(fun(args, globalSize, localSize, globalOffset) ->
-                                                                this.EvaluateBufferAllocationSize(p.DataType, allocArgs, args, localSize, globalSize)))
+                                                            BufferAllocationSize(fun(args, wi) ->
+                                                                this.EvaluateBufferAllocationSize(p.DataType, allocArgs, args, wi)))
                             (*
                             | GeneratedParameterWithKnownSize(name, eval) ->
                                 FlowGraphUtil.SetNodeInput(node, 

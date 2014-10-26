@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling.FeatureExtraction
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open FSCL.Compiler
 open FSCL.Runtime.Scheduling
@@ -10,23 +10,26 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 open System
 open FSCL.Compiler.Util
 open FSCL.Compiler.AcceleratedCollections
+open FSCL.Runtime.Scheduling.FRTSchedulingEngine
 
+[<FRTFeatureExtractor("LoopIterationCounter")>]
 type TotalLoopIterationsCounter() = 
-    inherit IDefaultFeatureExtractor()
-    override this.FeatureNameList 
+    inherit FRTDefaultFeatureExtractor() 
+    
+    override this.FeatureIDs
         with get() =
             [ "Loop iterations" ]
 
-    override this.Precompute(m: IKernelModule) =
+    override this.BuildFinalizers(m: IKernelModule) =
         // Count loop iters
         let parameters = m.Kernel.OriginalParameters |> 
                          Seq.map(fun (p: IOriginalFunctionParameter) -> 
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let lcount, ph = LoopIterationCounter.Count(m.Kernel.OriginalBody, parameters)
+        let lcount = LoopIterationCounter.Count(m.Kernel.OriginalBody, parameters)
 
         // Build lambda expr 
-        ([LeafExpressionConverter.EvaluateQuotation(lcount) |> box], (ph |> List.ofSeq)) :> obj
+        [LeafExpressionConverter.EvaluateQuotation(lcount)] |> box
 
                 

@@ -108,6 +108,7 @@
     <Compile Include="ReturnTypeSample.fs" />
     <Compile Include="UtilityFunctionSample.fs" />
     <Compile Include="DataTypeSample.fs" />
+    <Compile Include="DynamicDefineSample.fs" />
     <Compile Include="AcceleratedCollectionSample.fs" />
     <Compile Include="AcceleratedCollectionDataTypeSample.fs" />
     <Compile Include="SequentialAndMultithreadSample.fs" />
@@ -120,6 +121,26 @@
       <Name>OpenCLManagedWrapper</Name>
       <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
     </ProjectReference>
+    <Reference Include="FSCL.Compiler">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Core">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Language">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.NativeComponents">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Util">
+      <HintPath>..\..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -138,21 +159,6 @@
     </ProjectReference>
     <Reference Include="FSharp.Core">
       <Private>True</Private>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />

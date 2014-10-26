@@ -494,13 +494,13 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             let poolItem = trackedBufferPool.[array]
             
             if willRead then
-                this.ReadBufferToEnsureHostAccess(poolItem, false)
+                this.ReadBufferToEnsureHostAccess(poolItem, false, TransferMode.TransferIfNeeded)
             array
         else if untrackedBufferPool.ContainsKey(b.Context) && untrackedBufferPool.[b.Context].ContainsKey(b) then
             let poolItem = untrackedBufferPool.[b.Context].[b]
             this.PromoteUntrackedToTracked(poolItem)
             if willRead then
-                this.ReadBufferToEnsureHostAccess(poolItem, true)
+                this.ReadBufferToEnsureHostAccess(poolItem, true, TransferMode.TransferIfNeeded)
             poolItem.HostDataHandle.Value.ManagedData
         else
             null      
@@ -675,8 +675,13 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         bf
 
     // Private methods    
-    member private this.ReadBufferToEnsureHostAccess(poolItem: BufferPoolItem, hasBeenPromoted: bool) =
-        let shouldReadBackBuffer = BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) 
+    member private this.ReadBufferToEnsureHostAccess(poolItem: BufferPoolItem, hasBeenPromoted: bool, ?forceDeviceHostTransferMode: TransferMode) =
+        let tmode = 
+            if forceDeviceHostTransferMode.IsSome then 
+                forceDeviceHostTransferMode.Value 
+            else 
+                poolItem.DeviceToHostTransferMode
+        let shouldReadBackBuffer = BufferStrategies.ShouldReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, tmode) 
         if shouldReadBackBuffer then
             poolItem.HostDataHandle.Value.BeforeTransferFromDevice()
             if hasBeenPromoted || BufferStrategies.ShouldExplicitlyReadToReadBackBuffer(poolItem.AccessAnalysis, poolItem.Buffer.Flags, poolItem.AddressSpace, poolItem.DeviceToHostTransferMode) then

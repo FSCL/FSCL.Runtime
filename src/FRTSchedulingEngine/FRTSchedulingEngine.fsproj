@@ -6,33 +6,37 @@
     <ProjectGuid>{4CDF26C4-0CA9-402C-A4AF-9C6029886564}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>FeretSchedulingEngine</RootNamespace>
-    <AssemblyName>FeretSchedulingEngine</AssemblyName>
+    <AssemblyName>FRTSchedulingEngine</AssemblyName>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <Name>FRTSchedulingEngine</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
+    <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <ConsolePause>false</ConsolePause>
     <Tailcalls>false</Tailcalls>
     <PlatformTarget>
     </PlatformTarget>
+    <DocumentationFile>..\..\bin\FRTSchedulingEngine.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
+    <OutputPath>..\..\bin\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <PlatformTarget>
     </PlatformTarget>
     <ConsolePause>false</ConsolePause>
     <Tailcalls>true</Tailcalls>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
@@ -45,17 +49,15 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <None Include="packages.config" />
+    <Compile Include="FRTFeatureSample.fs" />
     <Compile Include="FeatureExtraction\InterThreadMemoryAccessCollector.fs" />
     <Compile Include="FeatureExtraction\LoopIterationCounter.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\ArithmeticOperationCounter.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\BranchCounter.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\DataSizeCounter.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\MemoryAccessCounter.fs" />
-    <Compile Include="FeatureExtraction\NativeFeatures\OperationDensityAnalyser.fs" />
-    <Compile Include="FeatureExtraction\NativeFeatures\SingleThreadMemoryAccessAnalyser.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\TotalLoopIterationsCounter.fs" />
     <Compile Include="FeatureExtraction\NativeFeatures\WorkSizeCounter.fs" />
-    <Compile Include="FeatureExtraction\SingleThreadMemoryAccessCollector.fs" />
     <Compile Include="SampleTraining\NativeSamples\ConvolutionTrainingSample.fs" />
     <Compile Include="SampleTraining\NativeSamples\LogisticMapTrainingSample.fs" />
     <Compile Include="SampleTraining\NativeSamples\MatrixMultTrainingSample.fs" />
@@ -63,14 +65,36 @@
     <Compile Include="SampleTraining\NativeSamples\SumRowsColsTrainingSample.fs" />
     <Compile Include="SampleTraining\NativeSamples\TransposeTrainingSample.fs" />
     <Compile Include="SampleTraining\NativeSamples\VectorAddTrainingSample.fs" />
-    <Compile Include="FeretSchedulingEngine.fs" />
+    <Compile Include="FRTSchedulingEngine.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSCL.Compiler">
+      <HintPath>..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Core">
+      <HintPath>..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Language">
+      <HintPath>..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.NativeComponents">
+      <HintPath>..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FSCL.Compiler.Util">
+      <HintPath>..\packages\FSCL.Compiler.1.4.6\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="MathNet.Numerics">
-      <HintPath>..\packages\MathNet.Numerics.3.2.3\lib\net40\MathNet.Numerics.dll</HintPath>
+      <HintPath>..\..\packages\MathNet.Numerics.3.2.3\lib\net40\MathNet.Numerics.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="MathNet.Numerics.FSharp">
-      <HintPath>..\packages\MathNet.Numerics.FSharp.3.2.3\lib\net40\MathNet.Numerics.FSharp.dll</HintPath>
+      <HintPath>..\..\packages\MathNet.Numerics.FSharp.3.2.3\lib\net40\MathNet.Numerics.FSharp.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core" />
@@ -78,31 +102,29 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml.Serialization" />
-    <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Language.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
-    </Reference>
-    <Reference Include="FSCL.Compiler">
-      <HintPath>..\packages\FSCL.Compiler.1.4.2\lib\net45\FSCL.Compiler.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj">
-      <Project>{266E7303-23E0-47AC-9324-4B9705FC61F1}</Project>
-      <Name>FSCL.Runtime.Scheduling</Name>
+    <ProjectReference Include="..\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
+      <Name>FSCL.Runtime.Core</Name>
+      <Project>{061550db-589c-4dbc-94ef-6df4ec751b71}</Project>
+      <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\src\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
-      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
+    <ProjectReference Include="..\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
+      <Name>FSCL.Runtime.Language</Name>
+      <Project>{9692f3d3-7408-46f4-8429-b4e77d128849}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj">
+      <Name>FSCL.Runtime.Scheduling</Name>
+      <Project>{266e7303-23e0-47ac-9324-4b9705fc61f1}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
 </Project>

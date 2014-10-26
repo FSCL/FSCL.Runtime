@@ -153,7 +153,7 @@ module BufferStrategies =
         IsBufferRead(analysis) && IsGlobalBuffer(space) 
             
     let inline ShouldInitBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (ShouldWriteBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer))
+        (ShouldWriteBuffer(analysis, flags, space, transferMode) && transferMode <> TransferMode.NoTransfer) || (transferMode = TransferMode.ForceTransfer)
                     
     let inline IsBufferRequiringHostPtr(flags: OpenCLMemoryFlags) =
         IsHostPtrRequiredForBuffer(flags)
@@ -168,10 +168,10 @@ module BufferStrategies =
         IsDeviceWriteableGlobalBuffer(space)
         
     let inline ShouldReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (ShouldReadBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer))
+        (ShouldReadBuffer(analysis, flags, space, transferMode) && (transferMode <> TransferMode.NoTransfer)) || (transferMode = TransferMode.ForceTransfer)
 
     let inline ShouldExplicitlyReadToReadBackBuffer(analysis: AccessAnalysisResult, flags: OpenCLMemoryFlags, space: AddressSpace, transferMode: TransferMode) =
-        (ShouldReadBuffer(analysis, flags, space, transferMode) || (transferMode = TransferMode.ForceTransfer)) &&
+         ((ShouldReadBuffer(analysis, flags, space, transferMode) && (transferMode <> TransferMode.NoTransfer)) || (transferMode = TransferMode.ForceTransfer)) &&
          (not (IsUsingHostPtr(flags)))      
         
     let inline ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,

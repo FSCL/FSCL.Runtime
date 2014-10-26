@@ -1,4 +1,4 @@
-﻿namespace FSCL.Runtime.Scheduling
+﻿namespace FSCL.Runtime.Scheduling.FRTSchedulingEngine.FeatureExtraction
 
 open Microsoft.FSharp.Quotations
 open System.Reflection
@@ -9,13 +9,14 @@ open System.Collections.Generic
 
 open Microsoft.FSharp.Linq
 
+open FSCL.Runtime.Scheduling
 open System
-open QuotationUtil
+open FSCL.Runtime.Scheduling.QuotationUtil
 open FSCL.Language
 open FSCL.Compiler
 open FSCL.Compiler.Util
 open Microsoft.FSharp.Reflection
-open VarStack
+open FSCL.Runtime.Scheduling.VarStack
 open System.Linq
 
 type LoopIterationCountError(msg: string) =
@@ -25,13 +26,9 @@ type LoopIterationCounter() =
     // Build an expression that contains the number of interesting items
     static member private Estimate(functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
-                                   stack: VarStack,
-                                   //workItemIdContainerPlaceholder: Quotations.Var,
-                                   dynamicDefinesPlaceholders: Var list) =  
+                                   stack: VarStack) =
         let isParameterReference v = 
             (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
-        let isDynamicDefineReference v = 
-            (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
                       
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
@@ -48,8 +45,8 @@ type LoopIterationCounter() =
             | Patterns.ForIntegerRangeLoop(v, starte, ende, body) ->
                 let newStack = push stack (v, starte)
 
-                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
-                let unfoldEnd = KernelUtil.UnfoldExpression(ende, newStack, isParameterReference, isDynamicDefineReference)
+                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference)
+                let unfoldEnd = KernelUtil.UnfoldExpression(ende, newStack, isParameterReference)
                 let iterCount = 
                     <@
                         if ((%%unfoldStart : int) > (%%unfoldEnd : int)) then
@@ -102,9 +99,9 @@ type LoopIterationCounter() =
                                             | Patterns.PropertyGet(e, pi, a) ->
                                                 // Ok, that's an input sequence!
                                                 let newStack = push newStack (v, starte)
-                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference, isDynamicDefineReference)
-                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference, isDynamicDefineReference)
-                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference, isDynamicDefineReference)
+                                                let unfoldStart = KernelUtil.UnfoldExpression(starte, stack, isParameterReference)
+                                                let unfoldStep = KernelUtil.UnfoldExpression(stepe, stack, isParameterReference)
+                                                let unfoldEnd = KernelUtil.UnfoldExpression(ende, stack, isParameterReference)
                                                 let totalIterCount = <@
                                                                         ((float32)(Math.Ceiling((float)(((float32)(%%unfoldEnd:int) - (float32)(%%unfoldStart:int) + 1.0f) / (float32)(%%unfoldStep:int)))))
                                                                      @>
@@ -181,35 +178,35 @@ type LoopIterationCounter() =
                                 | Patterns.Var(ov) ->
                                     if ov = v then
                                         // Ok, now make sure expr can be unfold to parameters and constants
-                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference, isDynamicDefineReference)
+                                        let unfoldUpdate = KernelUtil.UnfoldExpression(arguments.[1], stack, isParameterReference)
                                         Some(assExpr, unfoldUpdate)
                                     else
-                                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                                        raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
                                 | _ ->
-                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
+                                    raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))
                             | _ ->
-                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                                raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
                         else
-                            raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once"))
+                            raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the same variable is updated more then once"))
                     else
                         findVarUpdate(v, assExpr)       
                 | Patterns.ForIntegerRangeLoop(_, starte, ende, body) ->
                     let update = findVarUpdate(v, body)
                     if update.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None  
                 | Patterns.WhileLoop(_, body) ->
                     let update = findVarUpdate(v, body)
                     if update.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None  
                 | Patterns.IfThenElse(_, ifb, elseb) ->
                     let update1 = findVarUpdate(v, ifb)
                     let update2 = findVarUpdate(v, elseb)
                     if update1.IsSome || update2.IsSome then
-                        raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
+                        raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated in an if-then-else or in a nested loop"))
                     else
                         None                        
                 | ExprShape.ShapeVar(ov) ->
@@ -226,7 +223,7 @@ type LoopIterationCounter() =
                                                                                                             | None, a ->
                                                                                                                 a
                                                                                                             | Some(a), Some(b) -> 
-                                                                                                                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the same variable is updated more then once")))
+                                                                                                                raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the same variable is updated more then once")))
                     else
                         None
                                         
@@ -242,7 +239,7 @@ type LoopIterationCounter() =
                     let bindingValue, _ = findAndTail guardVar true stack
                     if bindingValue.IsSome then
                         // Unfold the guard expr
-                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference, isDynamicDefineReference)
+                        let unfoldCond = KernelUtil.UnfoldExpression(a.[1], stack, isParameterReference)
                         // Search in the body the ONLY update in the form v <- v +-*/>>><<< expr
                         let update = findVarUpdate(guardVar, body)
                         match update with
@@ -272,18 +269,18 @@ type LoopIterationCounter() =
                                 | DerivedPatterns.SpecificCall <@ (<<<) @> (o, t, arguments) ->
                                     <@ (Math.Floor(Math.Log((%%unfoldCond |> float), (Math.Pow(2.0, %%updateExpr|> float))) - Math.Log((%%bindingValue.Value |> float), (Math.Pow(2.0, %%updateExpr|> float))) + increment) |> float32) @> 
                                 | _ ->
-                                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
+                                    raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard variable is updated using an expression that differs from VAR <- VAR OP EXPR"))                                
 
                             let bodyCount, subStack = EstimateInternal(body, stack)
                             <@ (%totalIterCount) * Math.Max(%bodyCount, 1.0f) @>
                         | _ ->                            
-                            raise (new ExpressionCounterError("Cannot find the variable update of a while loop"))                                
+                            raise (new LoopIterationCountError("Cannot find the variable update of a while loop"))                                
                     else
-                        raise (new ExpressionCounterError("Cannot determine the original value of a while loop iteration variable"))                                                                
+                        raise (new LoopIterationCountError("Cannot determine the original value of a while loop iteration variable"))                                                                
                 | _ ->
-                    raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+                    raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
             | _ ->
-                raise (new ExpressionCounterError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
+                raise (new LoopIterationCountError("Cannot estimate the trip count of a while body where the guard is not in the form VAR COMP_OP EXPR"))                                
                    
         EstimateInternal(functionBody, stack)            
             
@@ -291,12 +288,10 @@ type LoopIterationCounter() =
                         parameters: (ParameterInfo * Var)[]) = 
         // Create a lambda to evaluate instruction count
         //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
-        let dynamicDefinePlaceholders = new List<Var>()
-
-        let prepBody = KernelUtil.PrepareBodyForAnalysis(body, dynamicDefinePlaceholders);
-        let precExpr, newStack = LoopIterationCounter.Estimate(prepBody.Value, parameters, EmptyStack, dynamicDefinePlaceholders |> List.ofSeq)
+        let prepBody = QuotationUtil.ToCurriedFunction(body)
+        let precExpr, newStack = LoopIterationCounter.Estimate(prepBody, parameters, EmptyStack)
         let cleanCountExpr = KernelUtil.EvaluateClosedSubtrees(precExpr)
-        (KernelUtil.CloseExpression(prepBody.Value, cleanCountExpr).Value, dynamicDefinePlaceholders)
+        (KernelUtil.CloseExpression(prepBody, cleanCountExpr).Value)
             
 
 
