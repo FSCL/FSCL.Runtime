@@ -53,18 +53,18 @@ let MatrixAdd(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
 
     for k = 0 to a.GetLength(0) - 1 do
         c.[x,k] <- a.[x,k] + b.[x,k]
-
+        
 // Matrix multiplication
 [<ReflectedDefinition>]
-let MatrixMult(a: float32[,], b: float32[,], result: float32[,], wi: WorkItemInfo) =
-    let col = wi.GlobalID(0)
-    let row = wi.GlobalID(1)
+let MatrixMult(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
+    let x = wi.GlobalID(0)
+    let y = wi.GlobalID(1)
 
     let mutable accum = 0.0f
     for k = 0 to a.GetLength(1) - 1 do
-        accum <- accum + (a.[row, k] * b.[k, col])
-    result.[row, col] <- accum
-    
+        accum <- accum + (a.[y,k] * b.[k,x])
+    c.[y,x] <- accum
+
 // Matrix multiplication with local and reference to global var (BLOCK_SIZE)
 [<ReflectedDefinition>]
 let BLOCK_SIZE = 16
@@ -130,7 +130,14 @@ let Create4Vectors size =
     let b = Array.create size (float4(3.5f))
     let c = Array.zeroCreate<float4> size
     a, b, c
-  
+
+let DeviceSupportMultiDimensionalWorkItems(pid, did) =
+    let device = OpenCLPlatform.Platforms.[pid].Devices.[did]
+    if device.MaxWorkItemDimensions > 1L then
+        true
+    else
+        false
+
 // Tests            
 [<Test>]
 let ``Can run simple vector addition``() =
@@ -178,20 +185,19 @@ let ``Can run vector addition with inline utility function``() =
         
 [<Test>]
 let ``Can run matrix multiplication``() =
-    if OpenCL.OpenCLPlatform.Platforms.Count > 0 && 
-       OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.Count > 1 &&
-       OpenCL.OpenCLPlatform.Platforms.[0].Devices.[0].MaxWorkItemSizes.[1] > 1L then
-        let a, b, c = CreateMatrices 256 128
-        let worksize = new WorkSize([| 128L; 128L |], [| 16L; 16L |])
+    if DeviceSupportMultiDimensionalWorkItems(0, 0) then
+        let a, b, c = CreateMatrices 256 256
+        let worksize = new WorkSize([| 256L; 256L |], [| 16L; 16L |])
         <@ MatrixMult(a, b, c, worksize) @>.Run() 
         let correctResult = 
-            let r = Array2D.zeroCreate<float32> 256 256
+            let res = Array2D.zeroCreate<float32> 256 256
             for r = 0 to a.GetLength(0) - 1 do
                 for c = 0 to b.GetLength(1) - 1 do
                     let mutable accum = 0.0f
                     for k = 0 to a.GetLength(1) - 1 do
                         accum <- accum + a.[r, k] * b.[k, c]
-            r
+                    res.[r, c] <- accum
+            res
         Assert.AreEqual(correctResult, c)
     else
         System.Console.WriteLine("Skipping test cause no OpenCL device has been found")

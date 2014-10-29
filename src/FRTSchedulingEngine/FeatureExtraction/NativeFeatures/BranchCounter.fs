@@ -26,8 +26,8 @@ type BranchCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let bcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let bcount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
                                                     match e with
                                                     | Patterns.IfThenElse(cond, ifb, elseb) ->

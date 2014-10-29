@@ -45,7 +45,7 @@ type KernelCreationManager(compiler: Compiler,
 
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.OpenCLBackendAndStore(runtimeKernel: RuntimeKernel,
-                                              dynamicDefines: IReadOnlyDictionary<string, Expr>,
+                                              dynamicDefines: IReadOnlyDictionary<string, Var option * Expr option * obj>,
                                               platformIndex, deviceIndex, opts: IReadOnlyDictionary<string, obj>) =
         let mutable device = null
         let mutable compiledKernel = null
@@ -69,9 +69,15 @@ type KernelCreationManager(compiler: Compiler,
         let dynDefineValues = new Dictionary<string, string>()   
         let mutable dynDefValuesChain = ""             
         for item in dynamicDefines do
-            let dynDefVal = LeafExpressionConverter.EvaluateQuotation(item.Value).ToString()
-            dynDefValuesChain <- dynDefValuesChain + dynDefVal
-            dynDefineValues.Add(item.Key, dynDefVal)
+            let tv, _, evaluator = item.Value
+            let dynDefVal = evaluator.GetType().GetMethod("Invoke").Invoke(evaluator, 
+                                if tv.IsSome then 
+                                    let thisObj = LeafExpressionConverter.EvaluateQuotation(runtimeKernel.Kernel.InstanceExpr.Value)
+                                    [| thisObj |]
+                                else
+                                    [|()|])
+            dynDefValuesChain <- dynDefValuesChain + dynDefVal.ToString()
+            dynDefineValues.Add(item.Key, dynDefVal.ToString())
 
         //#3: Check if the device target code has been already generated 
         //Considering both the platform/device index and the values of dynamic defines        

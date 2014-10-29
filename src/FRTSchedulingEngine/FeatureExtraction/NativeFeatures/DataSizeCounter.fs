@@ -100,20 +100,25 @@ type DataSizeCounter() =
             precomputed.[3] :?> Var list,
             precomputed.[4] :?> Dictionary<Var, obj list>
 
+        let argOffset = 
+            if m.Kernel.InstanceVar.IsSome then
+                1
+            else
+                0
         // Compute size
         for index in globalHostToDevP do
-            let arrSize = (args.[index] :?> Array).LongLength
-            let arrElementSize = Marshal.SizeOf(args.[index].GetType().GetElementType()) |> int64
+            let arrSize = (args.[index + argOffset] :?> Array).LongLength
+            let arrElementSize = Marshal.SizeOf(args.[index + argOffset].GetType().GetElementType()) |> int64
             globalHostToDevSize <- globalHostToDevSize + (arrSize * arrElementSize)
 
         for index in globalDevToHostP do
-            let arrSize = (args.[index] :?> Array).LongLength
-            let arrElementSize = Marshal.SizeOf(args.[index].GetType().GetElementType()) |> int64
+            let arrSize = (args.[index + argOffset] :?> Array).LongLength
+            let arrElementSize = Marshal.SizeOf(args.[index + argOffset].GetType().GetElementType()) |> int64
             globalDevToHostSize <- globalDevToHostSize + (arrSize * arrElementSize)
 
         for index in localP do
-            let arrSize = (args.[index] :?> Array).LongLength
-            let arrElementSize = Marshal.SizeOf(args.[index].GetType().GetElementType()) |> int64
+            let arrSize = (args.[index + argOffset] :?> Array).LongLength
+            let arrElementSize = Marshal.SizeOf(args.[index + argOffset].GetType().GetElementType()) |> int64
             localSize <- localSize + (arrSize * arrElementSize)
 
         // Evaluate alloc expression for embedded locals                                
@@ -127,9 +132,9 @@ type DataSizeCounter() =
             let allocSize = allocCounts |> List.reduce (fun a b -> a * b) |> int64
             localSize <- localSize + (allocSize * (Marshal.SizeOf(v.Type.GetElementType()) |> int64))
                 
-        [| globalHostToDevSize |> float32; 
+        [  globalHostToDevSize |> float32; 
            globalDevToHostSize |> float32; 
-           localSize |> float32 |]
+           localSize |> float32 ]
             
                 
 

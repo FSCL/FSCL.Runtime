@@ -27,7 +27,7 @@ type TotalLoopIterationsCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
-        let lcount = LoopIterationCounter.Count(m.Kernel.OriginalBody, parameters)
+        let lcount = LoopIterationCounter.Count(m, m.Kernel)
 
         // Build lambda expr 
         [LeafExpressionConverter.EvaluateQuotation(lcount)] |> box

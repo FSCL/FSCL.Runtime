@@ -11,6 +11,7 @@ open FSCL.Runtime
 open System.Diagnostics
 open Microsoft.FSharp.Reflection
 open FSCL.Compiler.Util
+open FSCL.Compiler.Util.ReflectionUtil
 
 [<AllowNullLiteral>]
 type HostSideDataHandle(data: Array) =
@@ -53,7 +54,7 @@ type HostSideDataHandle(data: Array) =
                         if data.GetValue(i) <> null then
                             Marshal.StructureToPtr(data.GetValue(i), currentPtr, false)
                         currentPtr <- new IntPtr((int64)currentPtr + (int64)size)
-                    ptr <- unmanagedPtr                          
+                    ptr <- unmanagedPtr      
                 else
                     let size = Marshal.SizeOf(dataType)
                     let unmanagedPtr = Marshal.AllocHGlobal(size * data.Length)

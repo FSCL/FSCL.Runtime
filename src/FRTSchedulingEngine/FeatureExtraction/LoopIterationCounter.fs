@@ -24,7 +24,8 @@ type LoopIterationCountError(msg: string) =
 
 type LoopIterationCounter() = 
     // Build an expression that contains the number of interesting items
-    static member private Estimate(functionBody: Expr, 
+    static member private Estimate(kmod: IKernelModule, 
+                                   functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
                                    stack: VarStack) =
         let isParameterReference v = 
@@ -32,7 +33,35 @@ type LoopIterationCounter() =
                       
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
-            match expr with
+            match expr with            
+            | Patterns.Call(o, mi, arguments) ->
+                // Check if this is a call to a reflected function
+                match mi with
+                | DerivedPatterns.MethodWithReflectedDefinition(b) ->
+                    // It's a reflected method
+                    // Get functioninfo
+                    let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature = mi)
+                    match QuotationAnalysis.FunctionsManipulation.GetCurriedOrTupledArgs(b) with
+                    | thisVar, Some(paramVars) ->       
+                        // Count inside arguments
+                        let l, newStack = EstimateList(arguments, stack)
+                        // We must be sure that variables used for arguments can be unfolded to expressions of parameters, constants an work size functions
+                        let unfoldedArguments = arguments |> List.map(fun (it:Expr) -> KernelUtil.UnfoldExpression(it, newStack, isParameterReference))
+                        // Build an evaluator for this function as if it was a kernel
+                        let evaluatorExpr = LoopIterationCounter.Count(kmod, calledFun)
+                       
+                        let mutable call = evaluatorExpr
+                        for a in unfoldedArguments do
+                            call <- Expr.Application(call, a)
+                        if thisVar.IsSome then
+                            call <- Expr.Application(call, o.Value)
+
+                        <@ %l + %%call:float32 @>, stack
+                    | _ ->      
+                        EstimateList(arguments, stack)
+                | _ ->      
+                    EstimateList(arguments, stack)
+
             | Patterns.Let(va, value, body) ->
                 let maybeOpRange: (Expr<float32> * VarStack) option = EstimateLoopWithOpRange(expr, stack)
                 if maybeOpRange.IsSome then
@@ -70,14 +99,17 @@ type LoopIterationCounter() =
                 bodyCount, newStack
             
             | ExprShape.ShapeCombination(o, l) ->
-                let mutable totalIterCount = <@ 0.0f @>
-                let mutable newStack = stack
-                for item in l do
-                    let itemCount, nStack = EstimateInternal(item, newStack)
-                    totalIterCount <- <@ %totalIterCount + %itemCount @>
-                    newStack <- nStack
-                totalIterCount, newStack                 
+                EstimateList(l, stack)               
               
+        and EstimateList(l: Expr list, stack: VarStack) =
+            let mutable totalIterCount = <@ 0.0f @>
+            let mutable newStack = stack
+            for item in l do
+                let itemCount, nStack = EstimateInternal(item, newStack)
+                totalIterCount <- <@ %totalIterCount + %itemCount @>
+                newStack <- nStack
+            totalIterCount, newStack   
+
         and EstimateLoopWithOpRange(expr: Expr, stack: VarStack) =
             match expr with
             | Patterns.Let (inputSequence, value, body) ->
@@ -284,12 +316,21 @@ type LoopIterationCounter() =
                    
         EstimateInternal(functionBody, stack)            
             
-    static member Count(body: Expr,
-                        parameters: (ParameterInfo * Var)[]) = 
+    static member Count(kmod: IKernelModule,
+                        kfun: IFunctionInfo) = 
+                        
+        let parameters = kmod.Kernel.OriginalParameters |> 
+                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
+                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
+                         Array.ofSeq   
+
+        // Create a lambda to evaluate instruction count
+        let prepBody = 
+            QuotationUtil.ToCurriedFunction(kfun.OriginalBody)
+
         // Create a lambda to evaluate instruction count
         //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
-        let prepBody = QuotationUtil.ToCurriedFunction(body)
-        let precExpr, newStack = LoopIterationCounter.Estimate(prepBody, parameters, EmptyStack)
+        let precExpr, newStack = LoopIterationCounter.Estimate(kmod, prepBody, parameters, EmptyStack)
         let cleanCountExpr = KernelUtil.EvaluateClosedSubtrees(precExpr)
         (KernelUtil.CloseExpression(prepBody, cleanCountExpr).Value)
             

@@ -29,7 +29,8 @@ type CountError(msg: string) =
 
 type ExpressionCounter() = 
     // Build an expression that contains the number of interesting items
-    static member private Estimate(functionBody: Expr, 
+    static member private Estimate(kmod: IKernelModule,
+                                   functionBody: Expr, 
                                    parameters: (ParameterInfo * Var)[],
                                    action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
                                    stack: VarStack,
@@ -37,13 +38,10 @@ type ExpressionCounter() =
                                    considerLoopIncr: bool) =      
         let isParameterReference v = 
             (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
-        //let isWorkSizeFunctionReference = (v = workItemIdContainerPlaceholder)
-        //let isDynamicDefineReference v = 
-          //  (List.tryFind (fun (pv:Var) -> pv = v) dynamicDefinesPlaceholders).IsSome
                       
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
-            match action(expr, parameters, ExpressionCounter.ContinueCount parameters action stack considerLoopIncr) with
+            match action(expr, parameters, ExpressionCounter.ContinueCount kmod parameters action stack considerLoopIncr) with
             | Value(c) ->
                 c, stack
             | _ ->
@@ -100,15 +98,16 @@ type ExpressionCounter() =
                     match mi with
                     | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                         // It's a reflected method
+                        // Get functioninfo
+                        let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature = mi)
                         match QuotationAnalysis.FunctionsManipulation.GetCurriedOrTupledArgs(b) with
-                        | Some(paramVars) ->       
-                            let parameters = List.zip (mi.GetParameters() |> List.ofArray) paramVars
+                        | thisVar, Some(paramVars) ->       
                             // Count inside arguments
                             let l, newStack = EstimateList(arguments, stack)
                             // We must be sure that variables used for arguments can be unfolded to expressions of parameters, constants an work size functions
                             let unfoldedArguments = arguments |> List.map(fun (it:Expr) -> KernelUtil.UnfoldExpression(it, newStack, isParameterReference))
                             // Build an evaluator for this function as if it was a kernel
-                            let evaluatorExpr = ExpressionCounter.Count(b, parameters |> Array.ofList, action, considerLoopIncr)
+                            let evaluatorExpr = ExpressionCounter.Count(kmod, calledFun, action, considerLoopIncr)
                             // Get the method info to invoke the evaluator
                             //let c = <@ evaluator(0.0f, 0.0f, new FSCL.Language.WorkItemIdContainer([||], [||],[||], [||], [||])) @>
                             //let evaluationMethod = evaluator.GetType().GetMethod("Invoke")
@@ -120,13 +119,14 @@ type ExpressionCounter() =
 
                             let mutable call = evaluatorExpr
                             for a in unfoldedArguments do
-                                call <- Expr.Application(call, a);
+                                call <- Expr.Application(call, a)
+                            if thisVar.IsSome then
+                                call <- Expr.Application(call, o.Value)
                             //call <- Expr.Application(call, Expr.Var(workItemIdContainerPlaceholder))
 
                             // We create an expression that sums the estimation for arguments to the invocation of the evaluator
                             // The evaluation requires the values for work size functions (global_size_num, groups, etc)
                             // We pass the placeholders to the corresponding functions
-                            let fv = call.GetFreeVars() |> Seq.toArray
                             // Now we add this expr to the estimation of the arguments
                             <@ %l + %%call:float32 @>, stack
                         | _ ->      
@@ -394,24 +394,29 @@ type ExpressionCounter() =
 
         EstimateInternal(functionBody, stack)            
                 
-    static member Count(body: Expr,
-                        parameters: (ParameterInfo * Var)[],
+    static member Count(kmod: IKernelModule,
+                        kfun: IFunctionInfo,                        
                         action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
                         considerLoopIncr: bool) = 
+                        
+        let parameters = kmod.Kernel.OriginalParameters |> 
+                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
+                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
+                         Array.ofSeq   
+
         // Create a lambda to evaluate instruction count
-        //let workItemIdContainerPlaceholder = Quotations.Var("workItemIdContainer", typeof<WorkItemIdContainer>)
-        let prepBody = QuotationUtil.ToCurriedFunction(body)
-        let precExpr, newStack = ExpressionCounter.Estimate(prepBody, parameters, action, EmptyStack, considerLoopIncr)
+        let prepBody = QuotationUtil.ToCurriedFunction(kfun.OriginalBody)                
+        let precExpr, newStack = ExpressionCounter.Estimate(kmod, prepBody, parameters, action, EmptyStack, considerLoopIncr)
         let cleanCountExpr = KernelUtil.EvaluateClosedSubtrees(precExpr)
         KernelUtil.CloseExpression(prepBody, cleanCountExpr).Value
             
-    static member ContinueCount (parameters: (ParameterInfo * Var)[])
+    static member ContinueCount (kmod: IKernelModule)
+                                (parameters: (ParameterInfo * Var)[])
                                 (action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction) 
                                 (stack: VarStack) 
-                               // (workItemIdContainerPlaceholder: Quotations.Var)
                                 (considerLoopIncr: bool)
                                 (e: Expr) =
-        let precExpr, newStack = ExpressionCounter.Estimate(e, parameters, action, stack, considerLoopIncr)
+        let precExpr, newStack = ExpressionCounter.Estimate(kmod, e, parameters, action, stack, considerLoopIncr)
         KernelUtil.EvaluateClosedSubtrees(precExpr)
 
 

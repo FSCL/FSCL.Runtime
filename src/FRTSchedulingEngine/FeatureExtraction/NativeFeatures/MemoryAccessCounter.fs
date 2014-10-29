@@ -55,8 +55,8 @@ type MemoryAccessCounter() =
             isLoadingOrStoringInternal(e)
                     
         // Count global read
-        let rgcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                  parameters,
+        let rgcount = ExpressionCounter.Count(m,
+                                              m.Kernel,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(e, i, l) ->    
@@ -93,8 +93,8 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
         // Count global write
-        let wgcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                  parameters,
+        let wgcount = ExpressionCounter.Count(m,
+                                              m.Kernel,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(e, i, l) ->                                
@@ -132,8 +132,8 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)       
         // Count local read
-        let rlcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                  parameters,
+        let rlcount = ExpressionCounter.Count(m,
+                                              m.Kernel,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(e, i, l) ->                               
@@ -171,8 +171,8 @@ type MemoryAccessCounter() =
                                                         Continue),
                                                   false)
         // Count local write
-        let wlcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                  parameters,
+        let wlcount = ExpressionCounter.Count(m,
+                                              m.Kernel,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(e, i, l) ->                                                       
@@ -212,8 +212,8 @@ type MemoryAccessCounter() =
                                                   false)
                                         
         // Count constant read
-        let rccount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                                  parameters,
+        let rccount = ExpressionCounter.Count(m,
+                                              m.Kernel,
                                                   (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(e, i, l) ->  

@@ -31,8 +31,8 @@ type ArithmeticOperationCounter() =
                                     (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq   
         // Count ops
-        let acount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let acount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                 match e with
                                                 | DerivedPatterns.SpecificCall <@ (+) @> (e, t, a) 
@@ -56,8 +56,8 @@ type ArithmeticOperationCounter() =
                                                     Continue),
                                              false)
 
-        let lcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let lcount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | DerivedPatterns.SpecificCall <@ (&&) @> (e, t, a) 
@@ -70,8 +70,8 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                               false)
                                                        
-        let bcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let bcount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | DerivedPatterns.SpecificCall <@ (&&&) @> (e, t, a) 
@@ -86,8 +86,8 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                              false)        
         
-        let ccount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let ccount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | DerivedPatterns.SpecificCall <@ (>) @> (e, t, a) 
@@ -103,8 +103,8 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                              false)        
         
-        let pcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let pcount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | DerivedPatterns.SpecificCall <@ ( ** ) @> (e, t, a) ->
@@ -122,8 +122,8 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                              false)  
 
-        let scount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let scount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | DerivedPatterns.SpecificCall <@ System.Math.Sqrt @> (e, t, a) ->
@@ -133,8 +133,8 @@ type ArithmeticOperationCounter() =
                                                         Continue),
                                              false)    
 
-        let hcount = ExpressionCounter.Count(m.Kernel.OriginalBody,
-                                             parameters,
+        let hcount = ExpressionCounter.Count(m,
+                                             m.Kernel,
                                              (fun (e, parameters, continuation) ->
                                                     match e with
                                                     | Patterns.Call(o, mi, a) ->

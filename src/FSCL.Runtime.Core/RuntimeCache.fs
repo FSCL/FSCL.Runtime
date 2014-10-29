@@ -34,7 +34,7 @@ type RuntimeCompiledKernel(program, kernel, defines) =
 type RuntimeKernel(info, code, defines) =
     member val Kernel:IKernelInfo = info with get 
     member val OpenCLCode:String = code with get, set
-    member val DynamicDefines: IReadOnlyDictionary<string, Expr> = defines with get
+    member val DynamicDefines: IReadOnlyDictionary<string, Var option * Expr option * obj> = defines with get
     // List of devices and kernel instances potentially executing the kernel
     member val Instances:Dictionary<int * int * string, RuntimeCompiledKernel> = new Dictionary<int * int * string, RuntimeCompiledKernel>() with get 
     

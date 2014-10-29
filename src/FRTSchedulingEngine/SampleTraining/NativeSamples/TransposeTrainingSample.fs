@@ -128,8 +128,8 @@ type TransposeTrainingSample() =
         let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
         let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
         
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
 
         let blockSize = 16L
         let elementsPerThread = 4L
@@ -176,7 +176,7 @@ type TransposeTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ c; a; block; cols |> int; rows |> int; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; c; a; block; cols |> int; rows |> int; ws ]))
                                                                               
             // Get completion times
             for pip, _, platform in devices do   
@@ -209,9 +209,9 @@ type TransposeTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500)  
                                
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
 
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq
        
 [<FRTFeatureExtractionTrainingSample("TransposeNaive")>]
 type TransposeNaiveTrainingSample() =    
@@ -243,8 +243,8 @@ type TransposeNaiveTrainingSample() =
         let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
         let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
         
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
 
         let blockSize = 16L
         let elementsPerThread = 4L
@@ -288,7 +288,7 @@ type TransposeNaiveTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ c; a; cols |> int; rows |> int; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; c; a; cols |> int; rows |> int; ws ]))
                 
             // Get completion times
             for pid, _, platform in devices do   
@@ -320,9 +320,9 @@ type TransposeNaiveTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500) 
 
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
                                
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq
     (*
 type TransposeFloat4TrainingSample() =    
     inherit TransposeTrainingSample()
@@ -349,8 +349,8 @@ type TransposeFloat4TrainingSample() =
         let blockSize = 16L
         let elementsPerThread = 4L
         
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
 
         let sizes = (seq {
                             let s = ref minSize

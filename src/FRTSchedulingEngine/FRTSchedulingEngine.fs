@@ -58,11 +58,11 @@ type FRTRegressionData() =
         and set(v) =
             regressionData <- v
 
-type FRTSchedulingEngine(feat: FRTFeatureExtractor[], 
-                         samples: FRTFeatureExtractionTrainingSample[], 
+type FRTSchedulingEngine(feat: list<FRTFeatureExtractor>, 
+                         samples: list<FRTFeatureExtractionTrainingSample>, 
                          loadDefault: bool,
                          runtimeRun: obj -> obj) = 
-    inherit ISchedulingEngine<IKernelModule, obj[]>()
+    inherit ISchedulingEngine<IKernelModule, obj list>()
 
     let mutable regressionData = null
     let mutable devices = null
@@ -92,7 +92,7 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
         featureExtractors, samples  
         
     static member private CreateConfiguration(feat: FRTFeatureExtractor list, 
-                                              samples: FRTFeatureExtractionTrainingSample[],
+                                              samples: FRTFeatureExtractionTrainingSample list,
                                               mergeWithDefault: bool) =
         let defFeat, defSamples = 
             if mergeWithDefault then
@@ -106,8 +106,8 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
             if (defSamples |> Seq.tryFind(fun item -> item.GetType() = s.GetType())).IsNone then
                 defSamples.Add(s)
         let conf = new FRTConfiguration()
-        conf.FeatureExtractorSet <- new FRTFeatureExtractorSet(defFeat |> Array.ofSeq|> box |> unbox)
-        conf.TrainingSampleSet <- new FRTFeatureExtractionTrainingSampleSet(defSamples |> Array.ofSeq |> box |> unbox)
+        conf.FeatureExtractorSet <- new FRTFeatureExtractorSet(defFeat |> List.ofSeq |> box |> unbox)
+        conf.TrainingSampleSet <- new FRTFeatureExtractionTrainingSampleSet(defSamples |> List.ofSeq |> List.map(fun i -> i :> FeatureExtractionTrainingSample<IKernelModule, float32, (float32 list * float32 list) list>))
         conf
                 
     // Configuration directories and files
@@ -135,7 +135,7 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
 
 
     new(file: string, runtimeRun: obj -> obj) as this =
-        FRTSchedulingEngine([||], [||], false, runtimeRun)
+        FRTSchedulingEngine([], [], false, runtimeRun)
         then
             let el = XDocument.Load(file)  
             let loadDefault = 
@@ -180,8 +180,8 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
                     sample.ConfigureFromXml(XDocument.Load(configurationPath.Value).Root)
                 samples.Add(sample)
 
-            this.Configuration <- FRTSchedulingEngine.CreateConfiguration(extractors |> Seq.toArray,
-                                                                          samples |> Seq.toArray,
+            this.Configuration <- FRTSchedulingEngine.CreateConfiguration(extractors |> Seq.toList,
+                                                                          samples |> Seq.toList,
                                                                           loadDefault)
 
     new(runtimeRun) =
@@ -200,7 +200,7 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
                     samples.AddRange(newSampl)
 
             // Now create engine
-            FRTSchedulingEngine(featureExtractors |> Array.ofSeq, samples |> Array.ofSeq, true, runtimeRun)
+            FRTSchedulingEngine(featureExtractors |> List.ofSeq, samples |> List.ofSeq, true, runtimeRun)
         else
             FRTSchedulingEngine(FRTSchedulingEngine.configurationFile, runtimeRun)
 
@@ -266,9 +266,10 @@ type FRTSchedulingEngine(feat: FRTFeatureExtractor[],
                         opts.Add("RunningMode", TrainingSampleRunningMode.FeaturesAndExecutionTime)
                         opts.Add("RuntimeRun", runtimeRun)
 
-                        let featureValues, times = configuration.TrainingSampleSet.Run(configuration.FeatureExtractorSet, devices, opts) |>
-                                                   Array.reduce (Array.append) |> 
-                                                   Array.unzip ||> 
+                        let featureValues, times = 
+                            let data = configuration.TrainingSampleSet.Run(configuration.FeatureExtractorSet, devices, opts) 
+                            data |> List.reduce (@) |> 
+                                                   List.unzip ||> 
                                                    (fun feat time ->
                                                         (Array2D.init feat.Length feat.[0].Length (fun r c -> feat.[r].[c])), 
                                                         (Array2D.init time.Length time.[0].Length (fun r c -> time.[r].[c])))

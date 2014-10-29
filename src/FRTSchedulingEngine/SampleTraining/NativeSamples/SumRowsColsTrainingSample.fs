@@ -72,8 +72,8 @@ type SumColsTrainingSample() =
                                 s := !s + this.MinMatrixSize
                         }) |> Array.ofSeq
 
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
 
         for rows, cols in sizes do
             let times = List<float32>()
@@ -99,7 +99,7 @@ type SumColsTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ a; c; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; c; ws ]))
 
             for pid, _, platform in devices do   
                 for did, _, _ in platform do 
@@ -128,9 +128,9 @@ type SumColsTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500)
 
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
                                   
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq
                 
 [<FRTFeatureExtractionTrainingSample("SumRows")>]
 type SumRowsTrainingSample() =    
@@ -173,8 +173,8 @@ type SumRowsTrainingSample() =
 
         let mutable execResults: obj list list = []
                 
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
 
         let sizes = (seq {
                             let s = ref this.MinMatrixSize
@@ -211,7 +211,7 @@ type SumRowsTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ a; c; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; c; ws ]))
 
             // Get completion times
             for pip, _, platform in devices do   
@@ -241,6 +241,6 @@ type SumRowsTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500)
                          
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
         
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq

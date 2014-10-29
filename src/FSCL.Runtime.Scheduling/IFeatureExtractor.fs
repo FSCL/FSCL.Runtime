@@ -22,13 +22,13 @@ type ConfigurationItemAttribute() =
 type IFeatureExtractor =
     abstract FeatureIDs: string list with get
     abstract BuildFinalizers: obj -> obj 
-    abstract EvaluateFinalizers: obj * obj * obj list -> obj[]
+    abstract EvaluateFinalizers: obj * obj * obj list -> obj list
     
 [<AbstractClass>]
 type FeatureExtractor<'INPUT,'FTYPE>() =
     interface IFeatureExtractor with
         member this.EvaluateFinalizers(input, finalizers, args) =
-            this.EvaluateFinalizers(input :?> 'INPUT, finalizers, args) |> Array.map(box)
+            this.EvaluateFinalizers(input :?> 'INPUT, finalizers, args) |> List.map(box)
         member this.FeatureIDs 
             with get() =
                 this.FeatureIDs
@@ -36,7 +36,7 @@ type FeatureExtractor<'INPUT,'FTYPE>() =
             this.BuildFinalizers(i :?> 'INPUT) 
     abstract FeatureIDs: string list with get
     abstract BuildFinalizers: 'INPUT -> obj 
-    abstract EvaluateFinalizers: 'INPUT * obj * obj list -> 'FTYPE[]
+    abstract EvaluateFinalizers: 'INPUT * obj * obj list -> 'FTYPE list
     
     member this.ConfigureFromXml(el:XElement) =
         let properties = this.GetType().GetProperties() |> Array.filter(fun p -> p.GetCustomAttribute<ConfigurationItemAttribute>() <> null)
@@ -61,24 +61,23 @@ type DefaultFeatureExtractor<'INPUT,'FTYPE>() =
         // evaluating the expression to obtain a function to then apply using the current args
         //let dynDefPlaceholders = kmodule.DynamicDefineVars
         let featureNames = this.FeatureIDs
-        let features = Array.mapi(fun i (evaluator:obj) ->
+        let features = List.mapi(fun i (evaluator:obj) ->
                                     // Now we can apply the evaluator to obtain the value of the feature using actual args
                                     let mutable fv = evaluator
                                     for a in args do
                                         fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
                                     //System.Console.WriteLine(fv.ToString())
-                                    fv :?> 'FTYPE) (finalizers :?> obj[])
+                                    fv :?> 'FTYPE) (finalizers :?> obj list)
         features
-
-
+        
 [<AllowNullLiteral>]
 type IFeatureExtractorSet =
     abstract member FeatureIDs: string list with get
     abstract member BuildFinalizers: obj -> obj
-    abstract member EvaluateFinalizers: obj * obj[] * obj list -> obj
+    abstract member EvaluateFinalizers: obj * obj list * obj list -> obj
    
 [<AllowNullLiteral>]                 
-type FeatureExtractorSet<'INPUT,'FTYPE>(feat: FeatureExtractor<'INPUT,'FTYPE>[]) =
+type FeatureExtractorSet<'INPUT,'FTYPE>(feat: FeatureExtractor<'INPUT,'FTYPE> list) =
     interface IFeatureExtractorSet with
         member this.FeatureIDs 
             with get() =
@@ -90,11 +89,11 @@ type FeatureExtractorSet<'INPUT,'FTYPE>(feat: FeatureExtractor<'INPUT,'FTYPE>[])
             this.EvaluateFinalizers(input :?> 'INPUT, finalizers, args) :> obj
     
     new() =
-         FeatureExtractorSet<'INPUT,'FTYPE>([||])
+         FeatureExtractorSet<'INPUT,'FTYPE>([])
              
     member this.BuildFinalizers(input: 'INPUT) =
-        [| for f in feat do
-            yield f.BuildFinalizers(input) |]
+        [ for f in feat do
+            yield f.BuildFinalizers(input) ]
 
-    member this.EvaluateFinalizers(input: 'INPUT, finalizers: obj[], args) =
-        feat |> Array.mapi(fun i f -> f.EvaluateFinalizers(input, finalizers.[i], args)) |> Array.reduce (Array.append)
+    member this.EvaluateFinalizers(input: 'INPUT, finalizers: obj list, args) =
+        feat |> List.mapi(fun i f -> f.EvaluateFinalizers(input, finalizers.[i], args)) |> List.reduce (@)

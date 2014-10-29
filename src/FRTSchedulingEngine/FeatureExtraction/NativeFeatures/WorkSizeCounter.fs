@@ -30,8 +30,8 @@ type WorkSizeCounter() =
             let ws = args |> List.find(fun o -> o :? WorkSize) :?> WorkSize
             ws.GlobalSize(), ws.LocalSize()
 
-        let data = [| globalSize.[0] |> float32; (if globalSize.Length > 1 then globalSize.[1] |> float32 else 1.0f); (if globalSize.Length > 2 then globalSize.[2] |> float32 else 1.0f);
-                      localSize.[0] |> float32; (if localSize.Length > 1 then localSize.[1] |> float32 else 1.0f); (if localSize.Length > 2 then localSize.[2] |> float32 else 1.0f) |]
+        let data = [ globalSize.[0] |> float32; (if globalSize.Length > 1 then globalSize.[1] |> float32 else 1.0f); (if globalSize.Length > 2 then globalSize.[2] |> float32 else 1.0f);
+                      localSize.[0] |> float32; (if localSize.Length > 1 then localSize.[1] |> float32 else 1.0f); (if localSize.Length > 2 then localSize.[2] |> float32 else 1.0f) ]
         data
         
             

@@ -48,20 +48,20 @@ type FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT>() =
   
 [<AllowNullLiteral>]    
 type IFeatureExtractionTrainingSampleSet =
-    abstract member TrainingSamples: IFeatureExtractionTrainingSample[] with get
+    abstract member TrainingSamples: IFeatureExtractionTrainingSample list with get
     abstract member Run: IFeatureExtractorSet * OpenCLDeviceSet * IReadOnlyDictionary<string, obj> -> obj
    
 [<AllowNullLiteral>] 
-type FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>(samples: FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT>[]) =
+type FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>(samples: FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT> list) =
     interface IFeatureExtractionTrainingSampleSet with
         member this.TrainingSamples
             with get() =
-                samples |> Array.map(fun i -> i :> IFeatureExtractionTrainingSample)
+                samples |> List.map(fun i -> i :> IFeatureExtractionTrainingSample)
         member this.Run(features, devices, opt) =
             this.Run(features :?> FeatureExtractorSet<'FIN,'FOUT>, devices, opt) :> obj
 
     new () =
-        FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>([||])
+        FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>([])
         
     member this.Run(features, devices, mode:IReadOnlyDictionary<string, obj>) =
-        samples |> Array.map(fun s -> s.Run(features, devices, mode))
+        samples |> List.map(fun s -> s.Run(features, devices, mode))

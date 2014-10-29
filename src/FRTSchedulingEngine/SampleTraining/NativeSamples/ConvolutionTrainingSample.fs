@@ -141,11 +141,11 @@ type ConvolutionTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly //  ||| MemoryFlags.UseHostPointer
-        let ofl = MemoryFlags.WriteOnly //  ||| MemoryFlags.UseHostPointer
+        let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
+        let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
         
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
                 
         let sizes = (seq {
                             let s = ref this.MaxMatrixSize
@@ -189,7 +189,7 @@ type ConvolutionTrainingSample() =
                 if not etOnly then
                     let km = compiler.Compile(comp) :?> IKernelModule
                     let precomputedFeatures = features.BuildFinalizers(km)
-                    featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ a; filter; c; inputSize |> int; cols |> int; ws ]))
+                    featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; filter; c; inputSize |> int; cols |> int; ws ]))
      
                 // Get completion times
                 for pid, _, platform in devices do
@@ -223,7 +223,7 @@ type ConvolutionTrainingSample() =
                                 times.Add(avg |> float32)
                                 times.Add(stddev |> float32)
                                 System.Threading.Thread.Sleep(500)
-                executionResults.Add(times |> Seq.toArray)
+                executionResults.Add(times |> List.ofSeq)
 
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq
 

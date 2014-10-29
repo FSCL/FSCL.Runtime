@@ -18,6 +18,13 @@ let FirstDeviceSupportMultiDimensionalWorkItems() =
     else
         false
 
+[<ReflectedDefinition>]
+let VectorAddWithOptions(wi: WorkItemInfo, a:float32 option[], b:float32 option[], c:float32 option[]) =
+    let gid = wi.GlobalID(0)
+    if a.[gid].IsSome && b.[gid].IsSome then
+        c.[gid] <- Some(a.[gid].Value + b.[gid].Value)
+
+
 [<EntryPoint>]
 let main argv =
     // Check opencl devices
@@ -27,6 +34,10 @@ let main argv =
     else
         // Show OpenCL devices
         Console.WriteLine("Your OpenCL-enabled devices are listed below")
+
+        
+
+
         (*
         let size = new WorkSize(64L, 64L)
         let a = Array.zeroCreate<float32> 64

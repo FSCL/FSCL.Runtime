@@ -129,6 +129,26 @@ module QuotationUtil =
                 let na = args |> List.map(fun e -> ReplaceVars(e, vars))
                 ExprShape.RebuildShapeCombination(o, na)
                 
+    let rec FindReferenceToThisVariable(e: Expr, thisValue: Expr) =
+        match e with
+        | Patterns.Var(v) ->
+            if v.Name = "this" && thisValue.Type = v.Type then
+                Some(v)
+            else
+                None
+        | _ ->
+            match e with
+            | ExprShape.ShapeVar(v) ->
+                None
+            | ExprShape.ShapeLambda(v, b) ->
+                FindReferenceToThisVariable(b, thisValue)
+            | ExprShape.ShapeCombination(o, args) ->
+                let f = args |> List.map(fun e -> FindReferenceToThisVariable(e, thisValue)) |> List.tryFind(fun i -> i.IsSome)
+                if f.IsSome then
+                    f.Value
+                else
+                    None
+                
     // Normalizes a multi-dim array access expressions, creating an expression for 1D access
     let NormalizeArrayAccess(arrayExpr: Expr, accessExprs: Expr list) =        
         let mutable normalisedExpr = <@ (%%accessExprs.[0]) @>
@@ -218,7 +238,7 @@ module QuotationUtil =
                 None
         | _ ->
             None
-                          
+                                    
     let AddParametersToCurriedFunction(f: Expr, pars: Var list) =
         let rec AppendParametersToCurriedFunction(expr, vs: Var list) =
             match expr with
@@ -271,30 +291,16 @@ module QuotationUtil =
     let ToCurriedFunction(f: Expr) = 
         let rec replaceTupleGetWithLambda(tupledArgVar: Var, e: Expr) =
             match e with
-            | Patterns.Let(v, value, body) ->
-                match value with
-                | Patterns.TupleGet(tve, idx) ->
-                    match tve with
-                    | Patterns.Var(tv) ->
-                        if tv = tupledArgVar then
-                            Expr.Lambda(v, replaceTupleGetWithLambda(tupledArgVar, body))
-                        else
-                            e
-                    | _ ->
-                        e
-                | _ ->
-                    e
+            | Patterns.Let(v, Patterns.TupleGet(Patterns.Var(tv), idx), body) when tv = tupledArgVar ->
+                Expr.Lambda(v, replaceTupleGetWithLambda(tupledArgVar, body))
             | _ ->
                 e
                    
         match f with
-        | Patterns.Lambda(v, e) ->
-            if v.Name <> "tupledArg" then
-                // Already curried
-                f
-            else
-                let repl = replaceTupleGetWithLambda(v, e) 
-                repl
+        | Patterns.Lambda(v, Patterns.Lambda(tv, b)) when v.Name = "this" && tv.Name = "tupledArg" ->
+            Expr.Lambda(v, replaceTupleGetWithLambda(tv, b))            
+        | Patterns.Lambda(tv, b) when tv.Name = "tupledArg" ->
+            replaceTupleGetWithLambda(tv, b)
         | _ ->
             failwith "Cannot convert to tupled an expression that doesn't contain a function"
 
@@ -319,24 +325,64 @@ module KernelUtil =
                     ExprShape.RebuildShapeCombination(o, cleanedList)
         let result = cleanInstructionInternal(expr)
         <@ (%%result:float32) @>
+        
+    let AddPlaceholderForThisToExpression(body: Expr, instance: Expr) = 
+        let refToThis = 
+            let thisRef = QuotationUtil.FindReferenceToThisVariable(body, instance)
+            if thisRef.IsSome then
+                thisRef.Value
+            else
+                Quotations.Var("this", instance.Type)
+        // No reference, no problem, create a placeholder
+        QuotationUtil.AddParametersToCurriedFunction(body, [ refToThis ])
                 
     let inline CloseExpression(body: Expr, precExpr: Expr) = 
         QuotationUtil.ReplaceFunctionBody(body, precExpr)
                     
     let rec UnfoldExpression(expr:Expr, stack: VarStack, isParameterRef: Var -> bool) =
         match expr with
-        // If getting a static var evaluate it
-        | Patterns.PropertyGet(e, pi, args) ->
+        // If getting a static var with no free vars keep it
+        | Patterns.PropertyGet(ob, pi, args) ->
             match pi with
             | DerivedPatterns.PropertyGetterWithReflectedDefinition(e) ->
-                let freeVars = List.ofSeq(e.GetFreeVars())
+                let freeVars = 
+                    if ob.IsSome then 
+                        match ob.Value with
+                        | Patterns.Var(v) when v.Name = "this" ->
+                            e.GetFreeVars() |> List.ofSeq
+                        | _ ->
+                            List.ofSeq(ob.Value.GetFreeVars()) @ (e.GetFreeVars() |> List.ofSeq) 
+                     else 
+                        e.GetFreeVars() |> List.ofSeq
                 if freeVars.IsEmpty then
-                    let value = LeafExpressionConverter.EvaluateQuotation(expr)
-                    Expr.Value (value, expr.Type)
+                    //let value = LeafExpressionConverter.EvaluateQuotation(expr)
+                    //Expr.Value (value, expr.Type)
+                    expr
                 else
-                    failwith ("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]")
+                    failwith ("Error during variable unfolding: cannot get the value of property [" + pi.Name + "]")
             | _ ->
-                failwith ("Error during variable unfolding: cannot get the value of var [" + pi.Name + "]")
+                failwith ("Error during variable unfolding: cannot get the value of property [" + pi.Name + "]")
+        // Same for field get
+        | Patterns.FieldGet(e, fi) ->
+            if fi.GetCustomAttributes<ReflectedDefinitionAttribute>() |> Seq.isEmpty |> not then
+                let freeVars = 
+                    if e.IsSome then 
+                        match e.Value with
+                        | Patterns.Var(v) when v.Name = "this" ->
+                            []
+                        | _ ->
+                            List.ofSeq(e.Value.GetFreeVars()) 
+                    else 
+                        []
+                if freeVars.IsEmpty then
+                    //let value = LeafExpressionConverter.EvaluateQuotation(expr)
+                    //Expr.Value (value, expr.Type)
+                    expr
+                else
+                    failwith ("Error during variable unfolding: cannot get the value of field [" + fi.Name + "]")
+            else 
+                failwith ("Error during variable unfolding: cannot get the value of field [" + fi.Name + "]")
+
         // If referring to a var try to replace it with an expression with only references to parameters, work size functions and dynamic defines
         | ExprShape.ShapeVar(v) ->
             if isParameterRef v then

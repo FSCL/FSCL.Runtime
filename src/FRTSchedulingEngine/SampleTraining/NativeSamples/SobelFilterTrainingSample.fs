@@ -133,8 +133,8 @@ type SobelFilterTrainingSample() =
         let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
         let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
                 
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
                 
         let sizes = (seq {
                             let s = ref this.MinMatrixSize
@@ -178,7 +178,7 @@ type SobelFilterTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ input; output; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; input; output; ws ]))
                            
             // Iterate on devices
             for pid, _, platform in devices do   
@@ -208,6 +208,6 @@ type SobelFilterTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500)
 
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
                                      
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq

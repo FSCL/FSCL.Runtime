@@ -1,3 +1,8 @@
+### 1.3.5 - 28 October 2014
+* Using new compier 1.5.0
+* Scheduling engine infrastructure
+* FRT (Feature-Regression-Time) scheduling engine prepared to be the default for the runtime
+
 ### 1.3.2 - 23 August 2014
 * Records and structs fully supported by both custom kernels and collection functions
 

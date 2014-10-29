@@ -53,8 +53,8 @@ type VectorAddTrainingSample() =
         let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
         let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
         
-        let executionResults = new List<float32[]>()
-        let featureValues = new List<float32[]>()
+        let executionResults = new List<float32 list>()
+        let featureValues = new List<float32 list>()
                 
         let sizes = (seq {
                             let s = ref this.MinVectorSize
@@ -97,7 +97,7 @@ type VectorAddTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ a; b; c; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; b; c; ws ]))
 
             // Get completion times
             for pid, _, platform in devices do   
@@ -130,6 +130,6 @@ type VectorAddTrainingSample() =
                             times.Add(stddev |> float32)
                             System.Threading.Thread.Sleep(500)   
                                 
-            executionResults.Add(times |> Array.ofSeq)
+            executionResults.Add(times |> List.ofSeq)
 
-        (featureValues, executionResults) ||> Seq.zip |> Array.ofSeq
+        (featureValues, executionResults) ||> Seq.zip |> List.ofSeq
