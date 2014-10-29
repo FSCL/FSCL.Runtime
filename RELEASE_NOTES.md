@@ -1,3 +1,6 @@
+### 1.3.6 - 29 October 2014
+* Bug fix
+
 ### 1.3.5 - 28 October 2014
 * Using new compier 1.5.0
 * Scheduling engine infrastructure

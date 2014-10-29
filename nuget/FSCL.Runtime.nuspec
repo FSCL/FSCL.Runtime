@@ -7,7 +7,7 @@
     <owners>@authors@</owners>
     <licenseUrl>http://github.com/GabrieleCocco/FSCL.Runtime/blob/master/LICENSE.txt</licenseUrl>
     <projectUrl>http://github.com/GabrieleCocco/FSCL.Runtime</projectUrl>
-    <iconUrl>https://raw.github.com/fsharp/FSharp.ProjectScaffold/master/nuget/logo.png</iconUrl>
+    <iconUrl>https://avatars1.githubusercontent.com/u/8271254</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <summary>@summary@</summary>
     <description>@description@</description>
