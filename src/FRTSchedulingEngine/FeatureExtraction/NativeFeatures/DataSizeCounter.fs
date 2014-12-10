@@ -127,7 +127,8 @@ type DataSizeCounter() =
                 // Now we can apply the evaluator to obtain the value of the feature using actual args
                 let mutable fv = ev
                 for a in args do
-                    fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
+                    if fv.GetType().GetMethod("Invoke") <> null then
+                        fv <- fv.GetType().GetMethod("Invoke").Invoke(fv, [| a |])
                 fv :?> int)
             let allocSize = allocCounts |> List.reduce (fun a b -> a * b) |> int64
             localSize <- localSize + (allocSize * (Marshal.SizeOf(v.Type.GetElementType()) |> int64))

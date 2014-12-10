@@ -104,7 +104,7 @@ type ConvolutionTrainingSample() =
     [<ConfigurationItem>]
     member val MinFilterSize = 3L with get, set    
     [<ConfigurationItem>]
-    member val MaxFilterSize = 19L with get, set 
+    member val MaxFilterSize = 3L with get, set 
     [<ConfigurationItem>]
     member val Iterations = 100 with get, set
             
@@ -148,17 +148,17 @@ type ConvolutionTrainingSample() =
         let featureValues = new List<float32 list>()
                 
         let sizes = (seq {
-                            let s = ref this.MaxMatrixSize
+                            let s = ref this.MinMatrixSize
                             while !s <= this.MaxMatrixSize do
                                 yield (!s, !s)
-                                yield (!s + 1L, !s + 1L)
-                                s := !s + this.MinMatrixSize
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for filterSize in this.MinFilterSize .. 2L .. this.MaxFilterSize do
             
             for rows, cols in sizes do
                 let times = List<float32>()
+                Console.WriteLine("Size: " + rows.ToString())
                 
                 let inputSize = cols + (filterSize |> int64) - 1L                          
                 let a = Array.init (inputSize * inputSize |> int) (fun it -> ((it |> int64) / inputSize) |> float32)
@@ -169,7 +169,7 @@ type ConvolutionTrainingSample() =
                     else
                         [||]
                 let c = Array.zeroCreate (cols * rows |> int)
-                let ws = WorkSize([| (((rows - 1L) / 16L) + 1L) * 16L; (((cols - 1L) / 16L) + 1L) * 16L |], [| 16L; 16L |])
+                let ws = WorkSize([| rows; cols |], [| 16L; 16L |])
                
                 // Extract features
                 let comp = <@   Convolution(

@@ -155,13 +155,18 @@ type DefaultKernelExecutionProcessor() =
                         Array.CreateInstance(methodToExecute.ReturnType, globalSize)
                     else
                         null
+                let instance = 
+                    if node.KernelData.InstanceExpr.IsNone then
+                        null
+                    else
+                        LeafExpressionConverter.EvaluateQuotation(node.KernelData.InstanceExpr.Value)
 
                 ids |> 
                 Seq.map(fun gid -> 
                             async {                            
                                 let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
                                 let data = args @ [ box workItemInfo ] |> List.toArray
-                                let res = methodToExecute.Invoke(null, data) 
+                                let res = methodToExecute.Invoke(instance, data) 
                                 if tResult <> null then
                                     tResult.SetValue(res, gid)                                    
                             }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously

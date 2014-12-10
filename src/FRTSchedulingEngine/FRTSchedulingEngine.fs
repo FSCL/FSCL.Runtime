@@ -48,6 +48,42 @@ type FRTProfilingData() =
         and set(v) =
             times <- v
 
+    member this.ToCsv(s:StreamWriter) =
+        s.WriteLine(this.Features.GetLength(1).ToString() + ";" + this.Times.GetLength(1).ToString() + ";" + this.Features.GetLength(0).ToString())
+        for r = 0 to this.Features.GetLength(0) - 1 do
+            for c = 0 to this.Features.GetLength(1) - 1 do
+                s.Write(this.Features.[r, c].ToString())
+                if (c < this.Features.GetLength(1) - 1) then
+                    s.Write(";")
+            s.Write(s.NewLine)
+        for r = 0 to this.Times.GetLength(0) - 1 do
+            for c = 0 to this.Times.GetLength(1) - 1 do
+                s.Write(this.Times.[r, c].ToString())
+                if (c < this.Times.GetLength(1) - 1) then
+                    s.Write(";")
+            s.Write(s.NewLine)
+        
+    member this.FromCsv(s:StreamReader) =
+        let head = s.ReadLine().Split([| ';' |])
+        let featCols = Int32.Parse(head.[0])
+        let timeCols = Int32.Parse(head.[1])
+        let rows = Int32.Parse(head.[2])
+        this.Features <- Array2D.zeroCreate<float32> rows featCols
+        this.Times <- Array2D.zeroCreate<float32> rows timeCols
+
+        let mutable r = 0
+        while r < rows && not (s.EndOfStream) do
+            let cols = s.ReadLine().Split([| ';' |])
+            for c = 0 to cols.Length - 1 do
+                this.Features.[r, c] <- Single.Parse(cols.[c])
+            r <- r + 1            
+        r <- 0
+        while r < rows && not (s.EndOfStream) do
+            let cols = s.ReadLine().Split([| ';' |])
+            for c = 0 to cols.Length - 1 do
+                this.Times.[r, c] <- Single.Parse(cols.[c])
+            r <- r + 1
+
 [<AllowNullLiteral>]
 type FRTRegressionData() =
     let mutable (regressionData:Dictionary<string, float32[]>) = new Dictionary<string, float32[]>()
@@ -203,6 +239,10 @@ type FRTSchedulingEngine(feat: list<FRTFeatureExtractor>,
             FRTSchedulingEngine(featureExtractors |> List.ofSeq, samples |> List.ofSeq, true, runtimeRun)
         else
             FRTSchedulingEngine(FRTSchedulingEngine.configurationFile, runtimeRun)
+            
+    new(runtimeRun, f:FRTFeatureExtractor list, s:FRTFeatureExtractionTrainingSample list) =
+        // Load default components 
+        FRTSchedulingEngine(f, s, false, runtimeRun)
 
     member this.Configuration
         with get() =
@@ -257,9 +297,10 @@ type FRTSchedulingEngine(feat: list<FRTFeatureExtractor>,
                 let profilingData =
                     if File.Exists(FRTSchedulingEngine.profilingDataFile) then
                         // Load data
-                        let serializer = new XmlSerializer(typeof<FRTProfilingData>)
-                        use stream = new FileStream(FRTSchedulingEngine.profilingDataFile, FileMode.Open) 
-                        serializer.Deserialize(stream) :?> FRTProfilingData
+                        use s = new System.IO.StreamReader(new FileStream(FRTSchedulingEngine.profilingDataFile, FileMode.Open))
+                        let pd = new FRTProfilingData()
+                        pd.FromCsv(s)
+                        pd
                      else
                         // Must profile     
                         let opts = new Dictionary<string, obj>()
@@ -276,17 +317,16 @@ type FRTSchedulingEngine(feat: list<FRTFeatureExtractor>,
                         new FRTProfilingData(Features = featureValues, Times = times)
 
                 // Save profiling data
-                let serializer = new XmlSerializer(typeof<FRTProfilingData>)
-                use stream = new FileStream(FRTSchedulingEngine.profilingDataFile, FileMode.Create) 
-                serializer.Serialize(stream, profilingData)
+                use s = new StreamWriter(new FileStream(FRTSchedulingEngine.profilingDataFile, FileMode.Create))
+                profilingData.ToCsv(s)
 
                 // Do regression
                 let regressionData = this.ComputeRegressionData(profilingData.Features, profilingData.Times)
-                
+                ()
                 // Save regression data
-                let serializer = new XmlSerializer(typeof<FRTRegressionData>)
+                (*let serializer = new XmlSerializer(typeof<FRTRegressionData>)
                 use stream = new FileStream(FRTSchedulingEngine.regressionDataFile, FileMode.Create) 
-                serializer.Serialize(stream, regressionData)
+                serializer.Serialize(stream, regressionData)*)
 
     override this.OnKernelCompile(k: IKernelModule) =
         configuration.FeatureExtractorSet.BuildFinalizers(k)

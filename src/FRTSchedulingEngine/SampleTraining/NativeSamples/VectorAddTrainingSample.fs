@@ -25,11 +25,11 @@ type VectorAddTrainingSample() =
         c
         
     [<ConfigurationItem>]
-    member val MinVectorSize = 128L <<< 10 with get, set    
+    member val MinVectorSize = 4096L with get, set    
     [<ConfigurationItem>]
     member val MaxVectorSize = 16L <<< 20 with get, set   
     [<ConfigurationItem>]
-    member val Iterations = 100 with get, set
+    member val Iterations = 30 with get, set
         
     member this.Verify(o: float32[], r: float32[]) =
         o = r
@@ -60,10 +60,11 @@ type VectorAddTrainingSample() =
                             let s = ref this.MinVectorSize
                             while !s <= this.MaxVectorSize do
                                 yield !s
-                                s := !s + this.MinVectorSize
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for size in sizes do
+            Console.WriteLine("Size: " + size.ToString())
             let times = List<float32>()
                         
             let a = Array.zeroCreate<float32> (size |> int)

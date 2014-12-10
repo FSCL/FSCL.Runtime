@@ -1,3 +1,9 @@
+### 1.4.0 - 30 October 2014
+* Update to compiler 1.5.5
+
+### 1.3.9 - 30 October 2014
+* Fixed pointing to wrong compiler nuget package
+
 ### 1.3.6 - 29 October 2014
 * Bug fix
 

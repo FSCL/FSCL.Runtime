@@ -246,11 +246,12 @@ type MatrixMultAdvancedTrainingSample() =
                             while !s <= this.MaxMatrixSize do
                                 yield (!s, !s)
                                 //yield (!s, !s * 2L)
-                                s := !s + this.MinMatrixSize
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
             let times = List<float32>()
+            Console.WriteLine("      Size: " + String.Format("{0,10:##########}", rows))
                                           
             let a = Array.init (rows * cols |> int) (fun i -> rnd.Next() % 10 |> float32)
             let b = Array.init (cols * cols |> int) (fun i -> rnd.Next() % 10 |> float32)

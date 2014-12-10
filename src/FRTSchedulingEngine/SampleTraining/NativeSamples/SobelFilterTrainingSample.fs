@@ -14,10 +14,7 @@ open System.Diagnostics
 open System.Linq
 open Microsoft.FSharp.Quotations
 
-[<FRTFeatureExtractionTrainingSample("SobelFilter")>]
-type SobelFilterTrainingSample() = 
-    inherit FRTFeatureExtractionTrainingSample()
-    
+module Sobel =
     [<ReflectedDefinition>]
     let SobelFilter2DNoBorder(inputImage: uchar4[,],
                                 outputImage: uchar4[,],
@@ -47,6 +44,11 @@ type SobelFilterTrainingSample() =
             Gy <- i00 - i20  + float4(2.0f) * i01 - float4(2.0f) * i21 + i02 - i22
 
             outputImage.[y, x] <- (float4.hypot(Gx, Gy)/float4(2.0f)).ToUChar4()
+
+[<FRTFeatureExtractionTrainingSample("SobelFilter")>]
+type SobelFilterTrainingSample() = 
+    inherit FRTFeatureExtractionTrainingSample()
+    
                         
     [<ConfigurationItem>]
     member val MinMatrixSize = 64L with get, set    
@@ -140,8 +142,7 @@ type SobelFilterTrainingSample() =
                             let s = ref this.MinMatrixSize
                             while !s <= this.MaxMatrixSize do
                                 yield (!s, !s)
-                                yield (!s + 1L, !s + 1L)
-                                s := !s + this.MinMatrixSize
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for size, _ in sizes do
@@ -165,7 +166,7 @@ type SobelFilterTrainingSample() =
             let ws = WorkSize([| (((outputSize - 1) / 16) + 1) * 16 |> int64; (((outputSize - 1) / 16) + 1) * 16 |> int64 |], [| 16L; 16L |])
 
             let comp = <@ 
-                            SobelFilter2DNoBorder(
+                            Sobel.SobelFilter2DNoBorder(
                                 BUFFER_READ_MODE(rm, 
                                     MEMORY_FLAGS(ifl, 
                                         input)),
@@ -178,7 +179,7 @@ type SobelFilterTrainingSample() =
             if not etOnly then
                 let km = compiler.Compile(comp, opts) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
-                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; input; output; ws ]))
+                featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ input; output; ws ]))
                            
             // Iterate on devices
             for pid, _, platform in devices do   
@@ -186,7 +187,7 @@ type SobelFilterTrainingSample() =
                                                    
                     let output = Array2D.zeroCreate<uchar4> (outputSize) (outputSize) 
                     let comp = <@ DEVICE(pid, did,
-                                         SobelFilter2DNoBorder(
+                                         Sobel.SobelFilter2DNoBorder(
                                             BUFFER_READ_MODE(rm, 
                                                 MEMORY_FLAGS(ifl, 
                                                     input)),

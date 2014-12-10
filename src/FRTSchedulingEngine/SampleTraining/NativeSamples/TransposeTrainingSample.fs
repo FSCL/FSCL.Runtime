@@ -88,7 +88,7 @@ type TransposeTrainingSample() =
             output.[index_out] <- block.[(wi.LocalID(0)*(BLOCK_DIM+1))+wi.LocalID(1)]
             
     [<ConfigurationItem>]
-    member val MinMatrixSize = 64L with get, set    
+    member val MinMatrixSize = 16L with get, set    
     [<ConfigurationItem>]
     member val MaxMatrixSize = 4096L with get, set   
     [<ConfigurationItem>]
@@ -125,26 +125,26 @@ type TransposeTrainingSample() =
 
         let rm = BufferReadMode.EnqueueReadBuffer
         let wm = BufferWriteMode.EnqueueWriteBuffer
-        let ifl = MemoryFlags.ReadOnly ||| MemoryFlags.UseHostPointer
-        let ofl = MemoryFlags.WriteOnly ||| MemoryFlags.UseHostPointer
+        let ifl = MemoryFlags.ReadOnly 
+        let ofl = MemoryFlags.WriteOnly 
         
         let executionResults = new List<float32 list>()
         let featureValues = new List<float32 list>()
 
         let blockSize = 16L
-        let elementsPerThread = 4L
                 
         let sizes = (seq {
                             let s = ref this.MinMatrixSize
                             while !s <= this.MaxMatrixSize do
                                 yield (!s, !s)
-                                yield (!s + 1L, !s + 1L)
-                                s := !s + this.MinMatrixSize
+                                //yield (!s + 1L, !s + 1L)
+
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
+            Console.WriteLine("      Size: " + String.Format("{0,10:##########}", rows))
             let times = List<float32>()
-            Console.WriteLine("      Size: " + String.Format("{0,5:#####}", rows) + "x" + String.Format("{0,5:#####}", cols))
                                           
             let a = Array.init (rows * cols |> int) (fun i -> 
                                                         let r = (i |> int64) / cols
@@ -157,7 +157,7 @@ type TransposeTrainingSample() =
                     [||]
                         
             let c = Array.zeroCreate<float32> (cols * rows |> int)
-            let ws = WorkSize([| (((rows - 1L) / blockSize) + 1L) * blockSize; (((cols - 1L) / blockSize) + 1L) * blockSize |], [| blockSize; blockSize |])
+            let ws = WorkSize([| cols; rows |], [| blockSize; blockSize |])
                 
             // Extract features                                                
             let comp = <@   Transpose(
@@ -253,13 +253,12 @@ type TransposeNaiveTrainingSample() =
                             let s = ref this.MinMatrixSize
                             while !s <= this.MaxMatrixSize do
                                 yield (!s, !s)
-                                yield (!s + 1L, !s + 1L)
-                                s := !s + this.MinMatrixSize
+                                s := !s * 2L
                         }) |> Array.ofSeq
 
         for rows, cols in sizes do
             let times = List<float32>()
-                                          
+            Console.WriteLine("Size: " + rows.ToString())                              
             let a = Array.init (rows * cols |> int) (fun i -> 
                                                         let r = (i |> int64) / cols
                                                         r |> float32)                                    

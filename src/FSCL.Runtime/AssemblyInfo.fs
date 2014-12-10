@@ -4,9 +4,9 @@ open System.Reflection
 [<assembly: AssemblyTitleAttribute("FSCL.Runtime")>]
 [<assembly: AssemblyProductAttribute("FSCL.Runtime")>]
 [<assembly: AssemblyDescriptionAttribute("FSCL kernels scheduling and execution layer for heterogeneous platforms")>]
-[<assembly: AssemblyVersionAttribute("1.3.6")>]
-[<assembly: AssemblyFileVersionAttribute("1.3.6")>]
+[<assembly: AssemblyVersionAttribute("1.4.0")>]
+[<assembly: AssemblyFileVersionAttribute("1.4.0")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "1.3.6"
+    let [<Literal>] Version = "1.4.0"
