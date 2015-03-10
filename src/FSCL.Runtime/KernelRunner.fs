@@ -11,6 +11,7 @@ open FSCL.Compiler.Configuration
 open FSCL.Runtime.Managers
 open FSCL.Runtime.RuntimeSteps
 open FSCL.Runtime.Scheduling
+open FSCL.Runtime.CompilerSteps
 open FSCL.Runtime
 open System
 open System.Collections.Generic
@@ -40,47 +41,66 @@ module Runtime =
         static member private defConfCompRoot = "Components"
 
         static member private defComponentsAssemply = 
-            [|  typeof<FlowGraphBuildingStep>;
-                typeof<ReduceKernelExecutionProcessor> |]
+            [| typeof<ReduceKernelExecutionProcessor> |]
              
         val private globalPool: BufferPoolManager
         val private creationManager: KernelCreationManager
-        val mutable private isRunning: bool
+        val private compiler: Compiler
+        val mutable private kernelCache: RuntimeCache option
 
-        new(comp, metr) = 
+        new(comp:Compiler, metr) as this = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
-                isRunning = false
                 globalPool = new BufferPoolManager()
-                creationManager = new KernelCreationManager(comp, metr)
+                creationManager = new KernelCreationManager(metr)
+                compiler = new Compiler(
+                            new PipelineConfiguration(
+                                comp.Configuration.LoadDefaultSteps, 
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
+                kernelCache = None 
             }
+            then
+                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
     
-        new(comp, metr, file: string) = 
+        new(comp:Compiler, metr, file: string) as this = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
-                isRunning = false
                 globalPool = new BufferPoolManager()
-                creationManager = new KernelCreationManager(comp, metr)
+                creationManager = new KernelCreationManager(metr)      
+                compiler = new Compiler(
+                            new PipelineConfiguration(
+                                comp.Configuration.LoadDefaultSteps, 
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
+                kernelCache = None
             }
+            then
+                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
+            
 
-        new(comp, metr, conf: PipelineConfiguration) =
+        new(comp:Compiler, metr, conf: PipelineConfiguration) as this =
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
-                isRunning = false
                 globalPool = new BufferPoolManager()
-                creationManager = new KernelCreationManager(comp, metr)
+                creationManager = new KernelCreationManager(metr)                
+                compiler = new Compiler(
+                            new PipelineConfiguration(
+                                comp.Configuration.LoadDefaultSteps, 
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
+                kernelCache = None
             }
+            then
+                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
                                           
-        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =  
+        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =  
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpenCL device has been found on your platform"))
 
-            let result = this.Run((input, this.creationManager, this.globalPool), opts) :?> ExecutionOutput
+            // Compile expression
+            let compiled = this.compiler.Compile(input, this.kernelCache.Value :> IKernelCache) :?> IKernelExpression
 
-            // Read output buffers
-            if not isSubRunning then
-                this.globalPool.TransferBackModifiedBuffers()
-
+            // Now run
+            let result = this.Run((compiled, this.globalPool, this.creationManager), opts) :?> ExecutionOutput
+            
             // Check the persistency of buffer pool
             let persistency = 
                 if opts.ContainsKey(RuntimeOptions.BufferPoolPersistency) then
@@ -91,30 +111,22 @@ module Runtime =
             // If has return buffer read it
             match result with
             | ReturnedValue(v) ->
-                // Clear pool only if this is not a subrunning (a running in a sequential function)
-                if not isSubRunning then
-                    // Dispose all buffers if PersistencyInsideExpressions
-                    if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                        this.globalPool.ClearTrackedAndUntrackedPool()
-                    else
-                        this.globalPool.ClearUntrackedPoolOnly()
+                // Dispose all buffers if PersistencyInsideExpressions
+                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                    this.globalPool.ClearTrackedAndUntrackedPool()
                 else
                     this.globalPool.ClearUntrackedPoolOnly()
                 v
             | _ ->
                 let v = this.globalPool.ReadRootBuffer()
-                // Clear pool only if this is not a subrunning (a running in a sequential function)
-                if not isSubRunning then
-                    // Dispose all buffers is PersistencyInsideExpressions
-                    if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                        this.globalPool.ClearTrackedAndUntrackedPool()
-                    else
-                        this.globalPool.ClearUntrackedPoolOnly()
+                // Dispose all buffers is PersistencyInsideExpressions
+                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                    this.globalPool.ClearTrackedAndUntrackedPool()
                 else
                     this.globalPool.ClearUntrackedPoolOnly()
                 v :> obj
                             
-        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>, isSubRunning: bool) =    
+        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
             let result = this.Run((input, this.creationManager, this.globalPool), opts) :?> ExecutionOutput
                                                                    
             // If has return buffer read it
@@ -130,9 +142,6 @@ module Runtime =
                                   fallback: bool,
                                   opt: Dictionary<string, obj>) =
             
-            let isSubRunning = this.isRunning
-            this.isRunning <- true
-
             // Copy options
             let opts = new Dictionary<string, obj>()
             for item in opt do
@@ -147,23 +156,16 @@ module Runtime =
             // If global or local size empty theyshould be embedded in kernel expression 
             let result = match mode with
                          | RunningMode.OpenCL ->                
-                             this.RunExpressionOpenCL(expr, opts, isSubRunning)
+                             this.RunExpressionOpenCL(expr, opts)
                          | RunningMode.Multithread ->
-                             this.RunExpressionMultithread(expr, opts, isSubRunning)
+                             this.RunExpressionMultithread(expr, opts)
                          | _ ->              
-                             this.RunExpressionMultithread(expr, opts, isSubRunning)
-
-            if not isSubRunning then
-                this.isRunning <- false
+                             this.RunExpressionMultithread(expr, opts)
             result       
                    
         member this.IterateExpression(expr: Expr, 
                                       itSetup: int -> obj list option,
                                       opt: Dictionary<string, obj>) =
-            
-            let isSubRunning = this.isRunning
-            this.isRunning <- true
-
             // Copy options
             let opts = new Dictionary<string, obj>()
             for item in opt do
@@ -172,61 +174,60 @@ module Runtime =
             opts.Add("IterativeSetup", itSetup)                    
                       
             // If global or local size empty theyshould be embedded in kernel expression 
-            let result = this.RunExpressionOpenCL(expr, opts, isSubRunning)
-
-            if not isSubRunning then
-                this.isRunning <- false
+            let result = this.RunExpressionOpenCL(expr, opts)
             result       
-
-        member this.GetLocalMemorySizeForSingleKernelExpression(e: Expr) =
-            let opts = new Dictionary<string, obj>()
-            opts.Add(RuntimeOptions.CreateOnly, true)
-            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
-            if result :? OpenCLKernelFlowGraphNode then
-                let node = result :?> OpenCLKernelFlowGraphNode
-                node.CompiledKernelData.Kernel.GetLocalMemorySize(node.DeviceData.Device)
-            else
-                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
-
-        member this.GetCompileWorkGroupSizeForSingleKernelExpression(e: Expr) =
-            let opts = new Dictionary<string, obj>()
-            opts.Add(RuntimeOptions.CreateOnly, true)
-            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
-            if result :? OpenCLKernelFlowGraphNode then
-                let node = result :?> OpenCLKernelFlowGraphNode
-                node.CompiledKernelData.Kernel.GetCompileWorkGroupSize(node.DeviceData.Device)
-            else
-                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
-
-        member this.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(e: Expr) =
-            let opts = new Dictionary<string, obj>()
-            opts.Add(RuntimeOptions.CreateOnly, true)
-            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
-            if result :? OpenCLKernelFlowGraphNode then
-                let node = result :?> OpenCLKernelFlowGraphNode
-                node.CompiledKernelData.Kernel.GetPreferredWorkGroupSizeMultiple(node.DeviceData.Device)
-            else
-                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
-
-        member this.GetPrivateMemorySizeForSingleKernelExpression(e: Expr) =
-            let opts = new Dictionary<string, obj>()
-            opts.Add(RuntimeOptions.CreateOnly, true)
-            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
-            if result :? OpenCLKernelFlowGraphNode then
-                let node = result :?> OpenCLKernelFlowGraphNode
-                node.CompiledKernelData.Kernel.GetPrivateMemorySize(node.DeviceData.Device)
-            else
-                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
-
-        member this.GetWorkGroupSizeForSingleKernelExpression(e: Expr) =
-            let opts = new Dictionary<string, obj>()
-            opts.Add(RuntimeOptions.CreateOnly, true)
-            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
-            if result :? OpenCLKernelFlowGraphNode then
-                let node = result :?> OpenCLKernelFlowGraphNode
-                node.CompiledKernelData.Kernel.GetWorkGroupSize(node.DeviceData.Device)
-            else
-                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+//
+//        member this.GetLocalMemorySizeForSingleKernelExpression(e: Expr) =
+//            let opts = new Dictionary<string, obj>()
+//            opts.Add(RuntimeOptions.CreateOnly, true)
+//            // Compile expression
+//            let compiled = this.compiler.Compile(e) :?> IKernelExpression
+//            let result = this.Run((compiled.KFGRoot, this.creationManager, this.globalPool), opts)
+//            if result :? OpenCLKernelFlowGraphNode then
+//                let node = result :?> OpenCLKernelFlowGraphNode
+//                node.CompiledKernelData.Kernel.GetLocalMemorySize(node.DeviceData.Device)
+//            else
+//                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+//
+//        member this.GetCompileWorkGroupSizeForSingleKernelExpression(e: Expr) =
+//            let opts = new Dictionary<string, obj>()
+//            opts.Add(RuntimeOptions.CreateOnly, true)
+//            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+//            if result :? OpenCLKernelFlowGraphNode then
+//                let node = result :?> OpenCLKernelFlowGraphNode
+//                node.CompiledKernelData.Kernel.GetCompileWorkGroupSize(node.DeviceData.Device)
+//            else
+//                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+//
+//        member this.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(e: Expr) =
+//            let opts = new Dictionary<string, obj>()
+//            opts.Add(RuntimeOptions.CreateOnly, true)
+//            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+//            if result :? OpenCLKernelFlowGraphNode then
+//                let node = result :?> OpenCLKernelFlowGraphNode
+//                node.CompiledKernelData.Kernel.GetPreferredWorkGroupSizeMultiple(node.DeviceData.Device)
+//            else
+//                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+//
+//        member this.GetPrivateMemorySizeForSingleKernelExpression(e: Expr) =
+//            let opts = new Dictionary<string, obj>()
+//            opts.Add(RuntimeOptions.CreateOnly, true)
+//            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+//            if result :? OpenCLKernelFlowGraphNode then
+//                let node = result :?> OpenCLKernelFlowGraphNode
+//                node.CompiledKernelData.Kernel.GetPrivateMemorySize(node.DeviceData.Device)
+//            else
+//                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
+//
+//        member this.GetWorkGroupSizeForSingleKernelExpression(e: Expr) =
+//            let opts = new Dictionary<string, obj>()
+//            opts.Add(RuntimeOptions.CreateOnly, true)
+//            let result = this.Run((e, this.creationManager, this.globalPool), opts) :?> FlowGraphNode
+//            if result :? OpenCLKernelFlowGraphNode then
+//                let node = result :?> OpenCLKernelFlowGraphNode
+//                node.CompiledKernelData.Kernel.GetWorkGroupSize(node.DeviceData.Device)
+//            else
+//                raise (new KernelQueryException("The expression to query doesn't contain a single OpenCL kernel call or reference"))
 
         member this.ForceClearPool(transferBackBuffers: bool) =
             if transferBackBuffers then
@@ -347,20 +348,20 @@ module Runtime =
                                               
 
     // Extension methods to query info about a (single) quoted kernel
-    type Expr<'T> with
-        member this.GetLocalMemorySize() =
-            kernelRunner.GetLocalMemorySizeForSingleKernelExpression(this)
-
-        member this.GetCompileWorkGroupSize() =
-            kernelRunner.GetCompileWorkGroupSizeForSingleKernelExpression(this)
-
-        member this.GetPreferredWorkGroupSizeMultiple() =
-            kernelRunner.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(this)
-
-        member this.GetPrivateMemorySize() =
-            kernelRunner.GetPrivateMemorySizeForSingleKernelExpression(this)
-
-        member this.GetWorkGroupSize() =
-            kernelRunner.GetWorkGroupSizeForSingleKernelExpression(this)
+//    type Expr<'T> with
+//        member this.GetLocalMemorySize() =
+//            kernelRunner.GetLocalMemorySizeForSingleKernelExpression(this)
+//
+//        member this.GetCompileWorkGroupSize() =
+//            kernelRunner.GetCompileWorkGroupSizeForSingleKernelExpression(this)
+//
+//        member this.GetPreferredWorkGroupSizeMultiple() =
+//            kernelRunner.GetPreferredWorkGroupSizeMultipleForSingleKernelExpression(this)
+//
+//        member this.GetPrivateMemorySize() =
+//            kernelRunner.GetPrivateMemorySizeForSingleKernelExpression(this)
+//
+//        member this.GetWorkGroupSize() =
+//            kernelRunner.GetWorkGroupSizeForSingleKernelExpression(this)
             
 

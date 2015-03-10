@@ -8,13 +8,13 @@
     open OpenCL
 
     // Vector addition
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
     let VectorAdd(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
 
     // Matrix multiplication
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
     let MatrixMult(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
         let x = wi.GlobalID(0)
         let y = wi.GlobalID(1)
@@ -60,45 +60,8 @@
         Console.WriteLine("# Testing " + test + " with OpenCL")
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
-        timer.Start()        
         <@ VectorAdd(a, b, c, worksize) @>.Run() |> ignore
-        timer.Stop()
-        // Check result
-        let mutable isResultCorrect = true
-        for i = 0 to correctMapResult.Length - 1 do
-            if correctMapResult.[i] <> c.[i] then
-                isResultCorrect <- false
-        if not isResultCorrect then
-            Console.WriteLine("  " + test + " returned a wrong result!")
-        else
-            Console.WriteLine("  " + test + " execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
-            timer.Restart()        
+        timer.Start()        
+        for i = 0 to 1000 do
             <@ VectorAdd(a, b, c, worksize) @>.Run() |> ignore
-            timer.Stop()
-            Console.WriteLine("  " + test + " execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
-        // ***************************************************************************************************
-         
-        // ***************************************************************************************************
-        // Matrix multiplication ****************************************************************************
-        if FirstDeviceSupportMultiDimensionalWorkItems() then
-            Console.WriteLine("")
-            let test = "[ MatMul ]"
-            Console.WriteLine("# Testing " + test + " with OpenCL")
-            let worksize = new WorkSize([| matSizel; matSizel |], [| 16 |> int64; 16 |> int64 |])
-            timer.Start()
-            <@ MatrixMult(am, bm, dm, worksize) @>.Run()
-            timer.Stop()
-            // Check result
-            let mutable isResultCorrect = true
-            for i = 0 to correctMatMul.GetLength(0) - 1 do
-                for j = 0 to correctMatMul.GetLength(1) - 1 do
-                    if correctMatMul.[i, j] <> dm.[i, j] then
-                        isResultCorrect <- false
-            if not isResultCorrect then
-                Console.WriteLine("  " + test + " returned a wrong result!")
-            else
-                Console.WriteLine("  " + test + " execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")
-                timer.Restart()        
-                <@ MatrixMult(am, bm, dm, worksize) @>.Run()
-                timer.Stop()
-                Console.WriteLine("  " + test + " execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                                
+        timer.Stop()

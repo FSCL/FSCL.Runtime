@@ -2,6 +2,7 @@
 
 open OpenCL
 open FSCL
+open FSCL.Compiler
 open FSCL.Compiler.Util
 open FSCL.Runtime
 open FSCL.Language
@@ -53,9 +54,96 @@ module KernelSetupUtil =
                                         1L)
         gs, ls, go
         
-    let PrepareKernelAguments(node: OpenCLKernelFlowGraphNode, 
-                              nodeInput: IReadOnlyDictionary<string, FlowGraphNodeInput>, 
-                              inputFromOtherKernels: IReadOnlyDictionary<string, ExecutionOutput>,
+    let rec LiftArgumentsAndKernelCalls(e: Expr,
+                                        args: Dictionary<string, obj>,
+                                        wi: WorkItemInfo option) =
+        match e with
+        // Return allocation expression can contain a call to global_size, local_size, num_groups or work_dim
+        | Patterns.Call(o, m, arguments) ->
+            if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "GlobalSize") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.GlobalSize(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new KernelCompilationException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "GlobalOffset") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.GlobalOffset(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new KernelCompilationException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "LocalSize") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.LocalSize(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))
+                else
+                    raise (new KernelCompilationException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "NumGroups") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.NumGroups(LeafExpressionConverter.EvaluateQuotation(arguments.[0]) :?> int))   
+                else
+                    raise (new KernelCompilationException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))         
+            else if m.DeclaringType.IsAssignableFrom(typeof<WorkItemInfo>) && (m.Name = "WorkDim") then
+                if wi.IsSome then
+                    Expr.Value(wi.Value.WorkDim())
+                else
+                    raise (new KernelCompilationException("Cannot evaluate buffer allocation size. The size depends on the work-item space but this space is not specified"))
+            else
+                if o.IsSome then
+                    let evaluatedInstance = LiftArgumentsAndKernelCalls(o.Value, args, wi)
+                    let liftedArgs = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) arguments
+                    // Check if we need to tranform array method to openclbuffer method
+                    if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
+                        Expr.Call(evaluatedInstance, evaluatedInstance.Type.GetMethod(m.Name), liftedArgs)
+                    else
+                        Expr.Call(
+                            evaluatedInstance,
+                            m, 
+                            liftedArgs)
+                else
+                    let liftedArgs = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) arguments
+                    Expr.Call(m, liftedArgs) 
+        // Return allocation expression can contain references to arguments
+        | Patterns.Var(v) ->
+            if (args.ContainsKey(v.Name)) then
+                let t = args.[v.Name].GetType()
+                Expr.Value(args.[v.Name], t)
+            else
+                e                         
+        // Array.Rank, Array.Length, Array.LongLength       
+        | Patterns.PropertyGet(o, pi, arguments) ->
+            if o.IsSome then
+                let evaluatedInstance = LiftArgumentsAndKernelCalls(o.Value, args, wi)
+                let liftedArgs = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) arguments
+                // Check if we need to tranform array property to openclbuffer property
+                if evaluatedInstance.Type = typeof<OpenCLBuffer> && o.Value.Type.IsArray then
+                    Expr.PropertyGet(evaluatedInstance, evaluatedInstance.Type.GetProperty(pi.Name), liftedArgs)
+                else
+                    Expr.PropertyGet(evaluatedInstance, pi, liftedArgs)
+            else
+                let liftedArgs = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) arguments
+                Expr.PropertyGet(pi, liftedArgs)                
+        | ExprShape.ShapeVar(v) ->
+            e
+        | ExprShape.ShapeLambda(l, b) ->
+            failwith "Error in substituting parameters"
+        | ExprShape.ShapeCombination(c, argsList) ->
+            let ev = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) argsList
+            ExprShape.RebuildShapeCombination(c, ev)
+
+    let EvaluateBufferAllocationSize(sizes: Expr array,
+                                     args: Dictionary<string, obj>, 
+                                     wi: WorkItemInfo option) =   
+        let intSizes = new List<int64>()    
+        for exp in sizes do
+            let lifted = LiftArgumentsAndKernelCalls(exp, args, wi)
+            let evaluated = LeafExpressionConverter.EvaluateQuotation(lifted)
+            if evaluated :? int32 then
+                intSizes.Add(evaluated :?> int32 |> int64)
+            else
+                intSizes.Add(evaluated :?> int64)
+        intSizes |> Seq.toArray
+
+    let PrepareKernelAguments(rk: OpenCLKernelCreationResult, 
+                              input: ExecutionOutput[], 
+                              collectionVars: Dictionary<Var, obj>,
                               workSize: WorkSize option,
                               pool: BufferPoolManager,
                               isRoot: bool,
@@ -63,153 +151,164 @@ module KernelSetupUtil =
         let buffers = new Dictionary<string, OpenCLBuffer>()
         let arguments = new Dictionary<string, obj>()
         let mutable outputFromThisKernel = ReturnedValue(())
+       
+        let mutable inputIndex = 0
+        let mutable outsiderIndex = 0
+        let mutable argIndex = 0
 
-        let mutable argIndex = 0            
-        // Foreach argument of the kernel
-        for par in node.KernelData.Kernel.Parameters do      
-            if par.DataType.IsArray then     
-                // If the parameter is an array the argument value can be:
-                // 1) ActualArgument: the argument value is given by the user that invokes the kernel
-                // 2) KernelOutput: in this case it has been already evaluated and stored in arguments
-                // 3) CompilerPrecomputedValue: the argument value is established by the compiler (local arguments)
-                // 4) ReturnedBufferAllocationSize: the argument is the size of a buffer to be returned
-                // 5) ImplicitValue: the runner should be able to determine which kind of argument is this        
-                match nodeInput.[par.Name] with
-                | BufferAllocationSize(sizeFunction) ->
-                    // Buffer allocated in the body of the kernel are traslated into additional arguments
-                    // To setup these arguments in OpenCL, the buffers must be pre-allocated
-                    let globalSize, localSize, globalOffset = 
-                        if workSize.IsNone then
-                            null, null, null
-                        else
-                            workSize.Value.GlobalSize(), workSize.Value.LocalSize(), workSize.Value.GlobalOffset()
-                    let elementCount = 
-                        try
-                            sizeFunction(arguments, 
-                                         if workSize.IsNone then
-                                            None
-                                         else
-                                            Some(workSize.Value :> WorkItemInfo))                            
-                        with 
-                        | ex ->
-                            raise (new KernelSetupException("Cannot evaluate a BufferAllocationSize input for kernels whose WorkSize is not explicit"))
-                    let elementType = par.DataType.GetElementType()
+        // Foreach parameter of the kernel
+        let parameters = rk.KernelData.KernelInfo.Parameters
+        for par in parameters do   
+            match par.ParameterType with
+            // A buffer returned declared locally
+            | FunctionParameterType.DynamicArrayParameter(sizes) ->                 
+                let elementCount = EvaluateBufferAllocationSize(sizes, null, 
+                                                                if workSize.IsNone then
+                                                                    None
+                                                                else
+                                                                    Some(workSize.Value :> WorkItemInfo))
+                // Buffer allocated in the body of the kernel are traslated into additional arguments
+                // To setup these arguments in OpenCL, the buffers must be pre-allocated
+                let globalSize, localSize, globalOffset = 
+                    if workSize.IsNone then
+                        null, null, null
+                    else
+                        workSize.Value.GlobalSize(), workSize.Value.LocalSize(), workSize.Value.GlobalOffset()
+                let elementType = par.DataType.GetElementType()
                                         
-                    // Store dim sizes
-                    let sizeParameters = par.SizeParameters
-                    for i = 0 to sizeParameters.Count - 1 do
-                        arguments.Add(sizeParameters.[i].Name, elementCount.[i])
+                // Store dim sizes
+                let sizeParameters = par.SizeParameters
+                for i = 0 to sizeParameters.Count - 1 do
+                    arguments.Add(sizeParameters.[i].Name, elementCount.[i])
                         
-                    // Allocate the buffer
-                    let buffer = pool.RequireBufferForParameter(par, None, elementCount, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority)
+                // Allocate the buffer
+                let buffer = pool.RequireBufferForParameter(par, None, elementCount, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority)
                     
-                    // Set kernel arg
-                    node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
-                    // Store buffer/object data
-                    arguments.Add(par.Name, buffer)
-                    buffers.Add(par.Name, buffer)
+                // Set kernel arg
+                rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)    
+                                  
+                // Store buffer/object data
+                arguments.Add(par.Name, buffer)
+                buffers.Add(par.Name, buffer)
             
-                    // Set if returned
-                    if par.IsReturned then
-                        outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
+                // Set if returned
+                if par.IsReturned then
+                    outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
 
-                | ActualArgument(expr) ->
-                    // Input from an actual argument
-                    let o = 
-                        match expr with
-                        | Patterns.Call(o, mi, a) ->
-                            if mi.GetCustomAttribute<FSCL.VectorTypeArrayReinterpretAttribute>() <> null then
-                                // Reinterpretation of non-vector array 
-                                LeafExpressionConverter.EvaluateQuotation(a.[0])
+            // A regular parameter 
+            | FunctionParameterType.NormalParameter ->
+                let ob = input.[inputIndex]
+                if par.DataType.IsArray then    
+                    let elementType = par.DataType.GetElementType()  
+                    let arr, lengths, isBuffer = 
+                        match ob with
+                        | ReturnedUntrackedBuffer(b) ->
+                            None, b.Count, true
+                        | ReturnedTrackedBuffer(b, v) ->
+                            Some(v), b.Count, true
+                        | ReturnedValue(v) ->
+                            if v.GetType().IsArray then
+                                Some(v :?> Array), ArrayUtil.GetArrayLengths(v), false
                             else
-                                LeafExpressionConverter.EvaluateQuotation(expr)
-                        | _ ->
-                            LeafExpressionConverter.EvaluateQuotation(expr)
+                                // Impossible
+                                failwith "Error"
+
                     // Create buffer if needed (no local address space)
                     let addressSpace = par.Meta.Get<AddressSpaceAttribute>()
                     if addressSpace.AddressSpace = AddressSpace.Local then
-                        node.CompiledKernelData.Kernel.SetLocalArgument(argIndex, ArrayUtil.GetArrayAllocationSize(o) |> int64) 
+                        rk.CompiledKernelData.Kernel.SetLocalArgument(argIndex, (lengths |> Array.reduce(*)) * (System.Runtime.InteropServices.Marshal.SizeOf(elementType) |> int64)) 
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         //bufferSizes.Add(par.Name, new Dictionary<string, int>())
-                        let lengths = ArrayUtil.GetArrayLengths(o)
                         for i = 0 to sizeParameters.Count - 1 do
                             //bufferSizes.[par.Name]
                             arguments.Add(sizeParameters.[i].Name, lengths.[i])
                     else
-                        let lengths = ArrayUtil.GetArrayLengths(o)
-
-                        // Check if read or read_write mode
-                        let buffer = pool.RequireBufferForParameter(par, Some(o :?> Array), lengths, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority) 
-                        
+                        // Get buffer or try reuse the input one
+                        let buffer = 
+                            if isBuffer |> not then
+                                pool.RequireBufferForParameter(par, Some(arr.Value), lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority) 
+                            else
+                                pool.RequireBufferForParameter(par, None, lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority, input.[inputIndex]) 
+                            
                         // Set kernel arg
-                        node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
+                        rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         for i = 0 to sizeParameters.Count - 1 do
                             arguments.Add(sizeParameters.[i].Name, lengths.[i])
                         // Store argument and buffer
-                        arguments.Add(par.Name, o)
+                        arguments.Add(par.Name, arr.Value)
                         buffers.Add(par.Name, buffer)
                         // Check if this is returned
                         if par.IsReturned then
-                            outputFromThisKernel <- ReturnedTrackedBuffer(buffer, o :?> Array)
-                           
-                | KernelOutput(othNode, a) ->
-                    // Copy the output buffer of the input kernel     
-                    let elementType = par.DataType.GetElementType()  
-                    let lengths = 
-                        match inputFromOtherKernels.[par.Name] with
-                        | ReturnedUntrackedBuffer(b)
-                        | ReturnedTrackedBuffer(b,_) ->
-                            b.Count
-                        | ReturnedValue(o) ->
-                            if o.GetType().IsArray then
-                                ArrayUtil.GetArrayLengths(o)
+                            if isBuffer then
+                                outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
                             else
-                                [||]
-                                
-                    let buffer = pool.RequireBufferForParameter(par, None, lengths, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, inputFromOtherKernels.[par.Name]) 
+                                outputFromThisKernel <- ReturnedTrackedBuffer(buffer, arr.Value)
+                else
+                    // An normal input that is not of type array is not
+                    // associated to any buffer su must be wrapped in a ReturnedValue
+                    match ob with
+                    | ReturnedValue(v) ->
+                        rk.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, v)
+                    | _ ->
+                        raise (new KernelSetupException("The parameter " + par.Name + " is scalar but it is wrapped in struct different from ReturnedValue(v)"))
+                inputIndex <- inputIndex + 1
+
+            // A reference to a collection variable
+            // or to an env value
+            | FunctionParameterType.EnvVarParameter(_)
+            | FunctionParameterType.OutValParameter(_) ->
+                let ob =
+                    match par.ParameterType with
+                    | FunctionParameterType.EnvVarParameter(v) ->
+                        // Determine the value associated to the collection var
+                        collectionVars.[v]
+                    | FunctionParameterType.OutValParameter(e) ->
+                        // Evaluate the expr
+                        LeafExpressionConverter.EvaluateQuotation(e)
+                    | _ ->
+                        // Impossible
+                        null
+                if par.DataType.IsArray then    
+                    let elementType = par.DataType.GetElementType()  
+                    let arr, lengths = 
+                        ob :?> Array,
+                        ArrayUtil.GetArrayLengths(ob :?> Array)
+
+                    // Get buffer or try reuse the input one
+                    let buffer = 
+                        pool.RequireBufferForParameter(par, Some(arr), lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority) 
                             
+                    // Set kernel arg
+                    rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store dim sizes
                     let sizeParameters = par.SizeParameters
-                    //bufferSizes.Add(par.Name, new Dictionary<string, int>())
                     for i = 0 to sizeParameters.Count - 1 do
-                        arguments.Add(sizeParameters.[i].Name, buffer.Count.[i])
-                                
-                    node.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
-                    // Store buffer/object data
-                    arguments.Add(par.Name, buffer)
+                        arguments.Add(sizeParameters.[i].Name, lengths.[i])
+                    // Store argument and buffer
+                    arguments.Add(par.Name, arr)
                     buffers.Add(par.Name, buffer)
                     // Check if this is returned
                     if par.IsReturned then
-                        outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
-                | _ ->
-                    raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
-            // Scalar parameter
-            else
-                // Check if this is an argument automatically inserted to represent the length af an array parameter
-                if par.IsSizeParameter then
-                    let v = arguments.[par.Name]             
-                    node.CompiledKernelData.Kernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
+                        outputFromThisKernel <- ReturnedTrackedBuffer(buffer, arr)
                 else
-                    // If the parameter is not an array nor a size parameter, it can be:
-                    // 1) ActualArgument: a simples scalar value given by the user
-                    // 2) KernelOutput: NOT POSSIBLE
-                    // 4) ReturnedBufferAllocationSize: NOT POSSIBLE
-                    // 5) ImplicitValue: NOT POSSIBLE       
-                    match nodeInput.[par.Name] with
-                    | ActualArgument(e) ->
-                        let o = LeafExpressionConverter.EvaluateQuotation(e)
-                        node.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, o)
-                    // | CompilerPrecomputedValue(computeFunction) ->
-                        //   let o = computeFunction(arguments, workSize.GlobalSize, workSize.LocalSize)
-                        // node.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, o)
-                    | KernelOutput(_, _) ->
-                        raise (new KernelSetupException("The scalar parameter " + par.Name + " is bound to the output of a kernel, but only vector parameters (arrays) can be bound to the output of a kernel"))
-                    | _ ->
-                        raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this is not valid except for size parameters"))
-                        
-            // Process next parameter
+                    // Ref to a scalar
+                    rk.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, ob)                    
+                outsiderIndex <- outsiderIndex + 1
+    
+            // A size parameter
+            | FunctionParameterType.SizeParameter ->
+                // We can access succesfully "arguments" cause 
+                // length args come always later than the relative array
+                let v = arguments.[par.Name]             
+                rk.CompiledKernelData.Kernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
+                
+            // An implicit parameter
+            | FunctionParameterType.ImplicitParameter ->
+                raise (new KernelSetupException("Cannot handle implicit parameters in default kernel execution"))
+
+            // Update arg index
             argIndex <- argIndex + 1
         arguments, buffers, outputFromThisKernel

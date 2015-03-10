@@ -30,14 +30,23 @@ type RuntimeCompiledKernel(program, kernel, defines) =
             this.Kernel.Dispose()
             this.Program.Dispose()
 
-[<AllowNullLiteral>]
 type RuntimeKernel(info, code, defines) =
-    member val Kernel:IKernelInfo = info with get 
-    member val OpenCLCode:String = code with get, set
-    member val DynamicDefines: IReadOnlyDictionary<string, Var option * Expr option * obj> = defines with get
+    interface IKernelCacheEntry with
+        member this.KernelInfo 
+            with get() =
+                this.KernelInfo
+        member this.ModuleCode 
+            with get() =
+                this.ModuleCode
+        member this.ConstantDefines
+            with get() =
+                this.ConstantDefines
     // List of devices and kernel instances potentially executing the kernel
     member val Instances:Dictionary<int * int * string, RuntimeCompiledKernel> = new Dictionary<int * int * string, RuntimeCompiledKernel>() with get 
-    
+    member val KernelInfo = info with get
+    member val ModuleCode = code with get    
+    member val ConstantDefines: IReadOnlyDictionary<string, Var option * Expr option * obj> = defines with get
+
     interface IDisposable with
         member this.Dispose() =
             for item in this.Instances do
@@ -45,42 +54,26 @@ type RuntimeKernel(info, code, defines) =
     
 type RuntimeCache(openCLMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool,
                   multithreadMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool) =
+    interface IKernelCache with    
+        member this.TryFindCompatibleOpenCLCachedKernel(id: FunctionInfoID, 
+                                                        meta: ReadOnlyMetaCollection) =
+            if this.OpenCLKernels.ContainsKey(id) then
+                let potentialKernels = this.OpenCLKernels.[id]
+                // Check if compatible kernel meta in cached kernels
+                let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: RuntimeKernel) ->
+                                            openCLMetadataVerifier(cachedMeta, meta)) potentialKernels
+                match item with
+                | Some(m, k) ->
+                    Some(k :> IKernelCacheEntry)
+                | _ ->
+                    None
+            else
+                None   
+
     member val OpenCLKernels = Dictionary<FunctionInfoID, List<ReadOnlyMetaCollection * RuntimeKernel>>() 
-        with get
-    member val MultithreadKernels = Dictionary<FunctionInfoID, List<ReadOnlyMetaCollection * MethodInfo>>() 
         with get
     member val Devices = new Dictionary<int * int, RuntimeDevice>() 
         with get
-    
-    member this.TryFindCompatibleOpenCLCachedKernel(id: FunctionInfoID, 
-                                                    meta: ReadOnlyMetaCollection) =
-        if this.OpenCLKernels.ContainsKey(id) then
-            let potentialKernels = this.OpenCLKernels.[id]
-            // Check if compatible kernel meta in cached kernels
-            let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: RuntimeKernel) ->
-                                        openCLMetadataVerifier(cachedMeta, meta)) potentialKernels
-            match item with
-            | Some(m, k) ->
-                Some(k)
-            | _ ->
-                None
-        else
-            None  
-                     
-    member this.TryFindCompatibleMultithreadCachedKernel(id: FunctionInfoID, 
-                                                         meta: ReadOnlyMetaCollection) =
-        if this.MultithreadKernels.ContainsKey(id) then
-            let potentialKernels = this.MultithreadKernels.[id]
-            // Check if compatible kernel meta in cached kernels
-            let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: MethodInfo) ->
-                                        multithreadMetadataVerifier(cachedMeta, meta)) potentialKernels
-            match item with
-            | Some(m, k) ->
-                Some(k)
-            | _ ->
-                None
-        else
-            None                
 
     interface IDisposable with
         member this.Dispose() =

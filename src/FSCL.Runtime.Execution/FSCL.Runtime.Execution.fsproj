@@ -99,15 +99,15 @@
     <Error Condition="!Exists('$(SolutionDir)\.nuget\NuGet.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\.nuget\NuGet.targets'))" />
   </Target>
   <ItemGroup>
+    <Compile Include="Util.fs" />
     <Compile Include="BufferTools.fs" />
     <Compile Include="BufferStrategies.fs" />
     <Compile Include="BufferPoolManager.fs" />
     <Compile Include="KernelCreationManager.fs" />
-    <Compile Include="FlowGraphBuildingStep.fs" />
-    <Compile Include="DefaultFlowGraphBuilding.fs" />
-    <Compile Include="AcceleratedFlowGraphBuilding.fs" />
     <Compile Include="KernelSetupUtil.fs" />
-    <Compile Include="KernelExecutionStep.fs" />
+    <Compile Include="NodeExecutionStep.fs" />
+    <Compile Include="ValueExecution.fs" />
+    <Compile Include="CollectionCompositionExecution.fs" />
     <Compile Include="DefaultKernelExecution.fs" />
     <Compile Include="IterativeKernelExecution.fs" />
     <Compile Include="MapRevKernelExecution.fs" />
@@ -116,23 +116,23 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler">
-      <HintPath>..\..\packages\FSCL.Compiler.1.5.5\lib\net45\FSCL.Compiler.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core">
-      <HintPath>..\..\packages\FSCL.Compiler.1.5.5\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language">
-      <HintPath>..\..\packages\FSCL.Compiler.1.5.5\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Language.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents">
-      <HintPath>..\..\packages\FSCL.Compiler.1.5.5\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util">
-      <HintPath>..\..\packages\FSCL.Compiler.1.5.5\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Util.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
