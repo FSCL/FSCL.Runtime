@@ -157,7 +157,7 @@ module KernelSetupUtil =
         let mutable argIndex = 0
 
         // Foreach parameter of the kernel
-        let parameters = rk.KernelData.KernelInfo.Parameters
+        let parameters = rk.KernelData.Kernel.Parameters
         for par in parameters do   
             match par.ParameterType with
             // A buffer returned declared locally

@@ -101,7 +101,7 @@ type DataSizeCounter() =
             precomputed.[4] :?> Dictionary<Var, obj list>
 
         let argOffset = 
-            if m.Kernel.InstanceVar.IsSome then
+            if m.InstanceVar.IsSome then
                 1
             else
                 0

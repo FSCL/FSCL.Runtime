@@ -8,15 +8,15 @@ open System.Reflection
 open Microsoft.FSharp.Quotations
 open FSCL.Language
 
-type OpenCLKernelCreationResult(deviceData: RuntimeDevice,
-                                kernelData: RuntimeKernel,
+type OpenCLKernelCreationResult(kernel: IKernelModule,
+                                deviceData: RuntimeDevice,
                                 runtimeKernelData: RuntimeCompiledKernel) =
+    member val KernelData = kernel with get
     member val DeviceData = deviceData with get
-    member val KernelData = kernelData with get
     member val CompiledKernelData = runtimeKernelData with get
     
-type MultithreadKernelCreationResult(kernelData: IKernelInfo) =
-    member val KernelData = kernelData with get
+type MultithreadKernelCreationResult(kernel: IKernelModule) =
+    member val KernelData = kernel with get
     
 type ComputationCreationResult =
 | OpenCLKernel of OpenCLKernelCreationResult

@@ -46,9 +46,9 @@ module Runtime =
         val private globalPool: BufferPoolManager
         val private creationManager: KernelCreationManager
         val private compiler: Compiler
-        val mutable private kernelCache: RuntimeCache option
+        val private deviceCache: DeviceCache 
 
-        new(comp:Compiler, metr) as this = 
+        new(comp:Compiler, metr) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
                 globalPool = new BufferPoolManager()
@@ -56,13 +56,12 @@ module Runtime =
                 compiler = new Compiler(
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
-                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
-                kernelCache = None 
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
+                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
+                deviceCache = new DeviceCache() 
             }
-            then
-                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
     
-        new(comp:Compiler, metr, file: string) as this = 
+        new(comp:Compiler, metr, file: string) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
                 globalPool = new BufferPoolManager()
@@ -70,14 +69,13 @@ module Runtime =
                 compiler = new Compiler(
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
-                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
-                kernelCache = None
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
+                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
+                deviceCache = new DeviceCache() 
             }
-            then
-                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
             
 
-        new(comp:Compiler, metr, conf: PipelineConfiguration) as this =
+        new(comp:Compiler, metr, conf: PipelineConfiguration) =
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
                 globalPool = new BufferPoolManager()
@@ -85,18 +83,17 @@ module Runtime =
                 compiler = new Compiler(
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
-                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]))
-                kernelCache = None
+                                Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
+                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
+                deviceCache = new DeviceCache() 
             }
-            then
-                this.kernelCache <- Some(new RuntimeCache(this.compiler.IsInvariantToMetaCollection, fun(a,b) -> true))
                                           
         member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =  
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpenCL device has been found on your platform"))
 
             // Compile expression
-            let compiled = this.compiler.Compile(input, this.kernelCache.Value :> IKernelCache) :?> IKernelExpression
+            let compiled = this.compiler.Compile(input) :?> IKernelExpression
 
             // Now run
             let result = this.Run((compiled, this.globalPool, this.creationManager), opts) :?> ExecutionOutput

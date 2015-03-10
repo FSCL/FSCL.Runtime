@@ -81,7 +81,7 @@ type ReduceKernelExecutionProcessor() =
             let arguments = new Dictionary<string, obj>()
 
             // First parameter: input array, may be coming from actual argument or kernel output
-            let par = rk.KernelData.KernelInfo.Parameters.[argIndex]
+            let par = rk.KernelData.Kernel.Parameters.[argIndex]
             let elementType = par.DataType.GetElementType()  
             let arr, lengths, isBuffer = 
                 match input with
@@ -113,7 +113,7 @@ type ReduceKernelExecutionProcessor() =
                 
             // Second parameter: output buffer
             argIndex <- argIndex + 1
-            let par = rk.KernelData.KernelInfo.Parameters.[argIndex]
+            let par = rk.KernelData.Kernel.Parameters.[argIndex]
             // Create buffer and eventually init it
             let elementType = par.DataType.GetElementType()
             outputBuffer <- pool.RequireBufferForParameter(par, None, globalSize, deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
@@ -130,8 +130,8 @@ type ReduceKernelExecutionProcessor() =
             compiledData.Kernel.SetValueArgument(argIndex, blockSize |> int) 
         
             // Add possible outsiders and size parameters
-            for i = argIndex + 1 to kernelData.KernelInfo.Parameters.Count - 1 do
-                let par = kernelData.KernelInfo.Parameters.[i]
+            for i = argIndex + 1 to kernelData.Kernel.Parameters.Count - 1 do
+                let par = kernelData.Kernel.Parameters.[i]
                 match par.ParameterType with                
                 // A reference to a collection variable
                 // or to an env value
@@ -180,7 +180,7 @@ type ReduceKernelExecutionProcessor() =
                     failwith "Error"
                  
             // Execute        
-            let smallestDataSize = kernelData.KernelInfo.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length
+            let smallestDataSize = kernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length
 
             let mutable currentInputSize = inputBuffer.TotalCount
             let mutable currentOutputSize = currentInputSize / blockSize
@@ -213,7 +213,7 @@ type ReduceKernelExecutionProcessor() =
             let newArr =                           
                 if finalReduceOnCPU then
                     // Do final iteration on CPU
-                    let reduceFunction = kernelData.KernelInfo.CustomInfo.["ReduceFunction"]
+                    let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
                     match reduceFunction with
                     | :? MethodInfo ->
                         result := arr.GetValue(0)

@@ -30,56 +30,23 @@ type RuntimeCompiledKernel(program, kernel, defines) =
             this.Kernel.Dispose()
             this.Program.Dispose()
 
-type RuntimeKernel(info, code, defines) =
-    interface IKernelCacheEntry with
-        member this.KernelInfo 
-            with get() =
-                this.KernelInfo
-        member this.ModuleCode 
-            with get() =
-                this.ModuleCode
-        member this.ConstantDefines
-            with get() =
-                this.ConstantDefines
+type RuntimeKernelCacheEntry(km) =
+    inherit KernelCacheEntry(km)
+    
     // List of devices and kernel instances potentially executing the kernel
     member val Instances:Dictionary<int * int * string, RuntimeCompiledKernel> = new Dictionary<int * int * string, RuntimeCompiledKernel>() with get 
-    member val KernelInfo = info with get
-    member val ModuleCode = code with get    
-    member val ConstantDefines: IReadOnlyDictionary<string, Var option * Expr option * obj> = defines with get
-
+    
     interface IDisposable with
         member this.Dispose() =
             for item in this.Instances do
                 (item.Value :> IDisposable).Dispose()
     
-type RuntimeCache(openCLMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool,
-                  multithreadMetadataVerifier: ReadOnlyMetaCollection * ReadOnlyMetaCollection -> bool) =
-    interface IKernelCache with    
-        member this.TryFindCompatibleOpenCLCachedKernel(id: FunctionInfoID, 
-                                                        meta: ReadOnlyMetaCollection) =
-            if this.OpenCLKernels.ContainsKey(id) then
-                let potentialKernels = this.OpenCLKernels.[id]
-                // Check if compatible kernel meta in cached kernels
-                let item = Seq.tryFind(fun (cachedMeta: ReadOnlyMetaCollection, cachedKernel: RuntimeKernel) ->
-                                            openCLMetadataVerifier(cachedMeta, meta)) potentialKernels
-                match item with
-                | Some(m, k) ->
-                    Some(k :> IKernelCacheEntry)
-                | _ ->
-                    None
-            else
-                None   
-
-    member val OpenCLKernels = Dictionary<FunctionInfoID, List<ReadOnlyMetaCollection * RuntimeKernel>>() 
-        with get
+type DeviceCache() =
     member val Devices = new Dictionary<int * int, RuntimeDevice>() 
         with get
 
     interface IDisposable with
         member this.Dispose() =
-            for item in this.OpenCLKernels do
-                for m, k in item.Value do
-                    (k :> IDisposable).Dispose()
             for item in this.Devices do
                 (item.Value :> IDisposable).Dispose()
                 

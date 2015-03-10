@@ -90,7 +90,7 @@ type DefaultKernelExecutionProcessor() =
                     let barrier = new Barrier(totalGlobalSize |> int)
                                     
                     // Spawn threads
-                    let methodToExecute = multithreadKernel.KernelData.ParsedSignature
+                    let methodToExecute = multithreadKernel.KernelData.Kernel.ParsedSignature
                     let ids = seq { 
                                     for i = globalOffset.[2] to globalSize.[2] - 1L do
                                         for j = globalOffset.[1] to globalSize.[1] - 1L do
