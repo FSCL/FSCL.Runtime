@@ -42,6 +42,7 @@ type RuntimeKernelCacheEntry(km) =
                 (item.Value :> IDisposable).Dispose()
     
 type DeviceCache() =
+    let i = 0
     member val Devices = new Dictionary<int * int, RuntimeDevice>() 
         with get
 

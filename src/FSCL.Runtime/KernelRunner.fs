@@ -45,10 +45,12 @@ module Runtime =
              
         val private globalPool: BufferPoolManager
         val private creationManager: KernelCreationManager
-        val private compiler: Compiler
-        val private deviceCache: DeviceCache 
+        val mutable private compiler: Compiler
 
-        new(comp:Compiler, metr) = 
+        member this.createCacheEntry m =
+            new RuntimeKernelCacheEntry(m) :> KernelCacheEntry
+
+        new(comp:Compiler, metr) as this = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
                 globalPool = new BufferPoolManager()
@@ -57,11 +59,10 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
-                deviceCache = new DeviceCache() 
+                            this.createCacheEntry)
             }
     
-        new(comp:Compiler, metr, file: string) = 
+        new(comp:Compiler, metr, file: string) as this = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
                 globalPool = new BufferPoolManager()
@@ -70,12 +71,11 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
-                deviceCache = new DeviceCache() 
+                            this.createCacheEntry)
             }
             
 
-        new(comp:Compiler, metr, conf: PipelineConfiguration) =
+        new(comp:Compiler, metr, conf: PipelineConfiguration) as this =
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
                 globalPool = new BufferPoolManager()
@@ -84,11 +84,17 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            (fun m -> new RuntimeKernelCacheEntry(m) :> KernelCacheEntry))
-                deviceCache = new DeviceCache() 
+                            this.createCacheEntry)
             }
                                           
         member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =  
+        
+            this.compiler <- new Compiler(
+                            new PipelineConfiguration(
+                                this.compiler.Configuration.LoadDefaultSteps, 
+                                Array.append (this.compiler.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
+                            this.createCacheEntry)
+
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpenCL device has been found on your platform"))
 
@@ -261,6 +267,7 @@ module Runtime =
     // Extension methods to run a quoted kernel
     type Expr<'T> with
         member this.Run() =
+            let r = new Runner(new Compiler(), None)
             kernelRunner.RunExpression(this, 
                                         RunningMode.OpenCL, true, 
                                         Dictionary<string, obj>()) :?> 'T            
