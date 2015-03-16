@@ -24,7 +24,7 @@ open System.Collections.ObjectModel
 open Microsoft.FSharp.Core.LanguagePrimitives
 
 module Runtime =
-    let VarArgsToDictionary(args:(string * obj)[]) =    
+    let private VarArgsToDictionary(args:(string * obj)[]) =    
         let opts = new Dictionary<string, obj>()
         for key, value in args do
             if not (opts.ContainsKey(key)) then
@@ -32,6 +32,9 @@ module Runtime =
             else
                 opts.[key] <- value
         opts
+        
+    let createCacheEntry m =
+        new RuntimeKernelCacheEntry(m) :> KernelCacheEntry
 
     // The Kernel runner
     type internal Runner =            
@@ -47,10 +50,8 @@ module Runtime =
         val private creationManager: KernelCreationManager
         val mutable private compiler: Compiler
 
-        member this.createCacheEntry m =
-            new RuntimeKernelCacheEntry(m) :> KernelCacheEntry
 
-        new(comp:Compiler, metr) as this = 
+        new(comp:Compiler, metr) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply) 
                 globalPool = new BufferPoolManager()
@@ -59,10 +60,10 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            this.createCacheEntry)
+                            createCacheEntry)
             }
     
-        new(comp:Compiler, metr, file: string) as this = 
+        new(comp:Compiler, metr, file: string) = 
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, file) 
                 globalPool = new BufferPoolManager()
@@ -71,11 +72,11 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            this.createCacheEntry)
+                            createCacheEntry)
             }
             
 
-        new(comp:Compiler, metr, conf: PipelineConfiguration) as this =
+        new(comp:Compiler, metr, conf: PipelineConfiguration) =
             { 
                 inherit Pipeline(Runner.defConfRoot, Runner.defConfCompRoot, Runner.defComponentsAssemply, conf) 
                 globalPool = new BufferPoolManager()
@@ -84,7 +85,7 @@ module Runtime =
                             new PipelineConfiguration(
                                 comp.Configuration.LoadDefaultSteps, 
                                 Array.append (comp.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            this.createCacheEntry)
+                            createCacheEntry)
             }
                                           
         member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =  
@@ -93,7 +94,7 @@ module Runtime =
                             new PipelineConfiguration(
                                 this.compiler.Configuration.LoadDefaultSteps, 
                                 Array.append (this.compiler.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            this.createCacheEntry)
+                            createCacheEntry)
 
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpenCL device has been found on your platform"))

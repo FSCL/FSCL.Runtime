@@ -9,9 +9,11 @@
 
     // Vector addition
     [<Device(0,0)>][<ReflectedDefinition; Kernel>]
-    let VectorAdd(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
+    let VectorAdd(a: float32[], b: float32[], wi: WorkItemInfo) =
+        let c = Array.zeroCreate<float32> a.Length
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
+        c
 
     // Matrix multiplication
     [<Device(0,0)>][<ReflectedDefinition; Kernel>]
@@ -39,7 +41,7 @@
         let lsize = size |> int64
         let a = Array.create size 2.0f
         let b = Array.create size 3.0f
-        let c = Array.zeroCreate<float32> (size)
+        //let c = Array.zeroCreate<float32> (size)
         let correctMapResult = Array.create size 5.0f
         let correctReduceResult = Array.reduce (fun a b -> a + b) a
                 
@@ -60,8 +62,9 @@
         Console.WriteLine("# Testing " + test + " with OpenCL")
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
-        <@ VectorAdd(a, b, c, worksize) @>.Run() |> ignore
+        let c = <@ VectorAdd(a, b, worksize) @>.Run()
+        let d = c.[0]
         timer.Start()        
         for i = 0 to 1000 do
-            <@ VectorAdd(a, b, c, worksize) @>.Run() |> ignore
+            <@ VectorAdd(a, b, worksize) @>.Run() |> ignore
         timer.Stop()

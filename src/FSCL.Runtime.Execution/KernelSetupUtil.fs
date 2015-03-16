@@ -162,7 +162,7 @@ module KernelSetupUtil =
             match par.ParameterType with
             // A buffer returned declared locally
             | FunctionParameterType.DynamicArrayParameter(sizes) ->                 
-                let elementCount = EvaluateBufferAllocationSize(sizes, null, 
+                let elementCount = EvaluateBufferAllocationSize(sizes, arguments, 
                                                                 if workSize.IsNone then
                                                                     None
                                                                 else
