@@ -33,6 +33,9 @@ type MapRevKernelExecutionProcessor() =
             | :? IKFGKernelNode as node ->                
                 let isAccelerateMapOrRev = (node.Module.Kernel :? AcceleratedKernelInfo) && 
                                            ((node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.map") ||
+                                            (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.mapi") ||
+                                            (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.map2") ||
+                                            (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.mapi2") ||
                                             (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.rev"))
                 if isAccelerateMapOrRev then                
                     let km = node.Module

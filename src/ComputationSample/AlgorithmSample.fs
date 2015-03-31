@@ -14,7 +14,7 @@
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
         c
-
+        
     // Matrix multiplication
     [<Device(0,0)>][<ReflectedDefinition; Kernel>]
     let MatrixMult(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
@@ -63,8 +63,14 @@
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
         let c = <@ VectorAdd(a, b, worksize) @>.Run()
-        let d = c.[0]
-        timer.Start()        
-        for i = 0 to 1000 do
-            <@ VectorAdd(a, b, worksize) @>.Run() |> ignore
-        timer.Stop()
+        
+         // ***************************************************************************************************
+        // Simple vector add ****************************************************************************
+        Console.WriteLine("")
+        let test = "[ Array.map2 ]"
+        Console.WriteLine("# Testing " + test + " with OpenCL")
+        // Execute vector add in OpenCL mode
+        let worksize = new WorkSize(lsize, 64L)
+        let c = <@ Array.map2 (fun a b -> a + b) a b @>.Run()
+
+        ()
