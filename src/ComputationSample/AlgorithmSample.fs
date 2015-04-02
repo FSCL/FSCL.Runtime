@@ -6,6 +6,14 @@
     open System
     open System.Diagnostics
     open OpenCL
+    
+    // Vector addition
+    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
+    let VectorAddCurried (wi:WorkItemInfo) (a: float32[]) (b: float32[]) =
+        let c = Array.zeroCreate<float32> a.Length
+        let gid = wi.GlobalID(0)
+        c.[gid] <- a.[gid] + b.[gid]
+        c
 
     // Vector addition
     [<Device(0,0)>][<ReflectedDefinition; Kernel>]
@@ -71,6 +79,10 @@
         Console.WriteLine("# Testing " + test + " with OpenCL")
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
-        let c = <@ Array.map2 (fun a b -> a + b) a b @>.Run()
+        let c = <@ (a,b) ||> 
+                   Array.map2 (fun a b -> a + b) |> 
+                   VectorAddCurried worksize a |> 
+                   Array.map(fun a -> a * 2.0f) 
+                @>.Run()
 
         ()

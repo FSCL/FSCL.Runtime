@@ -238,7 +238,10 @@ module KernelSetupUtil =
                         for i = 0 to sizeParameters.Count - 1 do
                             arguments.Add(sizeParameters.[i].Name, lengths.[i])
                         // Store argument and buffer
-                        arguments.Add(par.Name, arr.Value)
+                        if isBuffer then
+                            arguments.Add(par.Name, buffer)
+                        else
+                            arguments.Add(par.Name, arr.Value)
                         buffers.Add(par.Name, buffer)
                         // Check if this is returned
                         if par.IsReturned then
