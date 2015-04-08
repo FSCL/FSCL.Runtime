@@ -64,7 +64,7 @@
         let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) * 2.0f + 1.0f)
 
         // ***************************************************************************************************
-        // Simple vector add ****************************************************************************
+        // Simple vector add *********************************************************************************
         Console.WriteLine("")
         let test = "[ Vector Add ]"
         Console.WriteLine("# Testing " + test + " with OpenCL")
@@ -73,7 +73,7 @@
         let c = <@ VectorAdd(a, b, worksize) @>.Run()
         
          // ***************************************************************************************************
-        // Simple vector add ****************************************************************************
+        // Simple vector add **********************************************************************************
         Console.WriteLine("")
         let test = "[ Array.map2 ]"
         Console.WriteLine("# Testing " + test + " with OpenCL")
@@ -84,5 +84,4 @@
                    VectorAddCurried worksize a |> 
                    Array.map(fun a -> a * 2.0f) 
                 @>.Run()
-
         ()
