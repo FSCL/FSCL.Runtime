@@ -31,11 +31,11 @@ type MapRevKernelExecutionProcessor() =
         else
             match fnode with
             | :? IKFGKernelNode as node ->        
-                let isMap2D = (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array2D.map")        
-                let isAccelerateMapOrRev = (node.Module.Kernel :? AcceleratedKernelInfo) && 
-                                           ((node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.map") ||
-                                            (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.rev") || 
-                                            isMap2D)
+                let isMap2D = (node.Module.Kernel :? AcceleratedKernelInfo) && (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array2D.map")        
+                let isAccelerateMapOrRev = (node.Module.Kernel :? AcceleratedKernelInfo && 
+                                            ((node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.map") ||
+                                             (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.rev"))) || 
+                                            isMap2D
                                            
                 if isAccelerateMapOrRev then                
                     let km = node.Module
@@ -73,16 +73,16 @@ type MapRevKernelExecutionProcessor() =
                             if isMap2D then
                                 // Map, map2, rev
                                 let gs = buffers.[node.Module.Kernel.Parameters.[0].Name].Count
-                                gs, KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, gs)
+                                gs, null
                             else
                                 // Mapi, mapi2
                                 if node.Module.Kernel.Parameters.[0].DataType = typeof<int> then
                                     let gs = buffers.[node.Module.Kernel.Parameters.[1].Name].TotalCount
-                                    [| gs |], KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| gs |])
+                                    [| gs |], null
                                 else
                                     // Map, map2, rev
                                     let gs = buffers.[node.Module.Kernel.Parameters.[0].Name].TotalCount
-                                    [| gs |], KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| gs |])
+                                    [| gs |], null
                         
                         // Cool, we processed the input and now all the arguments have been set
                         // Run kernel

@@ -67,7 +67,7 @@ type GroupByKernelExecutionProcessor() =
                         // Get work size
                         let globalSize = 
                             buffers.[node.Module.Kernel.Parameters.[0].Name].TotalCount
-                        let localSize = KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| globalSize |])
+                        let localSize = null
 
                         // Cool, we processed the input and now all the arguments have been set
                         // Run kernel

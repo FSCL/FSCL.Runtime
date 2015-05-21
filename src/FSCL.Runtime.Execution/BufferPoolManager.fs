@@ -327,21 +327,32 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         lock locker (fun () -> 
                         if not (untrackedBufferPool.ContainsKey(context)) then
                             untrackedBufferPool.Add(context, new Dictionary<OpenCLBuffer, BufferPoolItem>())
-
-                        let bufferItem = new BufferPoolItem(
-                                            BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
-                                            None,
-                                            queue,
-                                            parameter.AccessAnalysis,
-                                            mergedFlags,
-                                            addressSpace.AddressSpace, 
-                                            transferMode.HostToDeviceMode,
-                                            transferMode.DeviceToHostMode,
-                                            readMode,
-                                            writeMode,
-                                            parameter.IsReturned)
-                        untrackedBufferPool.[context].Add(bufferItem.Buffer, bufferItem)
-                        bufferItem.Buffer)
+                        // Check if any untracked buffers to use
+                        let p = untrackedBufferPool.[context]
+                        let mutable compBuffer = null
+                        let mutable index = 0
+                        let totalSize = (count |> Array.reduce(*)) * (Marshal.SizeOf(parameter.DataType.GetElementType()) |> int64)
+                        let compBuffer = untrackedBufferPool.[context] |>  
+                                         Seq.tryFind(fun keyVal ->
+                                                        keyVal.Value.IsAvailable && keyVal.Value.Buffer.Size >= totalSize)
+                        if compBuffer.IsSome then
+                            compBuffer.Value.Value.IsAvailable <- false
+                            compBuffer.Value.Key
+                        else                            
+                            let bufferItem = new BufferPoolItem(
+                                                BufferTools.CreateBuffer(parameter.DataType.GetElementType(), count, context, queue, BufferStrategies.ToOpenCLMemoryFlags(mergedFlags)), 
+                                                None,
+                                                queue,
+                                                parameter.AccessAnalysis,
+                                                mergedFlags,
+                                                addressSpace.AddressSpace, 
+                                                transferMode.HostToDeviceMode,
+                                                transferMode.DeviceToHostMode,
+                                                readMode,
+                                                writeMode,
+                                                parameter.IsReturned)
+                            untrackedBufferPool.[context].Add(bufferItem.Buffer, bufferItem)
+                            bufferItem.Buffer)
                         
     // This is to create buffers that are returned from a root kernel (so tracked) and bound to calls to subkernels
     member this.CreateTrackedBufferFromReturn(retBuffer:OpenCLBuffer,
@@ -446,7 +457,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                     memoryFlags.Flags, 
                                     isRoot, 
                                     parameter.IsReturned,
-                                    true,
+                                    false,
                                     queue.Device)
         lock locker (fun() ->
             // Tracked return
@@ -560,21 +571,22 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 if untrackedBufferPool.[buffer.Context].ContainsKey(buffer) then
                     let item = untrackedBufferPool.[buffer.Context].[buffer]
                     // Check if this is a return buffer. In this case do not dispose if not available
-                    if item.IsReturned then
-                        if not(item.IsAvailable) then
-                            item.IsAvailable <- true
-                        else
-                            // This buffer has already been copied, dispose it
-                            buffer.Dispose()
-                            if item.HostDataHandle.IsSome then
-                                (item.HostDataHandle.Value :> IDisposable).Dispose()
-                            untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
-                    else 
-                        // A buffer not tracked cannot be used elsewhere by other kernels or applications
-                        buffer.Dispose()
-                        if item.HostDataHandle.IsSome then
-                            (item.HostDataHandle.Value :> IDisposable).Dispose()
-                        untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore)
+                    // Note that a buffer returned to the user is a tracking buffer
+                    //if item.IsReturned then
+                    item.IsAvailable <- true
+                    ())
+//                        else
+//                            // This buffer has already been copied, dispose it
+//                            buffer.Dispose()
+//                            if item.HostDataHandle.IsSome then
+//                                (item.HostDataHandle.Value :> IDisposable).Dispose()
+//                            untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore
+//                    else 
+//                        // A buffer not tracked cannot be used elsewhere by other kernels or applications
+//                        buffer.Dispose()
+//                        if item.HostDataHandle.IsSome then
+//                            (item.HostDataHandle.Value :> IDisposable).Dispose()
+//                        untrackedBufferPool.[buffer.Context].Remove(buffer) |> ignore)
 
     member this.ClearTrackedAndUntrackedPool() =
         lock locker (fun () ->

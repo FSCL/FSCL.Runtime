@@ -27,12 +27,12 @@ type MultithreadWorkItemInfo(globalID: int64[], globalSize: int64[], globalOffse
         barrier.SignalAndWait()
 
 module KernelSetupUtil =
-    let ComputeLocalSizeWithGlobalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[]) =
-        let localSize = Array.create globalSize.Length (k.GetWorkGroupSize(d))
-        for i = 0 to globalSize.Length - 1 do
-            while globalSize.[i] % localSize.[i] <> 0L do
-                localSize.[i] <- localSize.[i] - 1L
-        localSize
+//    let ComputeLocalSizeWithGlobalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[]) =
+//        let localSize = Array.create globalSize.Length (k.GetWorkGroupSize(d))
+//        for i = 0 to globalSize.Length - 1 do
+//            while globalSize.[i] % localSize.[i] <> 0L do
+//                localSize.[i] <- localSize.[i] - 1L
+//        localSize
         
     let inline ComputeGlobalSizeWithLocalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[], localSize: int64[]) =
         let finalGlobalSize = Array.init localSize.Length (fun i -> ((((globalSize.[i] - 1L) / localSize.[i])) + 1L) * localSize.[i])

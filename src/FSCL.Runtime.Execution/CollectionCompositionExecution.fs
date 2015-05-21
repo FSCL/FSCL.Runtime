@@ -130,8 +130,8 @@ type CollectionCompositionExecutionProcessor() =
 
                 let initialState =                           
                     match input.[0] with
-                    | ReturnedBuffer(_) ->
-                        failwith "Single returned value cannot be of type array"
+                    | ReturnedBuffer(b) ->
+                        pool.BeginOperateOnBuffer(b, true) :> obj
                     | ReturnedValue(v) ->
                         v    
                         
@@ -150,14 +150,20 @@ type CollectionCompositionExecutionProcessor() =
                     let result = step.Process(node.SubGraph, collectionVars, isRoot, opts)
                     match result with
                     | ReturnedBuffer(b) ->
-                        failwith "Single returned value cannot be of type array"
+                        currentState <- pool.BeginOperateOnBuffer(b, true)
+                        pool.EndOperateOnBuffer(b, currentState :?> Array, false)
                     | ReturnedValue(v) -> 
                         currentState <- v
 
                 // Now return 
                 let result = ReturnedValue(currentState)
 
-                // End operate on buffer 
+                // End operate on buffer                         
+                match input.[0] with
+                | ReturnedBuffer(b) ->
+                    pool.EndOperateOnBuffer(b, initialState :?> Array, false)
+                | ReturnedValue(v) ->
+                    ()
                 match input.[1] with
                 | ReturnedBuffer(buffer) ->
                     pool.EndOperateOnBuffer(buffer, managedInput, false)

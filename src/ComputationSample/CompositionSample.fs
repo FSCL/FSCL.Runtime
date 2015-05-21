@@ -90,6 +90,83 @@
                  
         let ws = new WorkSize([| inputSize |> int64; inputSize |> int64 |], [| 16L; 16L |])         
                              
+        // Dump completion times on the various devices
+        let minSize, maxSize = 64, 2048
+        let mutable data = [ [ "Matmul"; "" ] ]
+        for pidx, name, ds in FSCL.Runtime.GetOpenCLPlatforms() do
+            for didx, name, _ in ds do
+                Console.WriteLine("Running matmul on " + name)
+                for s in [ minSize .. minSize .. maxSize ] do
+                    let res = <@ DEVICE(pidx, didx, MatMul ws matA matA) @>.Run()
+                    Console.WriteLine("Tested result: " + res.[0,0].ToString())
+                    let timer = new System.Diagnostics.Stopwatch()
+                    timer.Start()
+                    for i = 0 to 29 do
+                        <@ DEVICE(pidx, didx, MatMul ws matA matA) @>.Run() |> ignore
+                    timer.Stop()
+                    data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/30.0).ToString() ]]
+        let text = data |> 
+                    List.map(String.concat ";") |> 
+                    String.concat ";"
+        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+                    
+        let mutable data = [ [ "Transpose"; "" ] ]
+        for pidx, name, ds in FSCL.Runtime.GetOpenCLPlatforms() do
+            for didx, name, _ in ds do
+                Console.WriteLine("Running transpose on " + name)
+                for s in [ minSize .. minSize .. maxSize ] do
+                    let res = <@ DEVICE(pidx, didx, MatTransp ws matA) @>.Run()
+                    Console.WriteLine("Tested result: " + res.[0,0].ToString())
+                    let timer = new System.Diagnostics.Stopwatch()
+                    timer.Start()
+                    for i = 0 to 29 do
+                        <@ DEVICE(pidx, didx, MatTransp ws matA) @>.Run() |> ignore
+                    timer.Stop()
+                    data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/30.0).ToString() ]]
+        let text = data |> 
+                    List.map(String.concat ";") |> 
+                    String.concat ";"
+        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+
+        let mutable data = [ [ "Map2"; "" ] ]
+        for pidx, name, ds in FSCL.Runtime.GetOpenCLPlatforms() do
+            for didx, name, _ in ds do
+                Console.WriteLine("Running map2 on " + name)
+                for s in [ minSize .. minSize .. maxSize ] do
+                    let res = <@ DEVICE(pidx, didx, Map2 ws matA matA) @>.Run()
+                    Console.WriteLine("Tested result: " + res.[0,0].ToString())
+                    let timer = new System.Diagnostics.Stopwatch()
+                    timer.Start()
+                    for i = 0 to 29 do
+                        <@ DEVICE(pidx, didx, Map2 ws matA matA) @>.Run() |> ignore
+                    timer.Stop()
+                    data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/30.0).ToString() ]]
+        let text = data |> 
+                    List.map(String.concat ";") |> 
+                    String.concat ";"
+        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+                    
+        let mutable data = [ [ "Map"; "" ] ]
+        for pidx, name, ds in FSCL.Runtime.GetOpenCLPlatforms() do
+            for didx, name, _ in ds do
+                Console.WriteLine("Running map2 on " + name)
+                for s in [ minSize .. minSize .. maxSize ] do
+                    let res = <@ DEVICE(pidx, didx, Array2D.map(fun el -> el * 2.0f) matA) @>.Run()
+                    Console.WriteLine("Tested result: " + res.[0,0].ToString())
+                    let timer = new System.Diagnostics.Stopwatch()
+                    timer.Start()
+                    for i = 0 to 29 do
+                        <@ DEVICE(pidx, didx, Array2D.map(fun el -> el * 2.0f) matA) @>.Run() |> ignore
+                    timer.Stop()
+                    data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/30.0).ToString() ]]
+        let text = data |> 
+                    List.map(String.concat ";") |> 
+                    String.concat ";"
+        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+
+
+                       
+            
         // ***************************************************************************************************
         // NHS approximation of inverse ****************************************************************************
         Console.WriteLine("")
@@ -97,20 +174,16 @@
         Console.WriteLine("# Testing " + test + "")
         timer.Start()
         let threshold = 0.8f
-//        let c = <@ [| 0 .. 9 |] |>
-//                   Array.fold(fun X it ->
-//                                 Map2 ws 
-//                                      (X |> 
-//                                       Array2D.map(fun el -> el * 2.0f))  
-//                                       (MatMul ws 
-//                                               (MatMul ws X matA) 
-//                                               X)) 
-//                              (matA |> 
-//                               MatTransp ws |> 
-//                               Array2D.map(fun it -> it * normalization)) 
-//                @>.Run()
-        let c = <@ 
+        let c = <@ [| 0 |] |>
+                   Array.fold(fun X it ->
+                                 Map2 ws 
+                                      (X |> 
+                                       Array2D.map(fun el -> el * 2.0f))  
+                                       (MatMul ws 
+                                               (MatMul ws X matA) 
+                                               X)) 
                               (matA |> 
+                               MatTransp ws |> 
                                Array2D.map(fun it -> it * normalization)) 
                 @>.Run()
         ()
