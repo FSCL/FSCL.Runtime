@@ -3,12 +3,13 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL
 
     // Vector addition returning local allocated array
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition; Kernel>]
     let VectorAddReturn(a: float32[], b: float32[], wi: WorkItemInfo) =
         let c = Array.zeroCreate<float32> (a.GetLength(0))
         let gid = wi.GlobalID(0)
@@ -16,7 +17,7 @@
         c
         
     // Vector addition returning parameter
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition; Kernel>]
     let VectorAddReturnPar(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]

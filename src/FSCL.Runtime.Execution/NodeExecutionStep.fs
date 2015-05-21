@@ -13,7 +13,6 @@ type NodeExecutionStep(tm: TypeManager,
                        processors: ICompilerStepProcessor list) = 
     inherit CompilerStep<IKernelExpression * BufferPoolManager * KernelCreationManager, ExecutionOutput>(tm, processors)
 
-    let mutable opts = null
     let mutable bufferPoolManager = null
     let mutable kernelCreationManager = null
 
@@ -29,7 +28,7 @@ type NodeExecutionStep(tm: TypeManager,
         and private set(v) =
             kernelCreationManager <- v
                     
-    member this.Process(input:IKFGNode, collectionVars:Dictionary<Var, obj>, isRoot: bool) =
+    member this.Process(input:IKFGNode, collectionVars:Dictionary<Var, obj>, isRoot: bool, opts) =
         let mutable index = 0
         let mutable output = None
         while (output.IsNone) && (index < processors.Length) do
@@ -39,9 +38,8 @@ type NodeExecutionStep(tm: TypeManager,
             raise (KernelExecutionException("The runtime is not able to determine the way to execute the node " + input.ToString()))
         output.Value
         
-    override this.Run((input, pool, creation), opt) =
-        opts <- opt
+    override this.Run((input, pool, creation), opts) =
         this.BufferPoolManager <- pool
         this.KernelCreationManager <- creation
-        let execResult = this.Process((input.KFGRoot, new Dictionary<Var, obj>(), true))
+        let execResult = this.Process((input.KFGRoot, new Dictionary<Var, obj>(), true, opts))
         ContinueCompilation(execResult)

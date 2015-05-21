@@ -22,7 +22,7 @@ type TrainingSampleRunningMode =
 type OpenCLDeviceSet = ReadOnlyCollection<int * string * ReadOnlyCollection<int * string * DeviceType>>
     
 type IFeatureExtractionTrainingSample =
-    abstract member Run: IFeatureExtractorSet * OpenCLDeviceSet * IReadOnlyDictionary<string, obj> -> obj
+    abstract member Run: IFeatureExtractorSet * OpenCLDeviceSet * Map<string, obj> -> obj
 
 [<AbstractClass>]
 type FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT>() =
@@ -30,7 +30,7 @@ type FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT>() =
         member this.Run(features, devices, rm) =
             this.Run(features :?> FeatureExtractorSet<'FIN, 'FOUT>, devices, rm) :> obj
     
-    abstract member Run: FeatureExtractorSet<'FIN, 'FOUT> * OpenCLDeviceSet * IReadOnlyDictionary<string, obj> -> 'RUNOUT
+    abstract member Run: FeatureExtractorSet<'FIN, 'FOUT> * OpenCLDeviceSet * Map<string, obj> -> 'RUNOUT
     
     member this.ConfigureFromXml(el:XElement) =
         let properties = this.GetType().GetProperties() |> Array.filter(fun p -> p.GetCustomAttribute<ConfigurationItemAttribute>() <> null)
@@ -49,7 +49,7 @@ type FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT>() =
 [<AllowNullLiteral>]    
 type IFeatureExtractionTrainingSampleSet =
     abstract member TrainingSamples: IFeatureExtractionTrainingSample list with get
-    abstract member Run: IFeatureExtractorSet * OpenCLDeviceSet * IReadOnlyDictionary<string, obj> -> obj
+    abstract member Run: IFeatureExtractorSet * OpenCLDeviceSet * Map<string, obj> -> obj
    
 [<AllowNullLiteral>] 
 type FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>(samples: FeatureExtractionTrainingSample<'FIN,'FOUT,'RUNOUT> list) =
@@ -63,5 +63,5 @@ type FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>(samples: FeatureExtr
     new () =
         FeatureExtractionTrainingSampleSet<'FIN,'FOUT,'RUNOUT>([])
         
-    member this.Run(features, devices, mode:IReadOnlyDictionary<string, obj>) =
+    member this.Run(features, devices, mode:Map<string, obj>) =
         samples |> List.map(fun s -> s.Run(features, devices, mode))

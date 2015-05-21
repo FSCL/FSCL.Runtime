@@ -24,15 +24,6 @@ open System.Collections.ObjectModel
 open Microsoft.FSharp.Core.LanguagePrimitives
 
 module Runtime =
-    let private VarArgsToDictionary(args:(string * obj)[]) =    
-        let opts = new Dictionary<string, obj>()
-        for key, value in args do
-            if not (opts.ContainsKey(key)) then
-                opts.Add(key, value)
-            else
-                opts.[key] <- value
-        opts
-        
     let createCacheEntry m =
         new RuntimeKernelCacheEntry(m) :> KernelCacheEntry
 
@@ -88,14 +79,7 @@ module Runtime =
                             createCacheEntry)
             }
                                           
-        member this.RunExpressionOpenCL(input:Expr, opts: IReadOnlyDictionary<string, obj>) =  
-        
-            this.compiler <- new Compiler(
-                            new PipelineConfiguration(
-                                this.compiler.Configuration.LoadDefaultSteps, 
-                                Array.append (this.compiler.Configuration.Sources) [| new SourceConfiguration(AssemblySource(typeof<RuntimeToCompilerMetadataMapping>.Assembly)) |]), 
-                            createCacheEntry)
-
+        member this.RunExpressionOpenCL(input:Expr, opts: Map<string, obj>) =  
             if OpenCLPlatform.Platforms.Count = 0 then
                 raise (new KernelCompilationException("No OpenCL device has been found on your platform"))
 
@@ -103,7 +87,8 @@ module Runtime =
             let compiled = this.compiler.Compile(input) :?> IKernelExpression
 
             // Now run
-            let result = this.Run((compiled, this.globalPool, this.creationManager), opts) :?> ExecutionOutput
+            let result = 
+                this.Run((compiled, this.globalPool, this.creationManager), opts) :?> ExecutionOutput
             
             // Check the persistency of buffer pool
             let persistency = 
@@ -121,17 +106,12 @@ module Runtime =
                 else
                     this.globalPool.ClearUntrackedPoolOnly()
                 v
-            | _ ->
-                let v = this.globalPool.ReadRootBuffer()
-                // Dispose all buffers is PersistencyInsideExpressions
-                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                    this.globalPool.ClearTrackedAndUntrackedPool()
-                else
-                    this.globalPool.ClearUntrackedPoolOnly()
-                v :> obj
+            | ReturnedBuffer(b) ->
+                this.globalPool.ReadBuffer(b) :> obj
                             
-        member this.RunExpressionMultithread(input:Expr, opts: IReadOnlyDictionary<string, obj>) =    
-            let result = this.Run((input, this.creationManager, this.globalPool), opts) :?> ExecutionOutput
+        member this.RunExpressionMultithread(input:Expr, opts: Map<string, obj>) = 
+            let compiled = this.compiler.Compile(input, Map.empty.Add(CompilerOptions.ParseOnly, box true)) :?> IKernelExpression   
+            let result = this.Run((compiled, this.globalPool, this.creationManager), opts) :?> ExecutionOutput
                                                                    
             // If has return buffer read it
             match result with
@@ -144,18 +124,15 @@ module Runtime =
         member this.RunExpression(expr: Expr, 
                                   mode: RunningMode, 
                                   fallback: bool,
-                                  opt: Dictionary<string, obj>) =
+                                  opt: Map<string, obj>) =
             
             // Copy options
-            let opts = new Dictionary<string, obj>()
-            for item in opt do
-                opts.Add(item.Key, item.Value)
-
+            let mutable opts = opt            
             // Add options for work size and running mode
             if not(opts.ContainsKey(RuntimeOptions.RunningMode)) then
-                opts.Add(RuntimeOptions.RunningMode, mode)
+                opts <- opts.Add(RuntimeOptions.RunningMode, mode)
             if not(opts.ContainsKey(RuntimeOptions.MultithreadFallback)) then
-                opts.Add(RuntimeOptions.MultithreadFallback, fallback)                      
+                opts <- opts.Add(RuntimeOptions.MultithreadFallback, fallback)                      
                       
             // If global or local size empty theyshould be embedded in kernel expression 
             let result = match mode with
@@ -166,20 +143,7 @@ module Runtime =
                          | _ ->              
                              this.RunExpressionMultithread(expr, opts)
             result       
-                   
-        member this.IterateExpression(expr: Expr, 
-                                      itSetup: int -> obj list option,
-                                      opt: Dictionary<string, obj>) =
-            // Copy options
-            let opts = new Dictionary<string, obj>()
-            for item in opt do
-                opts.Add(item.Key, item.Value)
-
-            opts.Add("IterativeSetup", itSetup)                    
                       
-            // If global or local size empty theyshould be embedded in kernel expression 
-            let result = this.RunExpressionOpenCL(expr, opts)
-            result       
 //
 //        member this.GetLocalMemorySizeForSingleKernelExpression(e: Expr) =
 //            let opts = new Dictionary<string, obj>()
@@ -267,89 +231,24 @@ module Runtime =
                                
     // Extension methods to run a quoted kernel
     type Expr<'T> with
-        member this.Run() =
-            let r = new Runner(new Compiler(), None)
+        member this.Run(?opts:Map<string, obj>) =
             kernelRunner.RunExpression(this, 
                                         RunningMode.OpenCL, true, 
-                                        Dictionary<string, obj>()) :?> 'T            
-        member this.Run(opts) =
+                                        if opts.IsSome then opts.Value else Map.empty) :?> 'T                       
+        member this.Run(mode:RunningMode,?opts:Map<string, obj>) =
             kernelRunner.RunExpression(this, 
-                                        RunningMode.OpenCL, true, 
-                                        opts) :?> 'T                                        
-        member this.Run([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.OpenCL, true, 
-                                        VarArgsToDictionary(args)) :?> 'T
-        member this.RunMultithread() =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        Dictionary<string, obj>()) :?> 'T            
-        member this.RunMultithread(opts) =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        opts) :?> 'T                                        
-        member this.RunMultithread([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        VarArgsToDictionary(args)) :?> 'T                                        
-        member this.RunSequential() =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        Dictionary<string, obj>()) :?> 'T            
-        member this.RunSequential(opts) =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        opts) :?> 'T                                        
-        member this.RunSequential([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        VarArgsToDictionary(args)) :?> 'T
-        member this.Iterate(itSetup: int -> obj list option) =
-            kernelRunner.IterateExpression(this, 
-                                           itSetup, 
-                                           Dictionary<string, obj>()) :?> 'T
+                                        mode, true, 
+                                        if opts.IsSome then opts.Value else Map.empty) :?> 'T  
                                               
     type Expr with
-        member this.Run() =
+        member this.Run(?opts:Map<string, obj>) =
             kernelRunner.RunExpression(this, 
                                         RunningMode.OpenCL, true, 
-                                        Dictionary<string, obj>())           
-        member this.Run(opts) =
+                                        if opts.IsSome then opts.Value else Map.empty)                   
+        member this.Run(mode:RunningMode,?opts:Map<string, obj>) =
             kernelRunner.RunExpression(this, 
-                                        RunningMode.OpenCL, true, 
-                                        opts)                                
-        member this.Run([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.OpenCL, true, 
-                                        VarArgsToDictionary(args)) 
-        member this.RunMultithread() =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        Dictionary<string, obj>())             
-        member this.RunMultithread(opts) =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        opts)                             
-        member this.RunMultithread([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Multithread, true, 
-                                        VarArgsToDictionary(args))                                         
-        member this.RunSequential() =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        Dictionary<string, obj>())           
-        member this.RunSequential(opts) =
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        opts) :?> 'T                                        
-        member this.RunSequential([<ParamArray>] args:(string * obj)[]) =            
-            kernelRunner.RunExpression(this, 
-                                        RunningMode.Sequential, true, 
-                                        VarArgsToDictionary(args)) 
-        member this.Iterate(itSetup: int -> obj list option) =
-            kernelRunner.IterateExpression(this, 
-                                           itSetup, 
-                                           Dictionary<string, obj>()) 
+                                        mode, true, 
+                                        if opts.IsSome then opts.Value else Map.empty)                
                                               
 
     // Extension methods to query info about a (single) quoted kernel

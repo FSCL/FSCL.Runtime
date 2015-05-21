@@ -96,7 +96,7 @@ type VectorAddTrainingSample() =
                         
             // Extract features
             if not etOnly then
-                let km = compiler.Compile(comp, opts) :?> IKernelModule
+                let km = compiler.Compile(comp, Map.empty) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
                 featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; b; c; ws ]))
 

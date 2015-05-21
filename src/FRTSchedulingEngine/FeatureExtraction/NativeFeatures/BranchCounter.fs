@@ -22,13 +22,11 @@ type BranchCounter() =
     override this.BuildFinalizers(m: IKernelModule) =
         // Count branches
         let parameters = m.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
         let bcount = ExpressionCounter.Count(m,
                                              m.Kernel,
-                                             (fun (e:Expr, parameters:(ParameterInfo * Var) array, continuation) ->
+                                             (fun (e:Expr, parameters:IFunctionParameter[], continuation) ->
                                                     match e with
                                                     | Patterns.IfThenElse(cond, ifb, elseb) ->
                                                         let ifc = continuation(ifb)

@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>FSCL.Runtime.Core</RootNamespace>
     <AssemblyName>FSCL.Runtime.Core</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <Name>FSCL.Runtime.Core</Name>
     <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
     <TargetFrameworkProfile />
@@ -136,7 +136,8 @@
     </Reference>
     <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
-      <Project>{3BD75582-1A72-4022-9FE7-483573DEA9BA}</Project>
+      <Project>{3bd75582-1a72-4022-9fe7-483573dea9ba}</Project>
+      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

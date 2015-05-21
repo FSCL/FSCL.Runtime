@@ -41,7 +41,6 @@ type ReduceKernelExecutionProcessor() =
         | _ ->
             None
             
-    // Multithread execution
     // Reduce for CPU
     member private this.StageReduceCpu((node, collectionVars, isRoot), step, opts) =
         let km = node.Module
@@ -53,7 +52,7 @@ type ReduceKernelExecutionProcessor() =
                 BufferSharePriority.PriorityToFlags
                  
         // Execute input (reduce has only one input)
-        let input = node.Input |> Seq.map(fun i -> step.Process(i, collectionVars, false)) |> Seq.head  
+        let input = node.Input |> Seq.map(fun i -> step.Process(i, collectionVars, false, opts)) |> Seq.head  
                                  
         // Create kernel
         let runtimeKernel = step.KernelCreationManager.Process(node, opts)
@@ -79,16 +78,17 @@ type ReduceKernelExecutionProcessor() =
             // We do this in a second time to avoid allocating many buffers in a recursive function, risking stack overflow
             let mutable argIndex = 0  
             let arguments = new Dictionary<string, obj>()
+            
+            // Get instance of opencl kernel
+            let openclKernel = rk.CompiledKernelData.StartUsingKernel()
 
             // First parameter: input array, may be coming from actual argument or kernel output
             let par = rk.KernelData.Kernel.Parameters.[argIndex]
             let elementType = par.DataType.GetElementType()  
             let arr, lengths, isBuffer = 
                 match input with
-                | ReturnedUntrackedBuffer(b) ->
+                | ReturnedBuffer(b) ->
                     None, b.Count, true
-                | ReturnedTrackedBuffer(b, v) ->
-                    Some(v), b.Count, true
                 | ReturnedValue(v) ->
                     if v.GetType().IsArray then
                         Some(v :?> Array), ArrayUtil.GetArrayLengths(v), false
@@ -104,7 +104,7 @@ type ReduceKernelExecutionProcessor() =
                     pool.RequireBufferForParameter(par, None, lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority, input) 
                             
             // Set kernel arg
-            rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, inputBuffer)    
+            openclKernel.SetMemoryArgument(argIndex, inputBuffer)    
 
             // Store size parameter
             let sizeParameters = par.SizeParameters
@@ -118,7 +118,7 @@ type ReduceKernelExecutionProcessor() =
             let elementType = par.DataType.GetElementType()
             outputBuffer <- pool.RequireBufferForParameter(par, None, globalSize, deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
             // Set kernel arg
-            compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)  
+            openclKernel.SetMemoryArgument(argIndex, outputBuffer)  
             // Set size parameter
             arguments.Add(par.SizeParameters.[0].Name, globalSize.[0])
 
@@ -127,7 +127,7 @@ type ReduceKernelExecutionProcessor() =
             // Get number of cores and use it for global size, local size = 1
             let cores = deviceData.Device.MaxOpenCLUnits
             let blockSize = Math.Ceiling((double)inputBuffer.TotalCount / (double)cores) |> int64
-            compiledData.Kernel.SetValueArgument(argIndex, blockSize |> int) 
+            openclKernel.SetValueArgument(argIndex, blockSize |> int) 
         
             // Add possible outsiders and size parameters
             for i = argIndex + 1 to kernelData.Kernel.Parameters.Count - 1 do
@@ -159,7 +159,7 @@ type ReduceKernelExecutionProcessor() =
                             pool.RequireBufferForParameter(par, Some(arr), lengths, deviceData.Context, deviceData.Queue, isRoot, sharePriority) 
                             
                         // Set kernel arg
-                        compiledData.Kernel.SetMemoryArgument(i, buffer)                      
+                        openclKernel.SetMemoryArgument(i, buffer)                      
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         for i = 0 to sizeParameters.Count - 1 do
@@ -168,13 +168,13 @@ type ReduceKernelExecutionProcessor() =
                         arguments.Add(par.Name, arr)
                     else
                         // Ref to a scalar
-                        compiledData.Kernel.SetValueArgumentAsObject(i, ob)  
+                        openclKernel.SetValueArgumentAsObject(i, ob)  
                 // A size parameter
                 | FunctionParameterType.SizeParameter ->
                     // We can access succesfully "arguments" cause 
                     // length args come always later than the relative array
                     let v = arguments.[par.Name]             
-                    compiledData.Kernel.SetValueArgument<int>(i, v :?> int64 |> int)
+                    openclKernel.SetValueArgument<int>(i, v :?> int64 |> int)
                 | _ ->
                     // Impossible
                     failwith "Error"
@@ -191,8 +191,8 @@ type ReduceKernelExecutionProcessor() =
             let mutable iteration = 0
             while currentOutputSize > smallestDataSize do
                 if iteration = 1 then
-                    compiledData.Kernel.SetMemoryArgument(0, outputBuffer)
-                deviceData.Queue.Execute(compiledData.Kernel, [| 0L |], [| currentOutputSize |], [| 1L |], null)  
+                    openclKernel.SetMemoryArgument(0, outputBuffer)
+                deviceData.Queue.Execute(openclKernel, [| 0L |], [| currentOutputSize |], [| 1L |], null)  
               
                 if currentOutputSize = 1L then
                     currentOutputSize <- 0L
@@ -205,6 +205,9 @@ type ReduceKernelExecutionProcessor() =
                         currentOutputSize <- 1L
                 iteration <- iteration + 1            
          
+            // Release opencl kernel
+            rk.CompiledKernelData.EndUsingKernel(openclKernel)
+
             let finalReduceOnCPU = currentOutputSize > 0L
 
             // Operate final reduce on cpu
@@ -247,7 +250,7 @@ type ReduceKernelExecutionProcessor() =
 
             if not isRoot then
                 // Return 
-                Some(ReturnedUntrackedBuffer(outputBuffer))
+                Some(ReturnedBuffer(outputBuffer))
             else
                 // Dispose output buffer
                 pool.EndUsingBuffer(outputBuffer)

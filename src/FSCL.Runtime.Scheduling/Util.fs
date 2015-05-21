@@ -5,6 +5,7 @@ open Microsoft.FSharp.Reflection
 open System.Collections.Generic
 open System
 open FSCL.Language
+open FSCL.Compiler
 open System.Reflection
 open Microsoft.FSharp.Linq.RuntimeHelpers
 

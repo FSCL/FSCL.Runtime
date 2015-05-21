@@ -3,6 +3,7 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL
@@ -15,13 +16,13 @@
         c
         
     // Vector addition 
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAdd(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
         
     // Vector addition returning parameter
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddReturnPar(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
@@ -72,7 +73,7 @@
         let worksize = new WorkSize(lsize, 64L)
         let d = Array.zeroCreate<float32> size
         timer.Start()        
-        <@ VectorAdd(a, b, d, worksize) @>.RunMultithread()
+        <@ VectorAdd(a, b, d, worksize) @>.Run(RunningMode.Multithread)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -84,7 +85,7 @@
         else
             Console.WriteLine("  " + test + " execution time (kernel is never compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
             timer.Restart()        
-            <@ VectorAdd(a, b, d, worksize) @>.RunMultithread()
+            <@ VectorAdd(a, b, d, worksize) @>.Run(RunningMode.Multithread)
             timer.Stop()
             Console.WriteLine("  " + test + " execution time (kernel is never compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
         // ***************************************************************************************************
@@ -98,7 +99,7 @@
         let worksize = new WorkSize(lsize, 64L)
         let d = Array.zeroCreate<float32> size
         timer.Start()        
-        <@ VectorAdd(a, b, d, worksize) @>.RunSequential()
+        <@ VectorAdd(a, b, d, worksize) @>.Run(RunningMode.Sequential)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -110,7 +111,7 @@
         else
             Console.WriteLine("  " + test + " execution time (kernel is never compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
             timer.Restart()        
-            <@ VectorAdd(a, b, d, worksize) @>.RunSequential()
+            <@ VectorAdd(a, b, d, worksize) @>.Run(RunningMode.Sequential)
             timer.Stop()
             Console.WriteLine("  " + test + " execution time (kernel is never compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
         // ***************************************************************************************************
@@ -123,7 +124,7 @@
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
         timer.Start()        
-        let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.RunMultithread()
+        let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.Run(RunningMode.Multithread)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -135,7 +136,7 @@
         else
             Console.WriteLine("  " + test + " execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
             timer.Restart()        
-            let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.RunMultithread()
+            let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.Run(RunningMode.Multithread)
             timer.Stop()
             Console.WriteLine("  " + test + " execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
         // ***************************************************************************************************
@@ -148,7 +149,7 @@
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
         timer.Start()        
-        let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.RunSequential()
+        let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.Run(RunningMode.Sequential)
         timer.Stop()
         // Check result
         let mutable isResultCorrect = true
@@ -160,7 +161,7 @@
         else
             Console.WriteLine("  " + test + " execution time (kernel is compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
             timer.Restart()        
-            let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.RunSequential()
+            let d = <@ VectorAddReturnPar(a, b, Array.zeroCreate<float32> size, worksize) @>.Run(RunningMode.Sequential)
             timer.Stop()
             Console.WriteLine("  " + test + " execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
         // ***************************************************************************************************

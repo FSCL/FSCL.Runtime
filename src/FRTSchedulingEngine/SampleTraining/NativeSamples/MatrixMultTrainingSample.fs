@@ -58,8 +58,7 @@ type MatrixMultSimpleTrainingSample() =
         let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
         let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
         
-        let compiler = new Compiler()
-        let opts = new Dictionary<string, obj>()        
+        let compiler = new Compiler()     
         let rnd = System.Random()
 
         let rm = BufferReadMode.EnqueueReadBuffer
@@ -202,7 +201,7 @@ type MatrixMultAdvancedTrainingSample() =
  
             // Synchronize to make sure the matrices 
             // are loaded
-            wi.Barrier(CLK_LOCAL_MEM_FENCE)
+            wi.LocalBarrier()
  
             // Multiply the two matrices together;
             // each thread computes one element
@@ -213,7 +212,7 @@ type MatrixMultAdvancedTrainingSample() =
             // Synchronize to make sure that the preceding
             // computation is done before loading two new
             // sub-matrices of A and B in the next iteration
-            wi.Barrier(CLK_LOCAL_MEM_FENCE)
+            wi.LocalBarrier()
 
             b <- b + bStep
  
@@ -229,8 +228,7 @@ type MatrixMultAdvancedTrainingSample() =
         let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
         let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
          
-        let compiler = new Compiler()
-        let opts = new Dictionary<string, obj>()        
+        let compiler = new Compiler()     
         let rnd = System.Random()
         
         let rm = BufferReadMode.EnqueueReadBuffer

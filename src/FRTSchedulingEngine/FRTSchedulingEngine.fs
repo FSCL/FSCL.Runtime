@@ -303,9 +303,7 @@ type FRTSchedulingEngine(feat: list<FRTFeatureExtractor>,
                         pd
                      else
                         // Must profile     
-                        let opts = new Dictionary<string, obj>()
-                        opts.Add("RunningMode", TrainingSampleRunningMode.FeaturesAndExecutionTime)
-                        opts.Add("RuntimeRun", runtimeRun)
+                        let opts = Map.empty.Add("RunningMode", box TrainingSampleRunningMode.FeaturesAndExecutionTime).Add("RuntimeRun", box runtimeRun)
 
                         let featureValues, times = 
                             let data = configuration.TrainingSampleSet.Run(configuration.FeatureExtractorSet, devices, opts) 

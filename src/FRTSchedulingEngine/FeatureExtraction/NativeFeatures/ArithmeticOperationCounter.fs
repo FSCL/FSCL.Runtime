@@ -27,8 +27,7 @@ type ArithmeticOperationCounter() =
               
     override this.BuildFinalizers(m) =
         let parameters = m.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
+                         Seq.map(fun (p: IFunctionParameter) -> p.OriginalPlaceholder) |>
                          Array.ofSeq   
         // Count ops
         let acount = ExpressionCounter.Count(m,

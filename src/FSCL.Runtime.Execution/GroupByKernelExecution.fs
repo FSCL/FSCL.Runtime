@@ -17,9 +17,9 @@ open FSCL.Compiler.AcceleratedCollections
 [<assembly:DefaultComponentAssembly>]
 do()
         
-[<StepProcessor("FSCL_RUNTIME_EXECUTION_MAPREV_PROCESSOR", 
+[<StepProcessor("FSCL_RUNTIME_EXECUTION_GROUPBY_PROCESSOR", 
                 "FSCL_RUNTIME_EXECUTION_STEP")>]
-type MapRevKernelExecutionProcessor() =      
+type GroupByKernelExecutionProcessor() =      
     inherit CompilerStepProcessor<IKFGNode * Dictionary<Var, obj> * bool, ExecutionOutput option>()
     
     override this.Run((fnode, env, isRoot), s, opts) =
@@ -30,14 +30,10 @@ type MapRevKernelExecutionProcessor() =
            None
         else
             match fnode with
-            | :? IKFGKernelNode as node ->        
-                let isMap2D = (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array2D.map")        
-                let isAccelerateMapOrRev = (node.Module.Kernel :? AcceleratedKernelInfo) && 
-                                           ((node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.map") ||
-                                            (node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName.StartsWith("Array.rev") || 
-                                            isMap2D)
-                                           
-                if isAccelerateMapOrRev then                
+            | :? IKFGKernelNode as node ->                
+                let isAccelerateGroupBy = (node.Module.Kernel :? AcceleratedKernelInfo) && 
+                                           ((node.Module.Kernel :?> AcceleratedKernelInfo).CollectionFunctionName = "Array.groupBy")
+                if isAccelerateGroupBy then                
                     let km = node.Module
 
                     let sharePriority = 
@@ -69,24 +65,13 @@ type MapRevKernelExecutionProcessor() =
                                                                   sharePriority)
                                                
                         // Get work size
-                        let globalSize, localSize = 
-                            if isMap2D then
-                                // Map, map2, rev
-                                let gs = buffers.[node.Module.Kernel.Parameters.[0].Name].Count
-                                gs, KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, gs)
-                            else
-                                // Mapi, mapi2
-                                if node.Module.Kernel.Parameters.[0].DataType = typeof<int> then
-                                    let gs = buffers.[node.Module.Kernel.Parameters.[1].Name].TotalCount
-                                    [| gs |], KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| gs |])
-                                else
-                                    // Map, map2, rev
-                                    let gs = buffers.[node.Module.Kernel.Parameters.[0].Name].TotalCount
-                                    [| gs |], KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| gs |])
-                        
+                        let globalSize = 
+                            buffers.[node.Module.Kernel.Parameters.[0].Name].TotalCount
+                        let localSize = KernelSetupUtil.ComputeLocalSizeWithGlobalSize(openclKernel, runtimeKernel.DeviceData.Device, [| globalSize |])
+
                         // Cool, we processed the input and now all the arguments have been set
                         // Run kernel
-                        runtimeKernel.DeviceData.Queue.Execute(openclKernel, null, globalSize, localSize, null)
+                        runtimeKernel.DeviceData.Queue.Execute(openclKernel, null, [| globalSize |], localSize, null)
                         runtimeKernel.DeviceData.Queue.Finish()
                         
                         // Release opencl kernel

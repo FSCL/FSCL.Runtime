@@ -23,8 +23,7 @@ type ComputationCreationResult =
 | MultithreadKernel of MultithreadKernelCreationResult
 
 type ExecutionOutput =     
-    | ReturnedTrackedBuffer of OpenCLBuffer * Array
-    | ReturnedUntrackedBuffer of OpenCLBuffer
+    | ReturnedBuffer of OpenCLBuffer
     | ReturnedValue of obj
 
 

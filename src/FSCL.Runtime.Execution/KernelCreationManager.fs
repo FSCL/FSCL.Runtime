@@ -16,9 +16,12 @@ open System
 open System.Reflection
 open FSCL.Runtime.CompilerSteps
 open Microsoft.FSharp.Linq.RuntimeHelpers
+open System.Runtime.CompilerServices
 
 [<AllowNullLiteral>]
-type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =  
+type KernelCreationManager(schedulingEngine: ISchedulingEngine option) = 
+    let locker = new Object()
+     
     // The metric used to select the best devices for a kernel
     member val SchedulingEngine = schedulingEngine with get             
     member val DeviceCache = new DeviceCache() with get
@@ -36,28 +39,30 @@ type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =
     // Utility function to store kernels found all around the assembly. Called by the constructor
     member private this.OpenCLBackendAndStore(kernelModule: IKernelModule,
                                               cacheEntry: RuntimeKernelCacheEntry,
-                                              platformIndex, deviceIndex, opts: IReadOnlyDictionary<string, obj>) =
+                                              platformIndex, deviceIndex, opts: Map<string, obj>) =
         let mutable device = null
         let mutable compiledKernel = null
         
         //#1: Check if there is the corresponding device info have been set
-        if not (this.DeviceCache.Devices.ContainsKey((platformIndex, deviceIndex))) then        
-            // Get OpenCL info
-            let platform = OpenCLPlatform.Platforms.[platformIndex]
-            let dev = platform.Devices.[deviceIndex]   
-            let devs = new System.Collections.Generic.List<OpenCLDevice>();
-            devs.Add(dev)
-            // Create context and queue
-            let contextProperties = new OpenCLContextPropertyList(platform)
-            let computeContext = new OpenCLContext(devs, contextProperties, null, System.IntPtr.Zero) 
-            let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueProperties.None) 
-            // Add device to the global devices cache
-            this.DeviceCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))
-        device <- this.DeviceCache.Devices.[platformIndex, deviceIndex]
+        let device = 
+            lock locker (fun () ->
+                            if not (this.DeviceCache.Devices.ContainsKey((platformIndex, deviceIndex))) then        
+                                // Get OpenCL info
+                                let platform = OpenCLPlatform.Platforms.[platformIndex]
+                                let dev = platform.Devices.[deviceIndex]   
+                                let devs = new System.Collections.Generic.List<OpenCLDevice>();
+                                devs.Add(dev)
+                                // Create context and queue
+                                let contextProperties = new OpenCLContextPropertyList(platform)
+                                let computeContext = new OpenCLContext(devs, contextProperties, null, System.IntPtr.Zero) 
+                                let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueProperties.None) 
+                                // Add device to the global devices cache
+                                this.DeviceCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))
+                            this.DeviceCache.Devices.[platformIndex, deviceIndex])
                         
         //#2: Evaluate dynamic defines      
         let dynDefineValues = new Dictionary<string, string>()   
-        let mutable dynDefValuesChain = ""             
+        let dynDefValuesChain = ref ""             
         for item in kernelModule.ConstantDefines do
             let tv, _, evaluator = item.Value
             let dynDefVal = evaluator.GetType().GetMethod("Invoke").Invoke(evaluator, 
@@ -66,40 +71,44 @@ type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =
                                     [| thisObj |]
                                 else
                                     [|()|])
-            dynDefValuesChain <- dynDefValuesChain + dynDefVal.ToString()
+            dynDefValuesChain := !dynDefValuesChain + dynDefVal.ToString()
             dynDefineValues.Add(item.Key, dynDefVal.ToString())
 
         //#3: Check if the device target code has been already generated 
         //Considering both the platform/device index and the values of dynamic defines        
         let compiledKernel =
-            if cacheEntry.Instances.ContainsKey(platformIndex, deviceIndex, dynDefValuesChain) |> not then
-                let computeProgram = new OpenCLProgram(device.Context, kernelModule.Code.Value)
-                // Generate define options
-                let mutable definesOption = ""
-                for d in dynDefineValues do
-                    definesOption <- definesOption + "-D " + d.Key + "=" + d.Value + " "
-                try
-                    computeProgram.Build([| device.Device |], definesOption, null, System.IntPtr.Zero)
-                with
-                | ex -> 
-                    let log = computeProgram.GetBuildLog(device.Device)
-                    raise (new KernelCompilationException("Device code generation failed: " + log))
-                // Create kernel
-                let computeKernel = computeProgram.CreateKernel(kernelModule.Kernel.ParsedSignature.Name)
-                // Add kernel implementation to the list of implementations for the given kernel
-                let compiledKernel = new RuntimeCompiledKernel(computeProgram, computeKernel, dynDefineValues)
-                cacheEntry.Instances.Add((platformIndex, deviceIndex, dynDefValuesChain), compiledKernel)
-                compiledKernel
-            else
-                cacheEntry.Instances.[platformIndex, deviceIndex, dynDefValuesChain]
+            lock locker (fun () ->
+                            if cacheEntry.Instances.ContainsKey(platformIndex, deviceIndex, !dynDefValuesChain) |> not then
+                                let computeProgram = new OpenCLProgram(device.Context, kernelModule.Code.Value)
+                                // Generate define options
+                                let mutable definesOption = ""
+                                for d in dynDefineValues do
+                                    definesOption <- definesOption + "-D " + d.Key + "=" + d.Value + " "
+                                try
+                                    computeProgram.Build([| device.Device |], definesOption, null, System.IntPtr.Zero)
+                                with
+                                | ex -> 
+                                    let log = computeProgram.GetBuildLog(device.Device)
+                                    raise (new KernelCompilationException("Device code generation failed: " + log))
+                                // Add kernel implementation to the list of implementations for the given kernel
+                                let compiledKernel = new RuntimeCompiledKernel(computeProgram, kernelModule.Kernel.Name, dynDefineValues)
+                                cacheEntry.Instances.Add((platformIndex, deviceIndex, !dynDefValuesChain), compiledKernel)
+                                compiledKernel
+                            else
+                                cacheEntry.Instances.[platformIndex, deviceIndex, !dynDefValuesChain])
           
         //#4: Return device, kernel and compiled kernel
         (device, compiledKernel)
         
     member this.Process(node: IKFGKernelNode,
-                        opts: IReadOnlyDictionary<string, obj>) =  
+                        opts: Map<string, obj>) =  
         // Extract running mode and fallback
-        let mode = node.Module.Kernel.Meta.KernelMeta.Get<RunningModeAttribute>().RunningMode
+        let mode = 
+            if opts.ContainsKey(RuntimeOptions.RunningMode) && 
+               (opts.[RuntimeOptions.RunningMode] :?> RunningMode) <> RunningMode.OpenCL then
+                opts.[RuntimeOptions.RunningMode] :?> RunningMode
+            else
+                node.Module.Kernel.Meta.KernelMeta.Get<RunningModeAttribute>().RunningMode
         let fallback = node.Module.Kernel.Meta.KernelMeta.Get<MultithreadFallbackAttribute>().Fallback
 
         // Check if can run
@@ -112,7 +121,7 @@ type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =
             // Check if platform and device indexes are valid  
             let device = node.Module.Kernel.Meta.KernelMeta.Get<DeviceAttribute>()
             if OpenCLPlatform.Platforms.Count <= device.Platform || (OpenCLPlatform.Platforms.[device.Platform]).Devices.Count <= device.Device then
-                raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + node.Module.Kernel.ParsedSignature.Name + " are invalid"))
+                raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + node.Module.Kernel.Name + " are invalid"))
                           
             // Compiler backend and store
             let devData, ckData = this.OpenCLBackendAndStore(node.Module, node.CacheEntry :?> RuntimeKernelCacheEntry, device.Platform, device.Device, opts)                     

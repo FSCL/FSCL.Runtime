@@ -126,8 +126,7 @@ type SobelFilterTrainingSample() =
         let featureOnly = rm = TrainingSampleRunningMode.OnlyFeatures
         let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
             
-        let compiler = new Compiler()
-        let opts = new Dictionary<string, obj>()        
+        let compiler = new Compiler()      
         let rnd = System.Random()
 
         let rm = BufferReadMode.EnqueueReadBuffer

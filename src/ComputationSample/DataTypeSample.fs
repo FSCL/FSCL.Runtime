@@ -3,6 +3,7 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL        
@@ -23,13 +24,13 @@
     }
 
     // Vector float4 addition
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition; Kernel>]
     let Vector4Add(a: float4[], b: float4[], c: float4[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
         
     // Vector addition with struct
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddStruct(a: MyStruct[], b: MyStruct[], c: MyStruct[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         let mutable newStruct = new MyStruct()
@@ -38,21 +39,21 @@
         c.[gid] <- newStruct
     
     // Vector addition with struct with non-default constructor
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddStructConstructor(a: MyStruct[], b: MyStruct[], c: MyStruct[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         let mutable newStruct = new MyStruct(a.[gid].x + b.[gid].x, a.[gid].y + b.[gid].y)
         c.[gid] <- newStruct
     
     // Vector addition with record
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddRecord(a: MyRecord[], b: MyRecord[], c: MyRecord[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         let newRecord = { x = a.[gid].x + b.[gid].x; y = a.[gid].y + b.[gid].y }
         c.[gid] <- newRecord
 
     // Matrix multiplication
-    [<Device(0,0)>][<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let MatrixMult(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
         let x = wi.GlobalID(0)
         let y = wi.GlobalID(1)

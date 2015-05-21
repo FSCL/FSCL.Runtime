@@ -55,7 +55,6 @@ type SumColsTrainingSample() =
         let etOnly = rm = TrainingSampleRunningMode.OnlyExecutionTime
 
         let compiler = new Compiler()
-        let opts = new Dictionary<string, obj>()        
         let rnd = System.Random()
 
         let rm = BufferReadMode.EnqueueReadBuffer
@@ -97,7 +96,7 @@ type SumColsTrainingSample() =
                                 ws) @>
             // Extract features
             if not etOnly then
-                let km = compiler.Compile(comp, opts) :?> IKernelModule
+                let km = compiler.Compile(comp, Map.empty) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
                 featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; c; ws ]))
 
@@ -209,7 +208,7 @@ type SumRowsTrainingSample() =
                                 ws) @>
             // Extract features
             if not etOnly then
-                let km = compiler.Compile(comp, opts) :?> IKernelModule
+                let km = compiler.Compile(comp, Map.empty) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
                 featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; a; c; ws ]))
 

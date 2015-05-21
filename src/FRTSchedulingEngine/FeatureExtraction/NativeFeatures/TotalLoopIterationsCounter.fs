@@ -23,8 +23,6 @@ type TotalLoopIterationsCounter() =
     override this.BuildFinalizers(m: IKernelModule) =
         // Count loop iters
         let parameters = m.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq               
                                             
         let lcount = LoopIterationCounter.Count(m, m.Kernel)

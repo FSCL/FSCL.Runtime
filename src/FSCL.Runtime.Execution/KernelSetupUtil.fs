@@ -14,15 +14,17 @@ open System.Collections.Generic
 open Microsoft.FSharp.Linq.RuntimeHelpers
 open System.Threading
 
-type MultithreadWorkItemInfo(globalID: int64[], globalSize: int64[], globalOffset: int64[], localBarrier: Barrier) =
+type MultithreadWorkItemInfo(globalID: int64[], globalSize: int64[], globalOffset: int64[], barrier: Barrier) =
     inherit WorkSize(globalSize, globalSize, globalOffset)
     
     override this.GlobalID(idx) =
         globalID.[idx] |> int      
     override this.LocalID(idx) =
         globalID.[idx] |> int      
-    override this.Barrier(memFence) =
-        localBarrier.SignalAndWait()
+    override this.LocalBarrier() =
+        barrier.SignalAndWait()
+    override this.GlobalBarrier() =
+        barrier.SignalAndWait()
 
 module KernelSetupUtil =
     let ComputeLocalSizeWithGlobalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[]) =
@@ -32,11 +34,11 @@ module KernelSetupUtil =
                 localSize.[i] <- localSize.[i] - 1L
         localSize
         
-    let ComputeGlobalSizeWithLocalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[], localSize: int64[]) =
+    let inline ComputeGlobalSizeWithLocalSize(k: OpenCLKernel, d:OpenCLDevice, globalSize: int64[], localSize: int64[]) =
         let finalGlobalSize = Array.init localSize.Length (fun i -> ((((globalSize.[i] - 1L) / localSize.[i])) + 1L) * localSize.[i])
         finalGlobalSize
 
-    let NormalizeWorkSize(globalSize: int64[], localSize: int64[], globalOffset: int64[]) =        
+    let inline NormalizeWorkSize(globalSize: int64[], localSize: int64[], globalOffset: int64[]) =        
         let gs = Array.init (3) (fun i -> 
                                     if globalSize <> null && i < globalSize.Length then
                                         globalSize.[i] 
@@ -53,7 +55,7 @@ module KernelSetupUtil =
                                     else 
                                         1L)
         gs, ls, go
-        
+     (*
     let rec LiftArgumentsAndKernelCalls(e: Expr,
                                         args: Dictionary<string, obj>,
                                         wi: WorkItemInfo option) =
@@ -128,7 +130,7 @@ module KernelSetupUtil =
             let ev = List.map(fun (e: Expr) -> LiftArgumentsAndKernelCalls(e, args, wi)) argsList
             ExprShape.RebuildShapeCombination(c, ev)
 
-    let EvaluateBufferAllocationSize(sizes: Expr array,
+    let EvaluateBufferAllocSize(sizes: Expr array,
                                      args: Dictionary<string, obj>, 
                                      wi: WorkItemInfo option) =   
         let intSizes = new List<int64>()    
@@ -140,8 +142,9 @@ module KernelSetupUtil =
             else
                 intSizes.Add(evaluated :?> int64)
         intSizes |> Seq.toArray
-
+        *)
     let PrepareKernelAguments(rk: OpenCLKernelCreationResult, 
+                              openclKernel: OpenCLKernel,
                               input: ExecutionOutput[], 
                               collectionVars: Dictionary<Var, obj>,
                               workSize: WorkSize option,
@@ -151,22 +154,25 @@ module KernelSetupUtil =
         let buffers = new Dictionary<string, OpenCLBuffer>()
         let arguments = new Dictionary<string, obj>()
         let mutable outputFromThisKernel = ReturnedValue(())
-       
+        
+        let nonArrayArgsList = new List<obj>()
+        let arraySizesList = new List<obj>()
         let mutable inputIndex = 0
         let mutable outsiderIndex = 0
         let mutable argIndex = 0
 
-        // Foreach parameter of the kernel
+        // Foreach parameter of the kernel 
         let parameters = rk.KernelData.Kernel.Parameters
         for par in parameters do   
             match par.ParameterType with
             // A buffer returned declared locally
-            | FunctionParameterType.DynamicArrayParameter(sizes) ->                 
-                let elementCount = EvaluateBufferAllocationSize(sizes, arguments, 
-                                                                if workSize.IsNone then
-                                                                    None
-                                                                else
-                                                                    Some(workSize.Value :> WorkItemInfo))
+            | FunctionParameterType.DynamicReturnArrayParameter(sizes) ->  
+                let elementCount = 
+                    sizes |> Array.map(fun (e, f) ->
+                                        f(null, 
+                                          (nonArrayArgsList |> List.ofSeq) @ (arraySizesList |> List.ofSeq), 
+                                          if workSize.IsNone then new WorkSize(0L, 0L) else workSize.Value) |> int64)               
+                
                 // Buffer allocated in the body of the kernel are traslated into additional arguments
                 // To setup these arguments in OpenCL, the buffers must be pre-allocated
                 let globalSize, localSize, globalOffset = 
@@ -185,7 +191,7 @@ module KernelSetupUtil =
                 let buffer = pool.RequireBufferForParameter(par, None, elementCount, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority)
                     
                 // Set kernel arg
-                rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)    
+                openclKernel.SetMemoryArgument(argIndex, buffer)    
                                   
                 // Store buffer/object data
                 arguments.Add(par.Name, buffer)
@@ -193,7 +199,7 @@ module KernelSetupUtil =
             
                 // Set if returned
                 if par.IsReturned then
-                    outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
+                    outputFromThisKernel <- ReturnedBuffer(buffer)
 
             // A regular parameter 
             | FunctionParameterType.NormalParameter ->
@@ -202,21 +208,21 @@ module KernelSetupUtil =
                     let elementType = par.DataType.GetElementType()  
                     let arr, lengths, isBuffer = 
                         match ob with
-                        | ReturnedUntrackedBuffer(b) ->
+                        | ReturnedBuffer(b) ->
                             None, b.Count, true
-                        | ReturnedTrackedBuffer(b, v) ->
-                            Some(v), b.Count, true
                         | ReturnedValue(v) ->
                             if v.GetType().IsArray then
                                 Some(v :?> Array), ArrayUtil.GetArrayLengths(v), false
                             else
                                 // Impossible
                                 failwith "Error"
+                                
+                    arraySizesList.AddRange(lengths |> Array.map(fun i -> (int)i |> box))
 
                     // Create buffer if needed (no local address space)
                     let addressSpace = par.Meta.Get<AddressSpaceAttribute>()
                     if addressSpace.AddressSpace = AddressSpace.Local then
-                        rk.CompiledKernelData.Kernel.SetLocalArgument(argIndex, (lengths |> Array.reduce(*)) * (System.Runtime.InteropServices.Marshal.SizeOf(elementType) |> int64)) 
+                        openclKernel.SetLocalArgument(argIndex, (lengths |> Array.reduce(*)) * (System.Runtime.InteropServices.Marshal.SizeOf(elementType) |> int64)) 
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         //bufferSizes.Add(par.Name, new Dictionary<string, int>())
@@ -232,7 +238,7 @@ module KernelSetupUtil =
                                 pool.RequireBufferForParameter(par, None, lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority, input.[inputIndex]) 
                             
                         // Set kernel arg
-                        rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
+                        openclKernel.SetMemoryArgument(argIndex, buffer)                      
                         // Store dim sizes
                         let sizeParameters = par.SizeParameters
                         for i = 0 to sizeParameters.Count - 1 do
@@ -245,16 +251,14 @@ module KernelSetupUtil =
                         buffers.Add(par.Name, buffer)
                         // Check if this is returned
                         if par.IsReturned then
-                            if isBuffer then
-                                outputFromThisKernel <- ReturnedUntrackedBuffer(buffer)
-                            else
-                                outputFromThisKernel <- ReturnedTrackedBuffer(buffer, arr.Value)
+                            outputFromThisKernel <- ReturnedBuffer(buffer)
                 else
                     // An normal input that is not of type array is not
                     // associated to any buffer su must be wrapped in a ReturnedValue
                     match ob with
                     | ReturnedValue(v) ->
-                        rk.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, v)
+                        openclKernel.SetValueArgumentAsObject(argIndex, v)
+                        nonArrayArgsList.Add(v)
                     | _ ->
                         raise (new KernelSetupException("The parameter " + par.Name + " is scalar but it is wrapped in struct different from ReturnedValue(v)"))
                 inputIndex <- inputIndex + 1
@@ -279,13 +283,15 @@ module KernelSetupUtil =
                     let arr, lengths = 
                         ob :?> Array,
                         ArrayUtil.GetArrayLengths(ob :?> Array)
+                        
+                    arraySizesList.AddRange(lengths |> Array.map(fun i -> (int)i |> box))
 
                     // Get buffer or try reuse the input one
                     let buffer = 
                         pool.RequireBufferForParameter(par, Some(arr), lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority) 
                             
                     // Set kernel arg
-                    rk.CompiledKernelData.Kernel.SetMemoryArgument(argIndex, buffer)                      
+                    openclKernel.SetMemoryArgument(argIndex, buffer)                      
                     // Store dim sizes
                     let sizeParameters = par.SizeParameters
                     for i = 0 to sizeParameters.Count - 1 do
@@ -295,10 +301,11 @@ module KernelSetupUtil =
                     buffers.Add(par.Name, buffer)
                     // Check if this is returned
                     if par.IsReturned then
-                        outputFromThisKernel <- ReturnedTrackedBuffer(buffer, arr)
+                        outputFromThisKernel <- ReturnedBuffer(buffer)
                 else
+                    nonArrayArgsList.Add(ob)
                     // Ref to a scalar
-                    rk.CompiledKernelData.Kernel.SetValueArgumentAsObject(argIndex, ob)                    
+                    openclKernel.SetValueArgumentAsObject(argIndex, ob)                    
                 outsiderIndex <- outsiderIndex + 1
     
             // A size parameter
@@ -306,7 +313,7 @@ module KernelSetupUtil =
                 // We can access succesfully "arguments" cause 
                 // length args come always later than the relative array
                 let v = arguments.[par.Name]             
-                rk.CompiledKernelData.Kernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
+                openclKernel.SetValueArgument<int>(argIndex, v :?> int64 |> int)
                 
             // An implicit parameter
             | FunctionParameterType.ImplicitParameter ->

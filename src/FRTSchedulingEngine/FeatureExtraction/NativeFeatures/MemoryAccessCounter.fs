@@ -24,17 +24,16 @@ type MemoryAccessCounter() =
 
     override this.BuildFinalizers(m: IKernelModule) =
         let parameters = m.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
+                         Seq.map(fun (p: IFunctionParameter) -> p.OriginalPlaceholder) |>
                          Array.ofSeq   
 
-        let isLoadingOrStoringFrom(e: Expr, parameters: (ParameterInfo * Var) array, space: AddressSpace) =
+        let isLoadingOrStoringFrom(e: Expr, parameters: IFunctionParameter[], space: AddressSpace) =
             let rec isLoadingOrStoringInternal(e:Expr) =
                 match e with
                 | Patterns.Var(arrayVar) ->
-                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar) parameters
+                    let matchingParam = Array.tryFind (fun (v:IFunctionParameter) -> v.OriginalPlaceholder = arrayVar) parameters
                     if matchingParam.IsSome then
-                        let paramSpace = m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace
+                        let paramSpace = matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace
                         match paramSpace, space with
                         | AddressSpace.Global, AddressSpace.Auto
                         | AddressSpace.Auto, AddressSpace.Global ->
@@ -75,10 +74,10 @@ type MemoryAccessCounter() =
                                                                     | _ -> 
                                                                         None
                                                                 if arrayVar.IsSome then
-                                                                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
+                                                                    let matchingParam = Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = arrayVar.Value) parameters
                                                                     if matchingParam.IsSome && 
-                                                                       (m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Local) && 
-                                                                       (m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Constant) then 
+                                                                       matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Local && 
+                                                                       matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Constant then 
                                                                         let lc = continuation(l.[1])                                                                                                           
                                                                         Value(<@ 1.0f + %lc @>)
                                                                     else
@@ -113,10 +112,10 @@ type MemoryAccessCounter() =
                                                                     | _ -> 
                                                                         None
                                                                 if arrayVar.IsSome then
-                                                                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
+                                                                    let matchingParam = Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = arrayVar.Value) parameters
                                                                     if matchingParam.IsSome && 
-                                                                       (m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Local) && 
-                                                                       (m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Constant) then 
+                                                                       matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Local && 
+                                                                       matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace <> AddressSpace.Constant then 
                                                                          let lc1 = continuation(l.[1])
                                                                          let lc2 = continuation(l.[2])                                                                                                               
                                                                          Value(<@ 1.0f + %lc1 + %lc2 @>)
@@ -153,10 +152,10 @@ type MemoryAccessCounter() =
                                                                         None
                                                                 if arrayVar.IsSome then
                                                                     let localEmbedDeclared = Seq.tryFind (fun v -> v = arrayVar.Value) (m.Kernel.LocalVars.Keys)
-                                                                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
+                                                                    let matchingParam = Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = arrayVar.Value) parameters
                                                                     if localEmbedDeclared.IsSome ||
                                                                        (matchingParam.IsSome && 
-                                                                        m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Local) then 
+                                                                        matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Local) then 
                                                                          let lc1 = continuation(l.[1])                                                                                                          
                                                                          Value(<@ 1.0f + %lc1 @>)
                                                                     else
@@ -192,10 +191,10 @@ type MemoryAccessCounter() =
                                                                         None
                                                                 if arrayVar.IsSome then
                                                                     let localEmbedDeclared = Seq.tryFind (fun v -> v = arrayVar.Value) (m.Kernel.LocalVars.Keys)
-                                                                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
+                                                                    let matchingParam = Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = arrayVar.Value) parameters
                                                                     if localEmbedDeclared.IsSome ||
                                                                        (matchingParam.IsSome && 
-                                                                        m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Local) then 
+                                                                        matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Local) then 
                                                                         let lc1 = continuation(l.[1])
                                                                         let lc2 = continuation(l.[2])                                                                                                               
                                                                         Value(<@ 1.0f + %lc1 + %lc2 @>)
@@ -232,9 +231,9 @@ type MemoryAccessCounter() =
                                                                     | _ -> 
                                                                         None
                                                                 if arrayVar.IsSome then
-                                                                    let matchingParam = Array.tryFind (fun (p, v) -> v = arrayVar.Value) parameters
+                                                                    let matchingParam = Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = arrayVar.Value) parameters
                                                                     if (matchingParam.IsSome && 
-                                                                        m.Kernel.GetParameter((matchingParam.Value |> snd).Name).Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Constant) then 
+                                                                        matchingParam.Value.Meta.Get<AddressSpaceAttribute>().AddressSpace = AddressSpace.Constant) then 
                                                                          let lc1 = continuation(l.[1])                                                                                                              
                                                                          Value(<@ 1.0f + %lc1 @>)
                                                                     else

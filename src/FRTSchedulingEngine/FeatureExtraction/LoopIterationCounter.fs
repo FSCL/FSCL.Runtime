@@ -26,10 +26,10 @@ type LoopIterationCounter() =
     // Build an expression that contains the number of interesting items
     static member private Estimate(kmod: IKernelModule, 
                                    functionBody: Expr, 
-                                   parameters: (ParameterInfo * Var)[],
+                                   parameters: Var[],
                                    stack: VarStack) =
         let isParameterReference v = 
-            (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
+            (Array.tryFind (fun (pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
                       
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
@@ -40,7 +40,7 @@ type LoopIterationCounter() =
                 | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                     // It's a reflected method
                     // Get functioninfo
-                    let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature = mi)
+                    let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature.Value = mi)
                     match QuotationAnalysis.FunctionsManipulation.GetCurriedOrTupledArgs(b) with
                     | thisVar, Some(paramVars) ->       
                         // Count inside arguments
@@ -320,8 +320,7 @@ type LoopIterationCounter() =
                         kfun: IFunctionInfo) = 
                         
         let parameters = kmod.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
+                         Seq.map(fun (p: IFunctionParameter) -> p.OriginalPlaceholder) |>
                          Array.ofSeq   
 
         // Create a lambda to evaluate instruction count

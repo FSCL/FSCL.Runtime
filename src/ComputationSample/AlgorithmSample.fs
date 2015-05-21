@@ -3,12 +3,13 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL
     
     // Vector addition
-    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
+    [<ReflectedDefinition; Kernel>]
     let VectorAddCurried (wi:WorkItemInfo) (a: float32[]) (b: float32[]) =
         let c = Array.zeroCreate<float32> a.Length
         let gid = wi.GlobalID(0)
@@ -16,15 +17,21 @@
         c
 
     // Vector addition
-    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
+    [<ReflectedDefinition; Kernel>]
     let VectorAdd(a: float32[], b: float32[], wi: WorkItemInfo) =
         let c = Array.zeroCreate<float32> a.Length
         let gid = wi.GlobalID(0)
         c.[gid] <- a.[gid] + b.[gid]
         c
         
+    // Vector addition
+    [<ReflectedDefinition; Kernel>]
+    let VectorAddWrite(a: float32[], b: float32[], c:float32[], wi: WorkItemInfo) =
+        let gid = wi.GlobalID(0)
+        c.[gid] <- a.[gid] + b.[gid]
+        
     // Matrix multiplication
-    [<Device(0,0)>][<ReflectedDefinition; Kernel>]
+    [<ReflectedDefinition; Kernel>]
     let MatrixMult(a: float32[,], b: float32[,], c: float32[,], wi: WorkItemInfo) =
         let x = wi.GlobalID(0)
         let y = wi.GlobalID(1)
@@ -49,7 +56,7 @@
         let lsize = size |> int64
         let a = Array.create size 2.0f
         let b = Array.create size 3.0f
-        //let c = Array.zeroCreate<float32> (size)
+        let c = Array.zeroCreate<float32> (size)
         let correctMapResult = Array.create size 5.0f
         let correctReduceResult = Array.reduce (fun a b -> a + b) a
                 
@@ -70,7 +77,7 @@
         Console.WriteLine("# Testing " + test + " with OpenCL")
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
-        let c = <@ VectorAdd(a, b, worksize) @>.Run()
+        let n = <@ VectorAddWrite(a, b, c, worksize) @>.Run()
         
          // ***************************************************************************************************
         // Simple vector add **********************************************************************************
@@ -80,8 +87,6 @@
         // Execute vector add in OpenCL mode
         let worksize = new WorkSize(lsize, 64L)
         let c = <@ (a,b) ||> 
-                   Array.map2 (fun a b -> a + b) |> 
-                   VectorAddCurried worksize a |> 
-                   Array.map(fun a -> a * 2.0f) 
+                   Array.map2 (fun a b -> a + b)
                 @>.Run()
         ()

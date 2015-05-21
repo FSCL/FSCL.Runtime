@@ -10,9 +10,40 @@ type Util() =
     static member ConvertToType<'T>(o:obj) =
         o :?> 'T
 
+    static member ConvertMethodInfo = 
+        typeof<Util>.GetMethod("ConvertToType", BindingFlags.Static ||| BindingFlags.Public).GetGenericMethodDefinition()
+
     static member inline Convert(t:Type, o:obj) =
-        let mi = typeof<Util>.GetMethod("ConvertToType", BindingFlags.Static ||| BindingFlags.Public)
-        mi.GetGenericMethodDefinition().MakeGenericMethod([|t|]).Invoke(null, [|o|])
+        Util.ConvertMethodInfo.MakeGenericMethod([|t|]).Invoke(null, [|o|])
+        
+    static member RunParallelAsyncGeneric1<'U>(task: obj -> obj, input:Array) =  
+        seq {
+            for item in input do
+                yield async { 
+                    return task item  :?> 'U
+                }
+        } |> Async.Parallel |> Async.RunSynchronously
+        
+    static member RunParallelAsyncGeneric2<'U>(task: obj -> obj, input1:Array, input2:Array) =  
+        seq {
+            for i = 0 to input1.Length - 1 do     
+                yield async { 
+                    return task (input1.GetValue(i), input2.GetValue(i))  :?> 'U
+                }
+                
+        } |> Async.Parallel |> Async.RunSynchronously
+        
+    static member RunParallelAsync1GenericMethodInfo = 
+        typeof<Util>.GetMethod("RunParallelAsyncGeneric1", BindingFlags.Static ||| BindingFlags.Public).GetGenericMethodDefinition()
+        
+    static member RunParallelAsync2GenericMethodInfo = 
+        typeof<Util>.GetMethod("RunParallelAsyncGeneric2", BindingFlags.Static ||| BindingFlags.Public).GetGenericMethodDefinition()
+        
+    static member RunParallelAsync(task: obj -> obj, input:Array, outputType: Type) =  
+        Util.RunParallelAsync1GenericMethodInfo.MakeGenericMethod([| outputType |]).Invoke(null, [| task; input |])      
+
+    static member RunParallelAsync(task: obj -> obj, input1:Array, input2:Array, outputType: Type) =  
+        Util.RunParallelAsync2GenericMethodInfo.MakeGenericMethod([| outputType |]).Invoke(null, [| task; input1; input2 |])      
 
     static member AssociateObjArgToLambdaVars(o: obj, vars: Var list) =
         let dict = new Dictionary<Var, obj>()

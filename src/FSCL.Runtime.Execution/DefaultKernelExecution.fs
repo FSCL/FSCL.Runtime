@@ -27,161 +27,122 @@ type DefaultKernelExecutionProcessor() =
         let step = s :?> NodeExecutionStep
         let pool = step.BufferPoolManager
 
-        if opts.ContainsKey("IterativeSetup") then
-           None
-        else
-            match fnode with
-            | :? IKFGKernelNode as node ->
-                let km = node.Module
+        match fnode with
+        | :? IKFGKernelNode as node ->
+            let km = node.Module
 
-                let sharePriority = 
-                    if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
-                        opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
-                    else
-                        BufferSharePriority.PriorityToFlags
+            let sharePriority = 
+                if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
+                    opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
+                else
+                    BufferSharePriority.PriorityToFlags
                         
-                // Evaluate input
-                let input = node.Input |> Seq.map(fun i -> step.Process(i, env, false)) |> Seq.toArray
+            // Evaluate input
+            let input = node.Input |> 
+                        Seq.map(fun i -> 
+                            async {                            
+                                return step.Process(i, env, false, opts)
+                            }) |> Async.Parallel |> Async.RunSynchronously
                     
-                // Create kernel
-                let runtimeKernel = step.KernelCreationManager.Process(node, opts)
+            // Create kernel
+            let runtimeKernel = step.KernelCreationManager.Process(node, opts)
 
-                match runtimeKernel with
-                // OpenCL kernel execution
-                | Some(OpenCLKernel(runtimeKernel)) ->
-                    // Get work size
-                    let workSize = LeafExpressionConverter.EvaluateQuotation(km.Kernel.WorkSize.Value) :?> WorkSize
-                    let globalSize, localSize, globalOffset = workSize.GlobalSize(), workSize.LocalSize(), workSize.GlobalOffset() 
+            match runtimeKernel with
+            // OpenCL kernel execution
+            | Some(OpenCLKernel(runtimeKernel)) ->
+                // Get work size
+                let workSize = km.Kernel.WorkSize.Value :?> WorkSize
+                let globalSize, localSize, globalOffset = workSize.GlobalSize(), workSize.LocalSize(), workSize.GlobalOffset() 
 
-                    // Prepare arguments
-                    let arguments, buffers, outputFromThisKernel = 
-                        KernelSetupUtil.PrepareKernelAguments(runtimeKernel, 
-                                                              input, 
-                                                              env,
-                                                              Some(workSize), 
-                                                              pool, 
-                                                              isRoot, 
-                                                              sharePriority)
+                // Get instance of opencl kernel
+                let openclKernel = runtimeKernel.CompiledKernelData.StartUsingKernel()
+
+                // Prepare arguments
+                let arguments, buffers, outputFromThisKernel = 
+                    KernelSetupUtil.PrepareKernelAguments(runtimeKernel, openclKernel, 
+                                                            input, 
+                                                            env,
+                                                            Some(workSize), 
+                                                            pool, 
+                                                            isRoot, 
+                                                            sharePriority)
                                                               
-                    // Cool, we processed the input and now all the arguments have been set
-                    // Run kernel
-                    // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
-                    // We cannot put cast into F# kernels each time the user does operations with get_global_id and similar!
-                    runtimeKernel.DeviceData.Queue.Execute(runtimeKernel.CompiledKernelData.Kernel, globalOffset, globalSize, localSize, null)
-                    runtimeKernel.DeviceData.Queue.Finish()
+                // Cool, we processed the input and now all the arguments have been set
+                // Run kernel
+                // 32 bit enought for size_t. Kernel uses size_t like int without cast. 
+                // We cannot put cast into F# kernels each time the user does operations with get_global_id and similar!
+                runtimeKernel.DeviceData.Queue.Execute(openclKernel, globalOffset, globalSize, localSize, null)
+                runtimeKernel.DeviceData.Queue.Finish()
 
-                    // Dispose buffers
-                    for b in buffers do
-                        pool.EndUsingBuffer(b.Value)
+                // Release opencl kernel
+                runtimeKernel.CompiledKernelData.EndUsingKernel(openclKernel)
 
-                    // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
-                    Some(outputFromThisKernel)
+                // Dispose buffers
+                for b in buffers do
+                    pool.EndUsingBuffer(b.Value)
 
-                // Multithread execution
-                | Some(MultithreadKernel(multithreadKernel)) ->
-                    // Get work size
-                    let workSize = LeafExpressionConverter.EvaluateQuotation(km.Kernel.WorkSize.Value) :?> WorkSize
-                    let globalSize, localSize, globalOffset = workSize.GlobalSize(), workSize.LocalSize(), workSize.GlobalOffset() 
+                // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
+                Some(outputFromThisKernel)
 
-                    // Create barrier
-                    let mutable totalGlobalSize = 1L
-                    for i in 0.. globalSize.Length - 1 do
-                        totalGlobalSize <- totalGlobalSize * globalSize.[i]
-                    let barrier = new Barrier(totalGlobalSize |> int)
-                                    
-                    // Spawn threads
-                    let methodToExecute = multithreadKernel.KernelData.Kernel.ParsedSignature
-                    let ids = seq { 
-                                    for i = globalOffset.[2] to globalSize.[2] - 1L do
-                                        for j = globalOffset.[1] to globalSize.[1] - 1L do
-                                            for k = globalOffset.[0] to globalSize.[0] - 1L do
-                                                let globalId = [| k; j; i |]
-                                                yield globalId
-                                    }
-                    let tResult = 
-                        if methodToExecute.ReturnType <> typeof<unit> && methodToExecute.ReturnType <> typeof<System.Void> then
-                            Array.CreateInstance(methodToExecute.ReturnType, globalSize)
-                        else
-                            null
-                    let instance = 
-                        if multithreadKernel.KernelData.InstanceExpr.IsNone then
-                            null
-                        else
-                            LeafExpressionConverter.EvaluateQuotation(multithreadKernel.KernelData.InstanceExpr.Value)
+            // Multithread execution
+            | Some(MultithreadKernel(multithreadKernel)) ->
+                // Get work size
+                let workSize = km.Kernel.WorkSize.Value :?> WorkSize
+                let globalSize, localSize, globalOffset =
+                    KernelSetupUtil.NormalizeWorkSize(workSize.GlobalSize(), workSize.LocalSize(), workSize.GlobalOffset()) 
 
-                    ids |> 
-                    Seq.map(fun gid -> 
-                                async {                            
-                                    let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
-                                    let data =  [ box workItemInfo ] |> List.toArray
-                                    let res = methodToExecute.Invoke(instance, data) 
-                                    if tResult <> null then
-                                        tResult.SetValue(res, gid)                                    
-                                }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
-                            
-                    // Return
-                    if tResult <> null then
-                        Some(ReturnedValue(tResult.GetValue([| 0; 0; 0 |])))
+                // Create global barrier
+                let mutable totalGlobalSize = 1L
+                for i in 0.. globalSize.Length - 1 do
+                    totalGlobalSize <- totalGlobalSize * globalSize.[i]
+                let barrier = new Barrier(totalGlobalSize |> int)
+                                               
+                // Ensure input readable from managed environment
+                let managedInput = input |> Array.map(fun i ->
+                                                        match i with
+                                                        | ReturnedBuffer(buffer) ->
+                                                            pool.BeginOperateOnBuffer(buffer, true) |> box
+                                                        | ReturnedValue(v) ->
+                                                            v) |> Array.toList
+
+                // Spawn threads
+                let methodToExecute = multithreadKernel.KernelData.Kernel.ParsedSignature.Value
+                let ids = seq { 
+                                for i = (if globalOffset = null then 0L else globalOffset.[2]) to globalSize.[2] - 1L do
+                                    for j = (if globalOffset = null then 0L else globalOffset.[1]) to globalSize.[1] - 1L do
+                                        for k = (if globalOffset = null then 0L else globalOffset.[0]) to globalSize.[0] - 1L do
+                                            let globalId = [| k; j; i |]
+                                            yield globalId
+                                }
+                let tResult = 
+                    if methodToExecute.ReturnType <> typeof<unit> && methodToExecute.ReturnType <> typeof<System.Void> then
+                        Array.CreateInstance(methodToExecute.ReturnType, globalSize)
                     else
-                        Some(ReturnedValue(()))
+                        null
+                let instance = 
+                    if multithreadKernel.KernelData.InstanceExpr.IsNone then
+                        null
+                    else
+                        LeafExpressionConverter.EvaluateQuotation(multithreadKernel.KernelData.InstanceExpr.Value)
+
+                ids |> 
+                Seq.map(fun gid -> 
+                            async {                            
+                                let workItemInfo = new MultithreadWorkItemInfo(gid, globalSize, globalOffset, barrier)
+                                let data = managedInput @ [ box workItemInfo ] |> List.toArray
+                                let res = methodToExecute.Invoke(instance, data) 
+                                if tResult <> null then
+                                    tResult.SetValue(res, gid)                                    
+                            }) |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+                            
+                // Return
+                if tResult <> null then
+                    Some(ReturnedValue(tResult.GetValue([| 0; 0; 0 |])))
+                else
+                    Some(ReturnedValue(()))
                                   
-                // Fail
-                | _ ->
-                    raise (new KernelCompilationException("Cannot compile and run kernel " + node.Module.Kernel.ParsedSignature.Name))
+            // Fail
             | _ ->
-                None
-//                    let node = fnode :?> RegularFunctionFlowGraphNode
-//
-//                    // Input (coming from preceding kernels) buffers
-//                    let inputFromOtherKernels = new Dictionary<String, ExecutionOutput>()
-//                    let arguments = new List<obj>()
-//                    // Buffers on which the regular function is operating
-//                    let danglingBuffers = new List<OpenCLBuffer * Array>()
-//        
-//                    // Get node input binding
-//                    let nodeInput = FlowGraphUtil.GetNodeInput(node)
-//                    // Check which parameters are bound to the output of a kernel
-//                    for par in node.MethodInfo.GetParameters() do
-//                        if nodeInput.ContainsKey(par.Name) then
-//                            match nodeInput.[par.Name] with
-//                            | KernelOutput(otherKernel, otherParIndex) ->
-//                                let kernelOutput = step.Process(otherKernel, false)
-//                                inputFromOtherKernels.Add(par.Name, kernelOutput)    
-//                            | _ ->
-//                                ()
-//                             
-//                    // Foreach argument of the function
-//                    for par in node.MethodInfo.GetParameters() do      
-//                        match nodeInput.[par.Name] with
-//                        | ActualArgument(expr) ->
-//                            // Input from an actual argument
-//                            let o = LeafExpressionConverter.EvaluateQuotation(expr)
-//                            // Store argument
-//                            arguments.Add(o)
-//                        | KernelOutput(othNode, a) ->
-//                            // Copy the output buffer of the input kernel     
-//                            match inputFromOtherKernels.[par.Name] with
-//                            | ReturnedUntrackedBuffer(b)
-//                            | ReturnedTrackedBuffer(b, _) ->
-//                                // Must read buffer cause this is a regular function
-//                                let arr = pool.BeginOperateOnBuffer(b, true)
-//                                danglingBuffers.Add((b, arr))
-//                                arguments.Add(arr)
-//                            | ReturnedValue(o) ->
-//                                arguments.Add(o)
-//                        | _ ->
-//                            raise (new KernelSetupException("A regular function cannot receive an input different from ActualArgument or KernelOutput"))
-//
-//                    // Invoke the function
-//                    let result = 
-//                        if node.Object.IsSome then
-//                            node.MethodInfo.Invoke(LeafExpressionConverter.EvaluateQuotation(node.Object.Value), arguments |> Array.ofSeq)
-//                        else
-//                            node.MethodInfo.Invoke(null, arguments |> Array.ofSeq)
-//
-//                    // End operating on buffers
-//                    for b, arr in danglingBuffers do
-//                        pool.EndOperateOnBuffer(b, arr, true)
-//
-//                    // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
-//                    Some(ReturnedValue(result))
+                raise (new KernelCompilationException("Cannot compile and run kernel " + node.Module.Kernel.Name))
+        | _ ->
+            None

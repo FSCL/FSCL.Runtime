@@ -35,6 +35,9 @@ namespace OpenCL
     using System.Collections.Generic;
     using System.Globalization;
     using OpenCL.Bindings;
+    using System.Runtime.InteropServices;
+    using System.Reflection;
+    using System.Reflection.Emit;
 
     /// <summary>
     /// Contains various helper methods.
@@ -159,7 +162,67 @@ namespace OpenCL
             handleCount = computeObjects.Count;
             return result;
         }
-
+        
         #endregion
     }
+
+    /*
+    public class SizeHelper
+    {
+        private static Dictionary<Type, int> sizes = new Dictionary<Type, int>();
+        private static Dictionary<Type, Object> defInstances = new Dictionary<Type, Object>();
+
+        public static Object DefaultInstance(Type type)
+        {
+            if (!type.IsGenericType)
+            {
+                return Activator.CreateInstance(type);
+            }
+
+            Object obj;
+            if (defInstances.TryGetValue(type, out obj))
+            {
+                return obj;
+            }
+
+            obj = DefaultInstanceOfType(type);
+            defInstances.Add(type, obj);
+            return obj;
+        }
+
+        public static int SizeOf(Type type)
+        {
+            if (!type.IsGenericType)
+                return Marshal.SizeOf(type);
+
+            int size;
+            if (sizes.TryGetValue(type, out size))
+            {
+                return size;
+            }
+
+            size = SizeOfType(type);
+            sizes.Add(type, size);
+            return size;
+        }
+
+        private static int SizeOfType(Type type)
+        {            
+            var dm = new DynamicMethod("SizeOfType", typeof(int), new Type[] { });
+            ILGenerator il = dm.GetILGenerator();
+            il.Emit(OpCodes.Sizeof, type);
+            il.Emit(OpCodes.Ret);
+            return (int)dm.Invoke(null, null);
+        }
+        private static Object DefaultInstanceOfType(Type type)
+        {
+            var args = type.GetGenericArguments();
+            var vals = new Object[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                vals[i] = DefaultInstance(args[i]);
+            }
+            return Activator.CreateInstance(type, vals);
+        }
+    }*/
 }

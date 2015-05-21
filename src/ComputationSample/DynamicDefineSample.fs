@@ -3,6 +3,7 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL
@@ -14,14 +15,14 @@
     let mutable dynamicMultiplier = 2.0f
 
     // Vector addition referring to an immutable global variable
-    [<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddWithStaticDef(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         // staticMultiplier is replaced with its value (2.0f) at FSCL-Compiler time
         c.[gid] <- (a.[gid] + b.[gid]) * staticMultiplier
         
     // Vector addition referring to a mutable global variable
-    [<ReflectedDefinition>]
+    [<ReflectedDefinition;Kernel>]
     let VectorAddWithDynamicDef(a: float32[], b: float32[], c: float32[], wi: WorkItemInfo) =
         let gid = wi.GlobalID(0)
         // dynamicMultiplier is replaced with its value (2.0f) at OpenCL-to-executable compile time

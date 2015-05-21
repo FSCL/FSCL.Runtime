@@ -77,8 +77,8 @@ type TransposeTrainingSample() =
         if((xIndex < width) && (yIndex < height)) then
             let index_in = yIndex * width + xIndex
             block.[(wi.LocalID(1)*(BLOCK_DIM+1))+wi.LocalID(0)] <- input.[index_in]
-
-        wi.Barrier(CLK_LOCAL_MEM_FENCE)
+            
+        wi.LocalBarrier()
 
         // write the transposed matrix tile to global memory
         xIndex <- (wi.GroupID(1) * BLOCK_DIM) + wi.LocalID(0)
@@ -174,7 +174,7 @@ type TransposeTrainingSample() =
                         
             // Extract features
             if not etOnly then
-                let km = compiler.Compile(comp, opts) :?> IKernelModule
+                let km = compiler.Compile(comp, Map.empty) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
                 featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; c; a; block; cols |> int; rows |> int; ws ]))
                                                                               
@@ -285,7 +285,7 @@ type TransposeNaiveTrainingSample() =
                                 ws) @>   
                         
             if not etOnly then
-                let km = compiler.Compile(comp, opts) :?> IKernelModule
+                let km = compiler.Compile(comp, Map.empty) :?> IKernelModule
                 let precomputedFeatures = features.BuildFinalizers(km)
                 featureValues.Add(features.EvaluateFinalizers(km, precomputedFeatures, [ this; c; a; cols |> int; rows |> int; ws ]))
                 

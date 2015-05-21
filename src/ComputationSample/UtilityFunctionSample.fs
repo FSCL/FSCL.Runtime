@@ -3,6 +3,7 @@
     open FSCL
     open FSCL.Language
     open FSCL.Runtime
+    open FSCL.Compiler
     open System
     open System.Diagnostics
     open OpenCL
@@ -11,8 +12,8 @@
     [<ReflectedDefinition>][<Inline>]
     let inline sumValues(a, b) =
         a + b
-
-    [<Device(0,0)>][<ReflectedDefinition>]
+        
+    [<ReflectedDefinition; Kernel>]
     let VectorAddWithUtilitySummingValues(a: float32[], b: float32[], c: float32[], wi:WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- sumValues(a.[gid], b.[gid])
@@ -21,8 +22,8 @@
     [<ReflectedDefinition>]
     let sumArrays(a:float32[], b:float32[], i:int) =
         a.[i] + b.[i]
-
-    [<Device(0,0)>][<ReflectedDefinition>]
+        
+    [<ReflectedDefinition; Kernel>]
     let VectorAddWithUtilitySummingArrays(a: float32[], b: float32[], c: float32[], wi:WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- sumArrays(a, b, gid)
@@ -31,8 +32,8 @@
     [<ReflectedDefinition>]
     let sumArraysNested(a:float32[], b:float32[], i:int) =
         sumValues(a.[i], b.[i])
-
-    [<Device(0,0)>][<ReflectedDefinition>]
+        
+    [<ReflectedDefinition; Kernel>]
     let VectorAddWithNestedUtility(a: float32[], b: float32[], c: float32[], wi:WorkItemInfo) =
         let gid = wi.GlobalID(0)
         c.[gid] <- sumArraysNested(a, b, gid)
@@ -77,7 +78,6 @@
         // MUST FIX
         // ***************************************************************************************************
         // Simple vector add with utility taking vectors ****************************************************************************
-        (*
         Console.WriteLine("")
         let test = "[ Vector Add With Utility Taking Arrays ]"
         Console.WriteLine("# Testing " + test + " with OpenCL")
@@ -125,4 +125,4 @@
             timer.Stop()
             Console.WriteLine("  " + test + " execution time (kernel is not compiled): " + timer.ElapsedMilliseconds.ToString() + "ms")                       
         // ***************************************************************************************************
-        *)
+        

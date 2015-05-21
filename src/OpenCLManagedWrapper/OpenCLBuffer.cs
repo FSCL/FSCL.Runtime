@@ -92,7 +92,7 @@ namespace OpenCL
 			long totalCount = 1;
 			foreach (var c in count)
 				totalCount *= c;
-			Handle = CL10.CreateBuffer(context.Handle, flags, new IntPtr(Marshal.SizeOf(elementType) * totalCount), dataPtr, out error);
+            Handle = CL10.CreateBuffer(context.Handle, flags, new IntPtr(Marshal.SizeOf(elementType) * totalCount), dataPtr, out error);
 			OpenCLException.ThrowOnError(error);
 			Init();
 		}

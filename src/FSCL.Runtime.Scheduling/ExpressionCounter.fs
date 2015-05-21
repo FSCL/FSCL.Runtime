@@ -31,13 +31,13 @@ type ExpressionCounter() =
     // Build an expression that contains the number of interesting items
     static member private Estimate(kmod: IKernelModule,
                                    functionBody: Expr, 
-                                   parameters: (ParameterInfo * Var)[],
-                                   action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
+                                   parameters: IFunctionParameter[],
+                                   action: Expr * IFunctionParameter[] * (Expr -> Expr<float32>) -> CountAction,
                                    stack: VarStack,
                                    //workItemIdContainerPlaceholder: Quotations.Var,
                                    considerLoopIncr: bool) =      
         let isParameterReference v = 
-            (Array.tryFind (fun (p:ParameterInfo, pv:Var) -> pv = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
+            (Array.tryFind (fun (p:IFunctionParameter) -> p.OriginalPlaceholder = v) parameters).IsSome || v.Type = typeof<WorkItemInfo>
                       
         let rec EstimateInternal(expr: Expr, stack: VarStack) =
             // Check if this is an interesting item
@@ -99,7 +99,7 @@ type ExpressionCounter() =
                     | DerivedPatterns.MethodWithReflectedDefinition(b) ->
                         // It's a reflected method
                         // Get functioninfo
-                        let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature = mi)
+                        let calledFun =  kmod.Functions.Values |> Seq.find(fun v -> v.ParsedSignature.Value = mi)
                         match QuotationAnalysis.FunctionsManipulation.GetCurriedOrTupledArgs(b) with
                         | thisVar, Some(paramVars) ->       
                             // Count inside arguments
@@ -396,12 +396,10 @@ type ExpressionCounter() =
                 
     static member Count(kmod: IKernelModule,
                         kfun: IFunctionInfo,                        
-                        action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction,
+                        action: Expr * IFunctionParameter[] * (Expr -> Expr<float32>) -> CountAction,
                         considerLoopIncr: bool) = 
                         
         let parameters = kmod.Kernel.OriginalParameters |> 
-                         Seq.map(fun (p: IOriginalFunctionParameter) -> 
-                                    (p.OriginalParamterInfo, p.OriginalPlaceholder)) |>
                          Array.ofSeq   
 
         // Create a lambda to evaluate instruction count
@@ -411,8 +409,8 @@ type ExpressionCounter() =
         KernelUtil.CloseExpression(prepBody, cleanCountExpr).Value
             
     static member ContinueCount (kmod: IKernelModule)
-                                (parameters: (ParameterInfo * Var)[])
-                                (action: Expr * (ParameterInfo * Var)[] * (Expr -> Expr<float32>) -> CountAction) 
+                                (parameters: IFunctionParameter[])
+                                (action: Expr * IFunctionParameter[] * (Expr -> Expr<float32>) -> CountAction) 
                                 (stack: VarStack) 
                                 (considerLoopIncr: bool)
                                 (e: Expr) =
