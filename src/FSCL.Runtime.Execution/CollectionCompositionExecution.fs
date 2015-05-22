@@ -124,9 +124,8 @@ type CollectionCompositionExecutionProcessor() =
                 // Execute input (fold has 2 inputs)
                 let input = node.Input |> 
                             Seq.map(fun i -> 
-                                    async {                            
-                                        return step.Process(i, env, false, opts)        
-                                    }) |> Async.Parallel |> Async.RunSynchronously
+                                    step.Process(i, env, false, opts)        
+                                    ) |> Seq.toArray
 
                 let initialState =                           
                     match input.[0] with
@@ -138,7 +137,9 @@ type CollectionCompositionExecutionProcessor() =
                 let managedInput = 
                     match input.[1] with
                     | ReturnedBuffer(buffer) ->
-                        pool.BeginOperateOnBuffer(buffer, true)
+                        let v = pool.BeginOperateOnBuffer(buffer, true)
+                        pool.EndOperateOnBuffer(buffer, initialState :?> Array, false)
+                        v
                     | ReturnedValue(v) ->
                         v :?> Array
                                        
@@ -158,12 +159,7 @@ type CollectionCompositionExecutionProcessor() =
                 // Now return 
                 let result = ReturnedValue(currentState)
 
-                // End operate on buffer                         
-                match input.[0] with
-                | ReturnedBuffer(b) ->
-                    pool.EndOperateOnBuffer(b, initialState :?> Array, false)
-                | ReturnedValue(v) ->
-                    ()
+                // End operate on buffer 
                 match input.[1] with
                 | ReturnedBuffer(buffer) ->
                     pool.EndOperateOnBuffer(buffer, managedInput, false)

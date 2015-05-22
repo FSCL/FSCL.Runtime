@@ -22,6 +22,15 @@ open System.Runtime.CompilerServices
 type KernelCreationManager(schedulingEngine: ISchedulingEngine option) = 
     let locker = new Object()
      
+//    let openCLDevices =
+//        let devs = new List<OpenCLDevice>()
+//        for p in OpenCLPlatform.Platforms do
+//            for d in p.Devices do
+//                devs.Add(d)
+//        devs
+//
+//    let sharedComputeContext = new OpenCLContext(openCLDevices, null, null, System.IntPtr.Zero) 
+
     // The metric used to select the best devices for a kernel
     member val SchedulingEngine = schedulingEngine with get             
     member val DeviceCache = new DeviceCache() with get
@@ -120,6 +129,7 @@ type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =
         if useOpenCL then            
             // Check if platform and device indexes are valid  
             let device = node.Module.Kernel.Meta.KernelMeta.Get<DeviceAttribute>()
+            //Console.WriteLine("Running kernel on platform " + device.Platform.ToString() + ", device " + device.Device.ToString())
             if OpenCLPlatform.Platforms.Count <= device.Platform || (OpenCLPlatform.Platforms.[device.Platform]).Devices.Count <= device.Device then
                 raise (new KernelCompilationException("The platform and device indexes specified for the kernel " + node.Module.Kernel.Name + " are invalid"))
                           

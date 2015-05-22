@@ -241,7 +241,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                                                     parameter.IsReturned)
                                 // We need to copy buffer only if is has been potentially changed the one we are compying from
                                 if (shouldCopyBuffer) then
-                                    BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
+                                    if sameContext then
+                                        BufferTools.CopyBuffer(queue, prevBuffer.Buffer, bufferItem.Buffer)
+                                    else
+                                        // Write managed array to new buffer
+                                        BufferTools.WriteBuffer(queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, prevBuffer.HostDataHandle.Value.Ptr, arr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(arr))    
                                 //else
                                     //Console.WriteLine("Buffer in NOT copied")   
 
@@ -388,8 +392,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         lock locker (fun() ->
             // Tracked return
             if (reverseTrackedBufferPool.ContainsKey(retBuffer)) then
-                this.CreateTrackedBuffer(context, queue, parameter, reverseTrackedBufferPool.[retBuffer], isRoot, sharePriority)
-        
+                this.CreateTrackedBuffer(context, queue, parameter, reverseTrackedBufferPool.[retBuffer], isRoot, sharePriority)        
             else
                 // Return is untracked
                 let retItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
@@ -408,6 +411,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                     // Must promote this untracked item to tracked
                     retItem.IsAvailable <- false
                     untrackedBufferPool.[retBuffer.Context].Remove(retBuffer) |> ignore
+                    retItem.HostDataHandle <- Some(new HostSideDataHandle(newArr))
                     trackedBufferPool.Add(newArr, retItem)
                     // Since now it's tracked it could be returned
                     //if parameter.IsReturned && isRoot then
@@ -419,18 +423,35 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                     else
                         Trace.WriteLine("FSCL Warning: tracked buffer for parameter " + parameter.Name + " cannot reuse pre-existing returned buffer cause the OpenCL context is different") 
                 
-                    //Console.WriteLine("No adapted flags can be computed, create new buffer")   
-                    let poolItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
+                    //Console.WriteLine("No adapted flags can be computed, create new buffer")  
                     // Need to copy
                     let copy = this.CreateTrackedBuffer(context, queue, parameter, newArr, isRoot, sharePriority)
-                    if BufferStrategies.ShouldCopyBuffer(poolItem.AccessAnalysis, poolItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
+                    let bufferItem = new BufferPoolItem(
+                                            copy, 
+                                            Some(new HostSideDataHandle(newArr)),
+                                            queue,
+                                            parameter.AccessAnalysis,
+                                            mergedFlags,
+                                            addressSpace.AddressSpace, 
+                                            transferMode.HostToDeviceMode,
+                                            transferMode.DeviceToHostMode,                    
+                                            readMode,
+                                            writeMode,
+                                            parameter.IsReturned) 
+                    if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
                         //Console.WriteLine("Buffer is copied")   
-                        BufferTools.CopyBuffer(queue, retBuffer, copy)
+                        if sameContext then
+                            BufferTools.CopyBuffer(queue, retBuffer, copy)
+                        else
+                            bufferItem.HostDataHandle.Value.BeforeTransferFromDevice()
+                            BufferTools.ReadBuffer(retItem.Queue, (retItem.ReadMode = BufferReadMode.MapBuffer), bufferItem.HostDataHandle.Value.Ptr, retBuffer, ArrayUtil.GetArrayLengths(newArr))
+                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, bufferItem.HostDataHandle.Value.Ptr, newArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(newArr))                                
+                    trackedBufferPool.Add(newArr, bufferItem)
                     //else
                         //Console.WriteLine("Buffer is NOT copied")   
                     // Dispose old buffer
-                    poolItem.IsAvailable <- true
-                    this.EndUsingBuffer(poolItem.Buffer)
+                    retItem.IsAvailable <- false
+                    this.EndUsingBuffer(retItem.Buffer)
                     copy)
              
     // This is called for buffers bound to subkernels and not returned or returned from non-root   
@@ -483,11 +504,31 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                
                     // Need to copy
                     let copy = this.CreateUntrackedBuffer(context, queue, parameter, retBuffer.Count, isRoot)
+                    let bufferItem = new BufferPoolItem(
+                                            copy, 
+                                            None,
+                                            queue,
+                                            parameter.AccessAnalysis,
+                                            mergedFlags,
+                                            addressSpace.AddressSpace, 
+                                            transferMode.HostToDeviceMode,
+                                            transferMode.DeviceToHostMode,                    
+                                            readMode,
+                                            writeMode,
+                                            parameter.IsReturned) 
                     if BufferStrategies.ShouldCopyBuffer(retItem.AccessAnalysis, retItem.AddressSpace, parameter.AccessAnalysis, addressSpace.AddressSpace) then
-                        BufferTools.CopyBuffer(queue, retBuffer, copy)
+                        if sameContext then
+                            BufferTools.CopyBuffer(queue, retBuffer, copy)
+                        else
+                            let elementCount = retBuffer.Count
+                            let elemType = parameter.DataType.GetElementType()
+                            let newArr = Array.CreateInstance(elemType, elementCount)
+                            let handle = new HostSideDataHandle(newArr)
+                            handle.BeforeTransferFromDevice()
+                            BufferTools.ReadBuffer(retItem.Queue, (retItem.ReadMode = BufferReadMode.MapBuffer), handle.Ptr, retBuffer, ArrayUtil.GetArrayLengths(newArr))
+                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, handle.Ptr, newArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(newArr))                                
+                            (handle :> IDisposable).Dispose()
                     // Dispose old buffer
-                    retItem.IsAvailable <- true
-                    this.EndUsingBuffer(retItem.Buffer)
                     copy)
         
     member this.TransferBackModifiedBuffers() =

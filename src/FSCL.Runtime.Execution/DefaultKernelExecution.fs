@@ -40,9 +40,8 @@ type DefaultKernelExecutionProcessor() =
             // Evaluate input
             let input = node.Input |> 
                         Seq.map(fun i -> 
-                            async {                            
-                                return step.Process(i, env, false, opts)
-                            }) |> Async.Parallel |> Async.RunSynchronously
+                            step.Process(i, env, false, opts)
+                            ) |> Seq.toArray
                     
             // Create kernel
             let runtimeKernel = step.KernelCreationManager.Process(node, opts)

@@ -77,24 +77,24 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="FSCL.Compiler, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Core, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Language, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.NativeComponents, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="FSCL.Compiler.Util, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\packages\FSCL.Compiler.2.0\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

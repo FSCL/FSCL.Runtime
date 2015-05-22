@@ -98,16 +98,20 @@ module Runtime =
                     BufferPoolPersistency.PersistencyInsideExpression
                                                                            
             // If has return buffer read it
-            match result with
-            | ReturnedValue(v) ->
-                // Dispose all buffers if PersistencyInsideExpressions
-                if persistency = BufferPoolPersistency.PersistencyInsideExpression then
-                    this.globalPool.ClearTrackedAndUntrackedPool()
-                else
-                    this.globalPool.ClearUntrackedPoolOnly()
-                v
-            | ReturnedBuffer(b) ->
-                this.globalPool.ReadBuffer(b) :> obj
+            let returnedValue = 
+                match result with
+                | ReturnedValue(v) ->
+                    // Dispose all buffers if PersistencyInsideExpressions
+                    v
+                | ReturnedBuffer(b) ->
+                    this.globalPool.ReadBuffer(b) :> obj
+            
+            if persistency = BufferPoolPersistency.PersistencyInsideExpression then
+                this.globalPool.ClearTrackedAndUntrackedPool()
+            else
+                this.globalPool.ClearUntrackedPoolOnly()
+
+            returnedValue
                             
         member this.RunExpressionMultithread(input:Expr, opts: Map<string, obj>) = 
             let compiled = this.compiler.Compile(input, Map.empty.Add(CompilerOptions.ParseOnly, box true)) :?> IKernelExpression   
