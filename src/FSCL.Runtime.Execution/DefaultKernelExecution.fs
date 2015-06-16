@@ -35,14 +35,18 @@ type DefaultKernelExecutionProcessor() =
                 if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
                     opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
                 else
-                    BufferSharePriority.PriorityToFlags
+                    BufferSharePriority.PriorityToShare
                         
             // Evaluate input
-            let input = node.Input |> 
-                        Seq.map(fun i -> 
-                            step.Process(i, env, false, opts)
-                            ) |> Seq.toArray
+//            let input = node.Input |> 
+//                        Seq.map(fun i -> 
+//                                async {
+//                                    return step.Process(i, env, false, opts)
+//                                }
+//                            ) |> Async.Parallel |> Async.RunSynchronously
                     
+            let input = node.Input |> Seq.map(fun i -> step.Process(i, env, false, opts)) |> Seq.toArray
+
             // Create kernel
             let runtimeKernel = step.KernelCreationManager.Process(node, opts)
 
@@ -75,7 +79,7 @@ type DefaultKernelExecutionProcessor() =
 
                 // Release opencl kernel
                 runtimeKernel.CompiledKernelData.EndUsingKernel(openclKernel)
-
+                                
                 // Dispose buffers
                 for b in buffers do
                     pool.EndUsingBuffer(b.Value)

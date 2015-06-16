@@ -27,7 +27,6 @@ type BufferTools() =
         let events = new List<OpenCLEventBase>()
         q.CopyBuffer(input, output, 0L, 0L, input.TotalCount, null, events)
         q.Wait(events.AsReadOnly())
-        events.[0].Dispose()
         
     static member CreateBuffer(t:Type, 
                                count:int64[],
@@ -66,14 +65,9 @@ type BufferTools() =
             | 1 ->
                 queue.WriteToBuffer(arr, buffer, false, 0L, count.[0], null, evt)
             | 2 ->
-                let offset = OpenCL.SysIntX2(0, 0)                
-                let region = OpenCL.SysIntX2(count.[0], count.[1])
-                queue.WriteToBuffer(arr, buffer, false, offset, offset, region, null, evt)
+                queue.WriteToBuffer(arr, buffer, false, 0L, count.[0] * count.[1], null, evt)
             | _ ->
-                let offset = OpenCL.SysIntX3(0, 0, 0)
-                let region = 
-                    OpenCL.SysIntX3(count.[0], count.[1], count.[2])
-                queue.WriteToBuffer(arr, buffer, false, offset, offset, region, null, evt)
+                queue.WriteToBuffer(arr, buffer, false, 0L, count.[0] * count.[1] * count.[2], null, evt)
             //evt.[0].Completed.Add(fun st -> evt.[0].Dispose())
             
     static member ReadBuffer(queue: OpenCLCommandQueue, useMap: bool, o: IntPtr, buffer: OpenCLBuffer, count:int64[]) =        

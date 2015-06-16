@@ -40,7 +40,35 @@ type ReduceKernelExecutionProcessor() =
                 None
         | _ ->
             None
-            
+
+    member this.FinalResultCPU(pool:BufferPoolManager, reduceFunction:obj, outputBuffer:OpenCLBuffer) =        
+        // Operate final reduce on cpu
+        let result = ref null        
+        let arr = pool.BeginOperateOnBuffer(outputBuffer, true) 
+        let finV =                     
+            // Do final iteration on CPU
+            match reduceFunction with
+            | :? MethodInfo ->
+                result := arr.GetValue(0)
+                for i = 1 to arr.Length - 1 do
+                    // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
+                    result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
+            | _ ->
+                // WARNING:
+                // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
+                // It seems that converting to Linq expressions works, but it's less efficient 
+                let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
+                                        
+                result := arr.GetValue(0)
+                // Curried
+                for i = 1 to arr.Length - 1 do
+                    let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
+                    let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
+                    result := r2
+            !result     
+        pool.EndOperateOnBuffer(outputBuffer, arr, false) 
+        finV
+
     // Reduce for CPU
     member private this.StageReduceCpu((node, collectionVars, isRoot), step, opts) =
         let km = node.Module
@@ -209,41 +237,14 @@ type ReduceKernelExecutionProcessor() =
             rk.CompiledKernelData.EndUsingKernel(openclKernel)
 
             let finalReduceOnCPU = currentOutputSize > 0L
-
-            // Operate final reduce on cpu
-            let result = ref null        
-            let arr = pool.BeginOperateOnBuffer(outputBuffer, true) 
-            let newArr =                           
+            let finV =
                 if finalReduceOnCPU then
-                    // Do final iteration on CPU
-                    let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
-                    match reduceFunction with
-                    | :? MethodInfo ->
-                        result := arr.GetValue(0)
-                        for i = 1 to arr.Length - 1 do
-                            // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                            result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
-                    | _ ->
-                        // WARNING:
-                        // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
-                        // It seems that converting to Linq expressions works, but it's less efficient 
-                        let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
-                                        
-                        result := arr.GetValue(0)
-                        // Curried
-                        for i = 1 to arr.Length - 1 do
-                            let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
-                            let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
-                            result := r2
-                    let na = Array.CreateInstance(result.Value.GetType(), 1)
-                    na.SetValue(!result, 0)
-                    na
+                    this.FinalResultCPU(pool, kernelData.Kernel.CustomInfo.["ReduceFunction"], outputBuffer)
                 else
-                    result := arr.GetValue(0)
-                    let na = Array.CreateInstance(result.Value.GetType(), 1)
-                    na.SetValue(!result, 0)
-                    na
-            pool.EndOperateOnBuffer(outputBuffer, newArr, not isRoot)
+                    let arr = pool.BeginOperateOnBuffer(outputBuffer, true) 
+                    let v = arr.GetValue(0)
+                    pool.EndOperateOnBuffer(outputBuffer, arr, false) 
+                    v
 
             // Dispose input buffer
             pool.EndUsingBuffer(inputBuffer)
@@ -254,7 +255,7 @@ type ReduceKernelExecutionProcessor() =
             else
                 // Dispose output buffer
                 pool.EndUsingBuffer(outputBuffer)
-                Some(ReturnedValue(!result))
+                Some(ReturnedValue(finV))
         
         // Multithread execution
         | Some(MultithreadKernel(mk)) ->
@@ -262,181 +263,204 @@ type ReduceKernelExecutionProcessor() =
         | _ ->
             None
 
-    member private this.StageReduceGpu((node, collectionVars, isRoot), s, opts) =
-        failwith "NOT SUPPORTED YET"
-    (*
-        let step = s :?> KernelExecutionStep
-        let pool = step.BufferPoolManager
-        //new KernelExecutionOutput()
+    member private this.StageReduceGpu((node, collectionVars, isRoot), step, opts) =
+        let km = node.Module
 
         let sharePriority = 
             if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
                 opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
             else
                 BufferSharePriority.PriorityToFlags
+                 
+        // Execute input (reduce has only one input)
+        let input = node.Input |> Seq.map(fun i -> step.Process(i, collectionVars, false, opts)) |> Seq.head  
+                                 
+        // Create kernel
+        let runtimeKernel = step.KernelCreationManager.Process(node, opts)
 
-        let deviceData, kernelData, compiledData = node.DeviceData, node.KernelData, node.CompiledKernelData
+        match runtimeKernel with
+        // OpenCL kernel execution
+        | Some(OpenCLKernel(rk)) ->
+            let pool = step.BufferPoolManager
 
-        let mutable executionOutput = ReturnedValue(())
-        // Coming from preceding kernels buffers
-        let mutable prevExecutionResult = ReturnedValue(())
-        // Input (coming from preceding kernels) buffers
-        let mutable inputBuffer = null
-        // Output (returned or simply written) buffers
-        let mutable outputBuffer = null
+            let deviceData, kernelData, compiledData = rk.DeviceData, rk.KernelData, rk.CompiledKernelData
 
-        // Get node input binding
-        let nodeInput = FlowGraphUtil.GetNodeInput(node)
-        let parameters = kernelData.Kernel.Parameters
-        // Check if the first parameter (input array) is bound to the output of a kernel
-        let inputPar = parameters.[0]
-        if nodeInput.ContainsKey(inputPar.Name) then
-            match nodeInput.[inputPar.Name] with
-            | KernelOutput(otherKernel, otherParIndex) ->
-                let kernelOutput = step.Process(otherKernel, false)
-                prevExecutionResult <- kernelOutput
-            | _ ->
-                ()
-
-        // Now that we have executed all the preceding kernels, complete the evaluation of the arguments
-        // We do this in a second time to avoid allocating many buffers in a recursive function, risking stack overflow
-        let mutable argIndex = 0  
-
-        // First parameter: input array, may be coming from actual argument or kernel output
-        let par = parameters.[argIndex]
-
-        match nodeInput.[par.Name] with
-        | ActualArgument(expr) ->
-            // Input from an actual argument
-            let o = LeafExpressionConverter.EvaluateQuotation(expr)
-            // Create buffer and eventually init it
-            inputBuffer <- pool.RequireBufferForParameter(par, Some(o :?> Array), ArrayUtil.GetArrayLengths(o), node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority)                      
-            // Set kernel arg
-            compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)                      
-            // Set size parameter
-            compiledData.Kernel.SetValueArgument(argIndex + 3, ArrayUtil.GetArrayLength(o))
-        | KernelOutput(n, a) ->
-            let lengths = 
-                match prevExecutionResult with
-                | ReturnedUntrackedBuffer(b)
-                | ReturnedTrackedBuffer(b, _) ->
-                    b.Count
-                | ReturnedValue(o) ->
-                    if o.GetType().IsArray then
-                        ArrayUtil.GetArrayLengths(o)
-                    else
-                        [||]
-
-            // WE SHOULD AVOID COPY!!!
-            // Copy the output buffer of the input kernel
-            inputBuffer <- pool.RequireBufferForParameter(par, None, lengths, node.DeviceData.Context, node.DeviceData.Queue, isRoot, sharePriority, prevExecutionResult)                      
-            // Set kernel arg
-            compiledData.Kernel.SetMemoryArgument(argIndex, inputBuffer)   
-            // Set size parameter                
-            compiledData.Kernel.SetValueArgument(argIndex + 3, lengths.[0] |> int)                               
-        | _ ->
-            raise (new KernelSetupException("The parameter " + par.Name + " is considered as implicit, which means that the runtime should be able to provide its value automatically, but this can't be done for array parameters"))
+            let mutable executionOutput = ReturnedValue(())
+            // Coming from preceding kernels buffers
+            let mutable prevExecutionResult = ReturnedValue(())
+            // Input (coming from preceding kernels) buffers
+            let mutable inputBuffer = null
+            // Output (returned or simply written) buffers
+            let mutable outputBuffer = null
             
-        // Get preferred local size
-        let mutable localSize = node.CompiledKernelData.Kernel.GetWorkGroupSize(node.DeviceData.Device) |> int
-        let globalSize = (inputBuffer.Count.[0] |> int) / 2
-        // Decrease until globalSize is multiple
-        while globalSize % localSize <> 0 do
-            localSize <- localSize - 1
+            // Now that we have executed all the preceding kernels, complete the evaluation of the arguments
+            // We do this in a second time to avoid allocating many buffers in a recursive function, risking stack overflow
+            let mutable argIndex = 0  
+            let arguments = new Dictionary<string, obj>()
+            
+            // Get instance of opencl kernel
+            let openclKernel = rk.CompiledKernelData.StartUsingKernel()
 
-        argIndex <- argIndex + 1
-        // Second parameter: local buffer
-        compiledData.Kernel.SetLocalArgument(argIndex, (Marshal.SizeOf(par.DataType.GetElementType()) |> int64) * (localSize |> int64)) 
-        // Store dim sizes
-        let sizeParameters = par.SizeParameters
-        // Set size parameter                
-        compiledData.Kernel.SetValueArgument(argIndex + 3, localSize)
+            // First parameter: input array, may be coming from actual argument or kernel output
+            let par = rk.KernelData.Kernel.Parameters.[argIndex]
+            let elementType = par.DataType.GetElementType()  
+            let arr, lengths, isBuffer = 
+                match input with
+                | ReturnedBuffer(b) ->
+                    None, b.Count, true
+                | ReturnedValue(v) ->
+                    if v.GetType().IsArray then
+                        Some(v :?> Array), ArrayUtil.GetArrayLengths(v), false
+                    else
+                        // Impossible
+                        failwith "Error"
+
+            // Get buffer or try reuse the input one
+            inputBuffer <- 
+                if isBuffer |> not then
+                    pool.RequireBufferForParameter(par, Some(arr.Value), lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority) 
+                else
+                    pool.RequireBufferForParameter(par, None, lengths, rk.DeviceData.Context, rk.DeviceData.Queue, isRoot, sharePriority, input) 
+                            
+            // Set kernel arg
+            openclKernel.SetMemoryArgument(argIndex, inputBuffer)  
+            arguments.Add(par.SizeParameters.[0].Name, inputBuffer.Count.[0])  
+            
+            let globalSize = (inputBuffer.Count.[0] |> int) / 2
+            // Decrease until globalSize is multiple
+            let localSize = if globalSize < 256 then 16 else 256            
+                
+            // Second parameter: local buffer
+            argIndex <- argIndex + 1
+            let par = rk.KernelData.Kernel.Parameters.[argIndex]
+            openclKernel.SetLocalArgument(argIndex, (Marshal.SizeOf(par.DataType.GetElementType()) |> int64) * (localSize |> int64)) 
+            // Store dim sizes
+            let sizeParameters = par.SizeParameters
+            // Set size parameter                
+            arguments.Add(par.SizeParameters.[0].Name, localSize |> int64)
+            
+            let mutable currentDataSize = inputBuffer.Count.[0]
+            let mutable currentGlobalSize = globalSize |> int64
+            let mutable currentLocalSize = if (localSize |> int64) > currentGlobalSize then currentGlobalSize else localSize |> int64
           
-        let mutable currentDataSize = inputBuffer.Count.[0]
-        let mutable currentGlobalSize = globalSize |> int64
-        let mutable currentLocalSize = if (localSize |> int64) > currentGlobalSize then currentGlobalSize else localSize |> int64
+            // Third parameter: output buffer
+            argIndex <- argIndex + 1
+            // Third parameter: output buffer
+            let par = rk.KernelData.Kernel.Parameters.[argIndex]
+            // Create buffer and eventually init it
+            let elementType = par.DataType.GetElementType()
+            outputBuffer <- pool.RequireBufferForParameter(par, None, [| currentGlobalSize / currentLocalSize |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
+            // Set kernel arg
+            openclKernel.SetMemoryArgument(argIndex, outputBuffer)   
+            // Set size parameter
+            arguments.Add(par.SizeParameters.[0].Name, globalSize |> int64)
+
+            // Add possible outsiders and size parameters
+            for i = argIndex + 1 to kernelData.Kernel.Parameters.Count - 1 do
+                let par = kernelData.Kernel.Parameters.[i]
+                match par.ParameterType with                
+                // A reference to a collection variable
+                // or to an env value
+                | FunctionParameterType.EnvVarParameter(_)
+                | FunctionParameterType.OutValParameter(_) ->
+                    let ob =
+                        match par.ParameterType with
+                        | FunctionParameterType.EnvVarParameter(v) ->
+                            // Determine the value associated to the collection var
+                            collectionVars.[v]
+                        | FunctionParameterType.OutValParameter(e) ->
+                            // Evaluate the expr
+                            LeafExpressionConverter.EvaluateQuotation(e)
+                        | _ ->
+                            // Impossible
+                            null
+                    if par.DataType.IsArray then    
+                        let elementType = par.DataType.GetElementType()  
+                        let arr, lengths = 
+                            ob :?> Array,
+                            ArrayUtil.GetArrayLengths(ob :?> Array)
+
+                        // Get buffer or try reuse the input one
+                        let buffer = 
+                            pool.RequireBufferForParameter(par, Some(arr), lengths, deviceData.Context, deviceData.Queue, isRoot, sharePriority) 
+                            
+                        // Set kernel arg
+                        openclKernel.SetMemoryArgument(i, buffer)                      
+                        // Store dim sizes
+                        let sizeParameters = par.SizeParameters
+                        for i = 0 to sizeParameters.Count - 1 do
+                            arguments.Add(sizeParameters.[i].Name, lengths.[i])
+                        // Store argument and buffer
+                        arguments.Add(par.Name, arr)
+                    else
+                        // Ref to a scalar
+                        openclKernel.SetValueArgumentAsObject(i, ob)  
+                // A size parameter
+                | FunctionParameterType.SizeParameter ->
+                    // We can access succesfully "arguments" cause 
+                    // length args come always later than the relative array
+                    let v = arguments.[par.Name]             
+                    openclKernel.SetValueArgument<int>(i, v :?> int64 |> int)
+                | _ ->
+                    // Impossible
+                    failwith "Error"
+            
+            let mutable currentDataSize = inputBuffer.Count.[0]
+            let mutable currentGlobalSize = globalSize |> int64
+            let mutable currentLocalSize = if (localSize |> int64) > currentGlobalSize then currentGlobalSize else localSize |> int64
           
-        argIndex <- argIndex + 1
-        // Third parameter: output buffer
-        let par = parameters.[argIndex]
-        // Create buffer and eventually init it
-        let elementType = par.DataType.GetElementType()
-        outputBuffer <- pool.RequireBufferForParameter(par, None, [| currentGlobalSize / currentLocalSize |], deviceData.Context, deviceData.Queue, isRoot, sharePriority)                            
-        // Set kernel arg
-        compiledData.Kernel.SetMemoryArgument(argIndex, outputBuffer)                      
-        // Store dim sizes
-        let sizeParameters = par.SizeParameters
-        // Set size parameter
-        compiledData.Kernel.SetValueArgument(argIndex + 3, currentGlobalSize / currentLocalSize |> int)
-        
-        // Execute until the output size is smaller than group size * number of compute units (full utilization of pipeline)
-        let smallestDataSize = node.KernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length //currentGlobalSize - 1L // 
+            // Execute until the output size is smaller than group size * number of compute units (full utilization of pipeline)       
+            let smallestDataSize = kernelData.Kernel.Meta.KernelMeta.Get<MinReduceArrayLengthAttribute>().Length
                     
-        while (currentDataSize > smallestDataSize) do
-            deviceData.Queue.Execute(compiledData.Kernel, [| 0L |], [| currentGlobalSize |], [| currentLocalSize |], null)                
+            while (currentDataSize > smallestDataSize) do
+                deviceData.Queue.Execute(openclKernel, [| 0L |], [| currentGlobalSize |], [| currentLocalSize |], null)                
                
            
-            // TESTING ITERATION - TO COMMENT
-            (*
-            let obj = Array.CreateInstance(outputBuffer.ElementType, [| currentGlobalSize |])
-            BufferTools.ReadBuffer(deviceData.Queue, false, obj, outputBuffer, [| currentGlobalSize |])
-            *)
-            // Recompute work size
-            // Il local size become greater than or equal to global size, we set it to be half the global size
-            currentDataSize <- currentGlobalSize / currentLocalSize
-            if currentLocalSize >= (currentDataSize / 2L) then
-                currentLocalSize <- currentDataSize / 2L
-            currentGlobalSize <- currentDataSize / 2L
+                // TESTING ITERATION - TO COMMENT
+                
+                let obj = pool.ReadBuffer(outputBuffer)
+                
+                // Recompute work size
+                // Il local size become greater than or equal to global size, we set it to be half the global size
+                currentDataSize <- currentGlobalSize / currentLocalSize
+                if currentLocalSize >= (currentDataSize / 2L) then
+                    currentLocalSize <- currentDataSize / 2L
+                currentGlobalSize <- currentDataSize / 2L
             
-            if(currentDataSize > smallestDataSize) then
-                // Exchange buffer
-                compiledData.Kernel.SetMemoryArgument(0, outputBuffer)
-                compiledData.Kernel.SetValueArgument(3, currentDataSize |> int)
+                if(currentDataSize > smallestDataSize) then
+                    // Exchange buffer
+                    openclKernel.SetMemoryArgument(0, outputBuffer)
+                    openclKernel.SetValueArgument(3, currentDataSize |> int)
 
-                // Set local buffer arg                 
-                compiledData.Kernel.SetValueArgument(4, currentLocalSize |> int)
+                    // Set local buffer arg                 
+                    openclKernel.SetValueArgument(4, currentLocalSize |> int)
 
-        // Read buffer
-        let outputPar = kernelData.Kernel.Parameters.[2]
-        let result = ref null 
-        let finalReduceOnCPU = currentDataSize > 1L
-        let arr = pool.BeginOperateOnBuffer(outputBuffer, true)
-        let newArr =
-            if finalReduceOnCPU then
-                // Do final iteration on CPU
-                let reduceFunction = kernelData.Kernel.CustomInfo.["ReduceFunction"]
-                match reduceFunction with
-                | :? MethodInfo ->
-                    result := arr.GetValue(0)
-                    for i = 1 to arr.Length - 1 do
-                        // THIS REQUIRES STATIC METHOD OR MODULE FUNCTION
-                        result := (reduceFunction :?> MethodInfo).Invoke(null, [| !result; arr.GetValue(i) |])
-                | _ ->
-                    // WARNING:
-                    // If we execute this lambda starting from an expr passed by compiler, using LeafExpression and getting invoke methods we get a CLR failure exception
-                    // It seems that converting to Linq expressions works, but it's less efficient 
-                    let lambda = LeafExpressionConverter.EvaluateQuotation(reduceFunction :?> Expr)
-                                        
-                    result := arr.GetValue(0)
-                    // Curried
-                    for i = 1 to arr.Length - 1 do
-                        let r1 = lambda.GetType().GetMethod("Invoke").Invoke(lambda, [| !result |])
-                        let r2 = r1.GetType().GetMethod("Invoke").Invoke(r1, [| arr.GetValue(i) |])
-                        result := r2
-                [| !result |] :> Array
+            // Release opencl kernel
+            rk.CompiledKernelData.EndUsingKernel(openclKernel)
+
+            let finalReduceOnCPU = currentGlobalSize > 1L
+            let finV =
+                if finalReduceOnCPU then
+                    this.FinalResultCPU(pool, kernelData.Kernel.CustomInfo.["ReduceFunction"], outputBuffer)
                 else
-                result := arr.GetValue(0)
-                [| !result |] :> Array
-        pool.EndOperateOnBuffer(outputBuffer, newArr, not isRoot)
+                    let arr = pool.BeginOperateOnBuffer(outputBuffer, true) 
+                    let v = arr.GetValue(0)
+                    pool.EndOperateOnBuffer(outputBuffer, arr, false) 
+                    v
 
-        // Dispose input buffer
-        pool.EndUsingBuffer(inputBuffer)
+            // Dispose input buffer
+            pool.EndUsingBuffer(inputBuffer)
 
-        // If not root must write the result to buffer for the next kernel
-        if not isRoot then
-            // Return 
-            Some(ReturnedUntrackedBuffer(outputBuffer))
-        else
-            // Dispose output buffer
-            pool.EndUsingBuffer(outputBuffer)
-            Some(ReturnedValue(!result)) *)
+            if not isRoot then
+                // Return 
+                Some(ReturnedBuffer(outputBuffer))
+            else
+                // Dispose output buffer
+                pool.EndUsingBuffer(outputBuffer)
+                Some(ReturnedValue(finV))
+
+        // Multithread execution
+        | Some(MultithreadKernel(mk)) ->
+            failwith "Not supported yet"
+        | _ ->
+            None

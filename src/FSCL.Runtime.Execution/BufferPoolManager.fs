@@ -17,7 +17,8 @@ open FSCL.Compiler.Util.ReflectionUtil
 type HostSideDataHandle(data: Array) =
     let mutable (gcHandle:GCHandle option) = None
     let mutable (ptr:IntPtr) = IntPtr.Zero                           
-                
+    let mutable isDispose = false
+
     member val ManagedData = data 
         with get
         
@@ -29,14 +30,17 @@ type HostSideDataHandle(data: Array) =
 
     member this.Ptr 
         with get() =
+            assert(not isDispose)
             ptr
         and set v =
+            assert(not isDispose)
             ptr <- v
 
     member this.HasUnmanagedStorage =
         gcHandle.IsNone && (ptr <> IntPtr.Zero)
 
     member this.BeforeTransferToDevice() =
+        assert(not isDispose)
         if gcHandle = None && ptr = IntPtr.Zero then
             let dataType = data.GetType().GetElementType()
             if dataType.IsValueType then
@@ -67,9 +71,11 @@ type HostSideDataHandle(data: Array) =
                     ptr <- unmanagedPtr 
     
     member this.BeforeTransferFromDevice() =
+        assert(not isDispose)
         this.BeforeTransferToDevice()
         
     member this.SyncManagedWithUnmanaged() =
+        assert(not isDispose)
         if gcHandle = None && ptr <> IntPtr.Zero then
             // Must sync
             let dataType = data.GetType().GetElementType()
@@ -99,6 +105,8 @@ type HostSideDataHandle(data: Array) =
 
     interface IDisposable with
         member this.Dispose() =
+            assert(not isDispose)
+            isDispose <- true
             if gcHandle.IsSome then
                 gcHandle.Value.Free()
             else
@@ -175,7 +183,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         let mergedFlags, readMode, writeMode = 
             BufferStrategies.DetermineBestFlagsAndReadWriteMode(
                                                 addressSpace.AddressSpace, 
-                                                parameter.AccessAnalysis,
+                                                AccessAnalysisResult.ReadAccess ||| AccessAnalysisResult.WriteAccess,
                                                 rMode.Mode,
                                                 wMode.Mode,
                                                 transferMode.HostToDeviceMode,
@@ -189,7 +197,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
         ////Console.WriteLine("Best Memory Flags: " + mergedFlags.ToString())
         ////Console.WriteLine("Best Read Mode: " + readMode.ToString())
         ////Console.WriteLine("Best Write Mode: " + writeMode.ToString())
-        
+        let i = 0
         // Check if there is a buffer bound to the same object
         lock locker (fun () -> 
                         if trackedBufferPool.ContainsKey(arr) then
@@ -198,8 +206,9 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                             // If not used anymore, same context and access we can use it
                             //assert (prevBuffer.IsAvailable)
                             let sameContext = prevBuffer.Buffer.Context = context
+                            let sameDevice = true
                             let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(prevBuffer.Flags, mergedFlags, sharePriority)
-                            if sameContext && memFlagsCompatible then    
+                            if sameDevice && sameContext && memFlagsCompatible then    
                                 //Console.WriteLine("Buffer is reused with adapteded flags: " + prevBuffer.Flags.ToString())   
                            
                                 // Update transfer mode
@@ -338,7 +347,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                         let totalSize = (count |> Array.reduce(*)) * (Marshal.SizeOf(parameter.DataType.GetElementType()) |> int64)
                         let compBuffer = untrackedBufferPool.[context] |>  
                                          Seq.tryFind(fun keyVal ->
-                                                        keyVal.Value.IsAvailable && keyVal.Value.Buffer.Size >= totalSize)
+                                                        keyVal.Value.IsAvailable && keyVal.Value.Buffer.Size >= totalSize && keyVal.Value.Queue.Device = queue.Device)
                         if compBuffer.IsSome then
                             compBuffer.Value.Value.IsAvailable <- false
                             compBuffer.Value.Key
@@ -396,26 +405,15 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
             else
                 // Return is untracked
                 let retItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
-                // Create arr                
-                let elementCount = retBuffer.Count
-                let elemType = parameter.DataType.GetElementType()
-                let newArr = Array.CreateInstance(elemType, elementCount)
-
-                assert(retItem.IsAvailable)  
-                //Console.WriteLine("Returned buffer is UNTRACKED")                 
+                              
                 // Check if this can be used with no copy
+                let sameDevice = true
                 let sameContext = context = retBuffer.Context
                 let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority)
-                if sameContext && memFlagsCompatible then
+                if sameDevice && sameContext && memFlagsCompatible then    
                     //Console.WriteLine("Returned buffer is promoted to TRACKED with adapteded flags: " + retItem.Flags.ToString())  
                     // Must promote this untracked item to tracked
-                    retItem.IsAvailable <- false
-                    untrackedBufferPool.[retBuffer.Context].Remove(retBuffer) |> ignore
-                    retItem.HostDataHandle <- Some(new HostSideDataHandle(newArr))
-                    trackedBufferPool.Add(newArr, retItem)
-                    // Since now it's tracked it could be returned
-                    //if parameter.IsReturned && isRoot then
-                        //  rootReturnBuffer <- Some(retItem, newArr)
+                    this.PromoteUntrackedToTracked(retItem)
                     retBuffer
                 else
                     if sameContext then
@@ -425,6 +423,9 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 
                     //Console.WriteLine("No adapted flags can be computed, create new buffer")  
                     // Need to copy
+                    let elementCount = retBuffer.Count
+                    let elemType = parameter.DataType.GetElementType()
+                    let newArr = Array.CreateInstance(elemType, elementCount)
                     let copy = this.CreateTrackedBuffer(context, queue, parameter, newArr, isRoot, sharePriority)
                     let bufferItem = new BufferPoolItem(
                                             copy, 
@@ -443,9 +444,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                         if sameContext then
                             BufferTools.CopyBuffer(queue, retBuffer, copy)
                         else
-                            bufferItem.HostDataHandle.Value.BeforeTransferFromDevice()
-                            BufferTools.ReadBuffer(retItem.Queue, (retItem.ReadMode = BufferReadMode.MapBuffer), bufferItem.HostDataHandle.Value.Ptr, retBuffer, ArrayUtil.GetArrayLengths(newArr))
-                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, bufferItem.HostDataHandle.Value.Ptr, newArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(newArr))                                
+                            let oldArr = this.ReadBuffer(retBuffer, false)
+                            let oldHandle = new HostSideDataHandle(oldArr)
+                            oldHandle.BeforeTransferToDevice()
+                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, oldHandle.Ptr, oldArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(oldArr))                                
+                            (oldHandle :> IDisposable).Dispose()
                     trackedBufferPool.Add(newArr, bufferItem)
                     //else
                         //Console.WriteLine("Buffer is NOT copied")   
@@ -488,11 +491,13 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 //Console.WriteLine("Returned buffer is UNTRACKED")
                 // Return is untracked
                 let retItem = untrackedBufferPool.[retBuffer.Context].[retBuffer]
-                assert(retItem.IsAvailable)                   
+
                 // Check if this can be used with no copy
+                let sameDevice = true
                 let sameContext = context = retBuffer.Context
                 let memFlagsCompatible = BufferStrategies.AreMemoryFlagsCompatible(retItem.Flags, mergedFlags, sharePriority)
-                if sameContext && memFlagsCompatible then
+                if sameDevice && sameContext && memFlagsCompatible then
+                    let temp = this.ReadBuffer(retBuffer, false)
                     //Console.WriteLine("Buffer is reused with adapteded flags: " + retItem.Flags.ToString()) 
                     retItem.IsAvailable <- false
                     retBuffer
@@ -520,14 +525,11 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                         if sameContext then
                             BufferTools.CopyBuffer(queue, retBuffer, copy)
                         else
-                            let elementCount = retBuffer.Count
-                            let elemType = parameter.DataType.GetElementType()
-                            let newArr = Array.CreateInstance(elemType, elementCount)
-                            let handle = new HostSideDataHandle(newArr)
-                            handle.BeforeTransferFromDevice()
-                            BufferTools.ReadBuffer(retItem.Queue, (retItem.ReadMode = BufferReadMode.MapBuffer), handle.Ptr, retBuffer, ArrayUtil.GetArrayLengths(newArr))
-                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, handle.Ptr, newArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(newArr))                                
-                            (handle :> IDisposable).Dispose()
+                            let oldArr = this.ReadBuffer(retBuffer, false)
+                            let oldHandle = new HostSideDataHandle(oldArr)
+                            oldHandle.BeforeTransferToDevice()
+                            BufferTools.WriteBuffer(bufferItem.Queue, (writeMode = BufferWriteMode.MapBuffer), bufferItem.Buffer, oldHandle.Ptr, oldArr.GetType().GetElementType(), ArrayUtil.GetArrayLengths(oldArr))                                
+                            (oldHandle :> IDisposable).Dispose()
                     // Dispose old buffer
                     copy)
         
@@ -538,7 +540,7 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 let poolItem = item.Value
                 this.ReadBufferToEnsureHostAccess(poolItem, false))
                     
-    member this.ReadBuffer(b: OpenCLBuffer) =
+    member this.ReadBuffer(b: OpenCLBuffer, ?promote:bool) =
         lock locker (fun () -> 
             if reverseTrackedBufferPool.ContainsKey(b) then
                 let array = reverseTrackedBufferPool.[b]
@@ -547,10 +549,22 @@ type BufferPoolManager(oldPool: BufferPoolManager) =
                 this.ReadBufferToEnsureHostAccess(poolItem, false, TransferMode.TransferIfNeeded)
                 array
             else if untrackedBufferPool.ContainsKey(b.Context) && untrackedBufferPool.[b.Context].ContainsKey(b) then
-                let poolItem = untrackedBufferPool.[b.Context].[b]
-                this.PromoteUntrackedToTracked(poolItem)
-                this.ReadBufferToEnsureHostAccess(poolItem, true, TransferMode.TransferIfNeeded)
-                poolItem.HostDataHandle.Value.ManagedData
+                if promote.IsSome && promote.Value then
+                    let poolItem = untrackedBufferPool.[b.Context].[b]
+                    this.PromoteUntrackedToTracked(poolItem)
+                    this.ReadBufferToEnsureHostAccess(poolItem, true, TransferMode.TransferIfNeeded)
+                    poolItem.HostDataHandle.Value.ManagedData
+                else
+                    let poolItem = untrackedBufferPool.[b.Context].[b]
+                    let elementCount = poolItem.Buffer.Count
+                    let elemType = poolItem.Buffer.ElementType
+                    let array = Array.CreateInstance(elemType, elementCount)
+                    let dataHandle = new HostSideDataHandle(array)
+                    poolItem.HostDataHandle <- Some(dataHandle)
+                    this.ReadBufferToEnsureHostAccess(poolItem, true, TransferMode.TransferIfNeeded)
+                    poolItem.HostDataHandle <- None
+                    (dataHandle :> IDisposable).Dispose()
+                    array                    
             else
                 null)
 

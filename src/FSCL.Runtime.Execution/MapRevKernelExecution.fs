@@ -44,7 +44,7 @@ type MapRevKernelExecutionProcessor() =
                         if opts.ContainsKey(RuntimeOptions.BufferSharePriority) then
                             opts.[RuntimeOptions.BufferSharePriority] :?> BufferSharePriority
                         else
-                            BufferSharePriority.PriorityToFlags
+                            BufferSharePriority.PriorityToShare
                         
                     // Evaluate input
                     let input = node.Input |> Seq.map(fun i -> step.Process(i, env, false, opts)) |> Seq.toArray
@@ -93,8 +93,8 @@ type MapRevKernelExecutionProcessor() =
                         runtimeKernel.CompiledKernelData.EndUsingKernel(openclKernel)
 
                         // Dispose buffers
-                        for b in buffers do
-                            pool.EndUsingBuffer(b.Value)
+                        //for b in buffers do
+                          //  pool.EndUsingBuffer(b.Value)
 
                         // Return the objects that the F# kernels eventually returns as a tuple (if more than 1)
                         Some(outputFromThisKernel)

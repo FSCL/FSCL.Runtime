@@ -96,7 +96,10 @@ module Runtime =
                     opts.[RuntimeOptions.BufferPoolPersistency] :?> BufferPoolPersistency
                 else
                     BufferPoolPersistency.PersistencyInsideExpression
-                                                                           
+                                     
+            // Read modified buffers
+            //this.globalPool.TransferBackModifiedBuffers()
+                                                  
             // If has return buffer read it
             let returnedValue = 
                 match result with
@@ -229,7 +232,7 @@ module Runtime =
             let platform = OpenCLPlatform.Platforms.[p]
             let devs = new List<int * string * DeviceType>()
             for i = 0 to platform.Devices.Count - 1 do
-                devs.Add((i, platform.Devices.[i].VendorID.ToString(), EnumOfValue<int, DeviceType> (platform.Devices.[i].Type |> int)))
+                devs.Add((i, platform.Devices.[i].Name.ToString(), EnumOfValue<int, DeviceType> (platform.Devices.[i].Type |> int)))
             plats.Add((p, platform.Vendor, devs.AsReadOnly()))
         plats.AsReadOnly()
                                

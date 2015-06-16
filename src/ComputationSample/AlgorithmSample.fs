@@ -63,11 +63,11 @@
         // Matrices
         let matSize = 16
         let matSizel = matSize |> int64
-        let am = Array2D.create matSize (matSize * 2) 2.0f
-        let bm = Array2D.create (matSize * 2) matSize 3.0f
+        let am = Array2D.create matSize matSize 2.0f
+        let bm = Array2D.create matSize matSize 3.0f
         let dm = Array2D.zeroCreate<float32> matSize matSize
         let em = Array2D.create matSize matSize 1.0f
-        let correctMatMul = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) * 2.0f)
+        let correctMatMul = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32))
         let correctMatMulAdd = Array2D.create matSize matSize (2.0f * 3.0f * (matSize |> float32) * 2.0f + 1.0f)
 
         // ***************************************************************************************************
@@ -79,6 +79,15 @@
         let worksize = new WorkSize(lsize, 64L)
         let n = <@ VectorAddWrite(a, b, c, worksize) @>.Run()
         
+        // ***************************************************************************************************
+        // Simple matrix mult *********************************************************************************
+        Console.WriteLine("")
+        let test = "[ Matrix mult ]"
+        Console.WriteLine("# Testing " + test + " with OpenCL")
+        // Execute vector add in OpenCL mode
+        let worksize = new WorkSize([| ((int64)matSize); ((int64)matSize) |], [| 16L; 16L |])
+        let r = <@ MatrixMult(am, bm, dm, worksize) @>.Run()
+
          // ***************************************************************************************************
         // Simple vector add **********************************************************************************
         Console.WriteLine("")

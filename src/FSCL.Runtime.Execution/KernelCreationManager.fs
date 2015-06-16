@@ -22,14 +22,13 @@ open System.Runtime.CompilerServices
 type KernelCreationManager(schedulingEngine: ISchedulingEngine option) = 
     let locker = new Object()
      
-//    let openCLDevices =
-//        let devs = new List<OpenCLDevice>()
-//        for p in OpenCLPlatform.Platforms do
-//            for d in p.Devices do
-//                devs.Add(d)
-//        devs
-//
-//    let sharedComputeContext = new OpenCLContext(openCLDevices, null, null, System.IntPtr.Zero) 
+    let openCLDevices =
+        let devs = new List<OpenCLDevice>()
+        for p in OpenCLPlatform.Platforms do
+            for d in p.Devices do
+                devs.Add(d)
+        devs
+    //let sharedComputeContext = new OpenCLContext(openCLDevices, new OpenCLContextPropertyList(openCLDevices.[0].Platform), null, System.IntPtr.Zero) 
 
     // The metric used to select the best devices for a kernel
     member val SchedulingEngine = schedulingEngine with get             
@@ -57,13 +56,15 @@ type KernelCreationManager(schedulingEngine: ISchedulingEngine option) =
             lock locker (fun () ->
                             if not (this.DeviceCache.Devices.ContainsKey((platformIndex, deviceIndex))) then        
                                 // Get OpenCL info
+                                let ps = OpenCLPlatform.Platforms
                                 let platform = OpenCLPlatform.Platforms.[platformIndex]
                                 let dev = platform.Devices.[deviceIndex]   
                                 let devs = new System.Collections.Generic.List<OpenCLDevice>();
                                 devs.Add(dev)
+                                
+                                //
                                 // Create context and queue
-                                let contextProperties = new OpenCLContextPropertyList(platform)
-                                let computeContext = new OpenCLContext(devs, contextProperties, null, System.IntPtr.Zero) 
+                                let computeContext = new OpenCLContext(devs, new OpenCLContextPropertyList(devs.[0].Platform), null, System.IntPtr.Zero) 
                                 let computeQueue = new OpenCLCommandQueue(computeContext, dev, OpenCLCommandQueueProperties.None) 
                                 // Add device to the global devices cache
                                 this.DeviceCache.Devices.Add((platformIndex, deviceIndex), new RuntimeDevice(dev, computeContext, computeQueue))

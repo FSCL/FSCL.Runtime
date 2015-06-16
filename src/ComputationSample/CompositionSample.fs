@@ -17,33 +17,48 @@
                     v <- v + (a.[row, k] * b.[k, col])
                 res.[row, col] <- v
         res
+        
+    let MatTranspCPU (a: float32[,]) =
+        let res = Array2D.zeroCreate<float32> (a.GetLength(0)) (a.GetLength(1))
+        for row = 0 to a.GetLength(0) - 1  do
+            for col = 0 to a.GetLength(1) - 1 do
+                res.[col, row] <- a.[row, col]
+        res
+
+    let Map2CPU (a: float32[,]) (b: float32[,]) =
+        let res = Array2D.zeroCreate<float32> (a.GetLength(0)) (b.GetLength(1))
+    
+        for row = 0 to a.GetLength(0) - 1  do
+            for col = 0 to a.GetLength(1) - 1 do
+                res.[row, col] <- a.[row,col] - b.[row,col]
+        res
 
     // Matrix multiplication
     [<ReflectedDefinition;Kernel>]
-    let MatMul (wi: WorkItemInfo) (matA: float32[,]) (matB: float32[,]) =
-        let matC = Array2D.zeroCreate<float32> (matA.GetLength(0)) (matA.GetLength(1))
+    let MatMul (wi: WorkItemInfo) (mulA: float32[,]) (mulB: float32[,]) =
+        let mulC = Array2D.zeroCreate<float32> (mulA.GetLength(0)) (mulB.GetLength(1))
         let r = wi.GlobalID(1)
         let c = wi.GlobalID(0)
     
         // Unroll 8
         let mutable accum = 0.0f
-        if r < matA.GetLength(0) && c < matB.GetLength(1) then
-            for i = 0 to matA.GetLength(1) - 1 do
-                accum <- accum + matA.[r, i] * matB.[i, c]
-            matC.[r, c] <- accum
-        matC
+        if r < mulA.GetLength(0) && c < mulB.GetLength(1) then
+            for i = 0 to mulA.GetLength(1) - 1 do
+                accum <- accum + mulA.[r, i] * mulB.[i, c]
+            mulC.[r, c] <- accum
+        mulC
         
     // Matrix multiplication
     [<ReflectedDefinition;Kernel>]
-    let Map2 (wi: WorkItemInfo) (matA: float32[,]) (matB: float32[,]) =
-        let matC = Array2D.zeroCreate<float32> (matA.GetLength(0)) (matA.GetLength(1))
+    let Map2 (wi: WorkItemInfo) (mapA: float32[,]) (mapB: float32[,]) =
+        let mapC = Array2D.zeroCreate<float32> (mapA.GetLength(0)) (mapB.GetLength(1))
         let r = wi.GlobalID(1)
         let c = wi.GlobalID(0)
     
         // Unroll 8
         let mutable accum = 0.0f
-        matC.[r, c] <- matA.[r,c] - matB.[r,c]
-        matC
+        mapC.[r, c] <- mapA.[r,c] - mapB.[r,c]
+        mapC
         
     [<ReflectedDefinition;Kernel>]
     let MatTransp (wi: WorkItemInfo) (matA: float32[,]) =
@@ -52,6 +67,28 @@
         let x = wi.GlobalID(0)
         let y = wi.GlobalID(1)
         matC.[x, y] <- matA.[y, x]
+        matC
+        
+    [<ReflectedDefinition;Kernel>]
+    let SumRows (wi: WorkItemInfo) (sumA: float32[,]) =
+        let matC = Array.zeroCreate<float32> (sumA.GetLength(0))
+
+        let y = wi.GlobalID(0)
+        let mutable sum = 0.0f
+        for i = 0 to sumA.GetLength(1) - 1 do
+            sum <- sum + sumA.[y, i]
+        matC.[y] <- sum
+        matC
+        
+    [<ReflectedDefinition;Kernel>]
+    let SumCols (wi: WorkItemInfo) (sumA: float32[,]) =
+        let matC = Array.zeroCreate<float32> (sumA.GetLength(1))
+
+        let x = wi.GlobalID(0)
+        let mutable sum = 0.0f
+        for i = 0 to sumA.GetLength(0) - 1 do
+            sum <- sum + sumA.[i, x]
+        matC.[x] <- sum
         matC
 
     let Run() =    
@@ -100,16 +137,20 @@
         //let ws = WorkSize([| (((outputSize - 1) / 16) + 1) * 16 |> int64; (((outputSize - 1) / 16) + 1) * 16 |> int64 |], [| 16L; 16L |])
 
                         
-                             
+        let customCulture = (System.Threading.Thread.CurrentThread.CurrentCulture.Clone()) :?> System.Globalization.CultureInfo
+        customCulture.NumberFormat.NumberDecimalSeparator <- ".";
+        System.Threading.Thread.CurrentThread.CurrentCulture <- customCulture
+
         // Dump completion times on the various devices
         let minSize, maxSize = 64, 1024
-        let iters = 30
-        let mutable data = [ [ "Matmul"; "" ] ]
+        let stepSize = 64
+        let iters = 20
+//        let mutable data = [ [ "Matmul"; "" ] ]
 //        let platforms = FSCL.Runtime.GetOpenCLPlatforms()
 //        for pidx, pname, ds in platforms do
 //            for didx, dname, _ in ds do
-//                Console.WriteLine("Running matmul on " + pname)
-//                data <- data @ [[ pname; "" ]]
+//                Console.WriteLine("Running " + data.[0].[0] + " on " + dname)
+//                data <- data @ [[ dname; "" ]]
 //                for s in minSize .. minSize .. maxSize do
 //                    Console.WriteLine(s)
 //                    let matA, matB, normalization, ws = GetData(s)
@@ -129,9 +170,9 @@
 //                    
 //        let mutable data = [ [ "Transpose"; "" ] ]
 //        for pidx, pname, ds in FSCL.Runtime.GetOpenCLPlatforms() do
-//            for didx, name, _ in ds do
-//                Console.WriteLine("Running transpose on " + pname)
-//                data <- data @ [[ pname; "" ]]
+//            for didx, dname, _ in ds do
+//                Console.WriteLine("Running " + data.[0].[0] + " on " + dname)
+//                data <- data @ [[ dname; "" ]]
 //                for s in minSize .. minSize .. maxSize do
 //                    Console.WriteLine(s)
 //                    let matA, matB, normalization, ws = GetData(s) 
@@ -151,9 +192,9 @@
 //
 //        let mutable data = [ [ "Map2"; "" ] ]
 //        for pidx, pname, ds in FSCL.Runtime.GetOpenCLPlatforms() do
-//            for didx, name, _ in ds do
-//                Console.WriteLine("Running map2 on " + pname)
-//                data <- data @ [[ pname; "" ]]
+//            for didx, dname, _ in ds do
+//                Console.WriteLine("Running " + data.[0].[0] + " on " + dname)
+//                data <- data @ [[ dname; "" ]]
 //                for s in minSize .. minSize .. maxSize do
 //                    Console.WriteLine(s)
 //                    let matA, matB, normalization, ws = GetData(s) 
@@ -173,9 +214,9 @@
 //                    
 //        let mutable data = [ [ "Map"; "" ] ]
 //        for pidx, pname, ds in FSCL.Runtime.GetOpenCLPlatforms() do
-//            for didx, name, _ in ds do
-//                Console.WriteLine("Running map2 on " + pname)
-//                data <- data @ [[ pname; "" ]]
+//            for didx, dname, _ in ds do
+//                Console.WriteLine("Running " + data.[0].[0] + " on " + dname)
+//                data <- data @ [[ dname; "" ]]
 //                for s in minSize .. minSize .. maxSize do
 //                    Console.WriteLine(s)
 //                    let matA, matB, normalization, ws = GetData(s)
@@ -192,31 +233,44 @@
 //                    List.map(String.concat ",") |> 
 //                    String.concat System.Environment.NewLine
 //        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
-//                
-        let mutable data = [ [ "CompositionBest"; "" ] ]
+                
+        let mutable data = [ [ "Composition"; "" ] ]
         for pidx, pname, ds in FSCL.Runtime.GetOpenCLPlatforms() do
-            for didx, name, _ in ds do
-                if pidx > -1 then
-                    Console.WriteLine("Running composition on " + pname)
-                    data <- data @ [[ pname; "" ]]
-                    for s in minSize .. minSize .. maxSize do
+            for didx, dname, _ in ds do
+                if true then
+                    Console.WriteLine("Running " + data.[0].[0] + " on " + dname)
+                    data <- data @ [[ dname; "" ]]
+                    for s in minSize .. stepSize .. maxSize do
                         let matA, matB, normalization, ws = GetData(s)
                         Console.WriteLine(s)
-                        let res = <@    Map2 ws 
-                                                                          (DEVICE(1, 0, Array2D.map(fun el -> el * 2.0f) matB)) 
-                                                                           (DEVICE(0, 0,  MatMul ws matB matA))
-                                   @>.Run()
+                        let start = (Array2D.map(fun it -> it * normalization) (MatTranspCPU matA))
+                   
+    //                    let valid = <@ [| 0 |] |>
+    //                                   Array.fold(fun X it ->
+    //                                                Map2CPU (Array2D.map(fun el -> el * 2.0f) X) 
+    //                                                        (MatMulCPU (MatMulCPU X matA) X))
+    //                                              (Array2D.map(fun it -> it * normalization) (MatTranspCPU matA))  
+    //                                @>.Run()
+
+                        let res = <@ [| 0 .. 4 |] |>
+                                        Array.fold(fun X it ->
+                                                        DEVICE(pidx, didx, Map2 ws 
+                                                                            (DEVICE(pidx, didx, Array2D.map(fun el -> el * 2.0f) X)) 
+                                                                            (DEVICE(pidx, didx, MatMul ws (DEVICE(pidx, didx, MatMul ws X matA)) X))))
+                                                    (DEVICE(pidx, didx, Array2D.map(fun it -> it * normalization) (DEVICE(pidx, didx, MatTransp ws matA))))
+                                    @>.Run()
                         let timer = new System.Diagnostics.Stopwatch()
                         let mutable vol = null
                         timer.Start()
                         for i = 0 to iters - 1 do
-                            vol <- <@  [| 0 |] |>
-                                       Array.fold(fun X it ->
-                                                     DEVICE(1, 0, Map2 ws 
-                                                                          (DEVICE(1, 0, Array2D.map(fun el -> el * 2.0f) X)) 
-                                                                           (DEVICE(0, 0, MatMul ws (DEVICE(0, 0, MatMul ws X matA)) X))))
-                                                  (DEVICE(1, 0, Array2D.map(fun it -> it * normalization) (DEVICE(1, 0, MatTransp ws matA))))
-                                   @>.Run()
+                        
+                            vol <- <@ [| 0 .. 4 |] |>
+                                        Array.fold(fun X it ->
+                                                        DEVICE(pidx, didx, Map2 ws 
+                                                                            (DEVICE(pidx, didx, Array2D.map(fun el -> el * 2.0f) X)) 
+                                                                            (DEVICE(pidx, didx, MatMul ws (DEVICE(pidx, didx, MatMul ws X matA)) X))))
+                                                    (DEVICE(pidx, didx, Array2D.map(fun it -> it * normalization) (DEVICE(pidx, didx, MatTransp ws matA))))
+                                    @>.Run()
                         timer.Stop()
                         Console.WriteLine("Result correct? " + (vol <> null).ToString())
                         data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/((double)iters)).ToString() ]]
@@ -224,8 +278,115 @@
                     List.map(String.concat ",") |> 
                     String.concat System.Environment.NewLine
         System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+      
+        
+        let mutable data = [ [ "CompositionBest"; "" ] ]
+        for s in minSize .. stepSize .. maxSize do
+            let matA, matB, normalization, ws = GetData(s)
+//            
+//            let sumRows =
+//                <@
+//                    SumRows (new WorkSize(s |> int64, 16L)) matA
+//                @>.Run()
+//                
+//            let sumCols =
+//                <@
+//                    SumCols (new WorkSize(s |> int64, 16L)) matA
+//                @>.Run()
+//                
+//            let maxRows =
+//                <@
+//                    Array.reduce(fun (i:float32) j -> 
+//                                    let (m:float32) = Math.Max(i, j)
+//                                    m) sumRows
+//                @>.Run()
 
-                       
+            Console.WriteLine(s)
+            let start = (Array2D.map(fun it -> it * normalization) (MatTranspCPU matA))
+                   
+//                    let valid = <@ [| 0 |] |>
+//                                   Array.fold(fun X it ->
+//                                                Map2CPU (Array2D.map(fun el -> el * 2.0f) X) 
+//                                                        (MatMulCPU (MatMulCPU X matA) X))
+//                                              (Array2D.map(fun it -> it * normalization) (MatTranspCPU matA))  
+//                                @>.Run()
+//
+//            let norm1 matA =
+//                <@
+//                    SumRows ws matA |> Array.max
+//                @>
+//                
+//            let normInf matA =
+//                <@
+//                    SumRows ws matA |> Array.max
+//                @>
+//                
+//            let startX matA =
+//                <@
+//                    MatTransp ws matA |>
+//                    Array2D.map(fun it ->
+//                                     (%(norm1 matA),
+//                                      %(normInf matA)) ||>
+//                                     (fun a b -> 1.0f / a * b))
+//                 @>
+//
+//            let res = <@ [| 0 .. 10 |] |>
+//                            Array.fold(fun X it ->
+//                                           ((Array2D.map(fun el -> el * 2.0f) X),
+//                                            (MatMul ws X matA |> MatMul ws X)) ||> 
+//                                           Map2 ws) 
+//                                       (MatTransp ws matA |>
+//                                        (Array2D.map(fun it ->
+//                                                     ((SumRows ws matA |> 
+//                                                       Array.max),
+//                                                      (SumCols ws matA |> 
+//                                                       Array.max)) ||>
+//                                                     (fun a b -> 1.0f / a * b))))
+//                        @>.Run()
+
+//            let res = <@ [| 0 .. 10 |] |>
+//                            Array.fold(fun X it ->
+//                                            DEVICE(0, 0, Map2 ws 
+//                                                                (DEVICE(0, 2, Array2D.map(fun el -> el * 2.0f) X)) 
+//                                                                (DEVICE(0, 0, MatMul ws (DEVICE(0, 0, MatMul ws X matA)) X))))
+//                                        (DEVICE(0, 2, Array2D.map(fun it -> 
+//                                                                        (((SumRows (new WorkSize(s |> int64, 64L)) matA) |> 
+//                                                                           (Array.reduce(fun (i:float32) j -> 
+//                                                                                         let (m:float32) = Math.Max(i, j)
+//                                                                                         m))),
+//                                                                          (((SumRows (new WorkSize(s |> int64, 64L)) matA) |> 
+//                                                                             (Array.reduce(fun (i:float32) j -> 
+//                                                                                           let (m:float32) = Math.Max(i, j)
+//                                                                                           m))))) ||>
+//                                                                          (fun a b -> 1.0f / a * b)) (DEVICE(0, 2, MatTransp ws matA))))
+//                        @>.Run()
+            let res =  <@ [| 0 |] |>
+                            Array.fold(fun X it ->
+                                            DEVICE(0, 0, Map2 ws 
+                                                                (DEVICE(0, 2, Array2D.map(fun el -> el * 2.0f) X)) 
+                                                                (DEVICE(0, 0, MatMul ws (DEVICE(0, 0, MatMul ws X matA)) X))))
+                                        (DEVICE(0, 2, Array2D.map(fun it -> it * normalization) (DEVICE(0, 2, MatTransp ws matA))))
+                        @>.Run()
+            let timer = new System.Diagnostics.Stopwatch()
+            let mutable vol = null
+            timer.Start()
+            for i = 0 to iters - 1 do
+                        
+                vol <- <@ [| 0 |] |>
+                            Array.fold(fun X it ->
+                                            DEVICE(0, 0, Map2 ws 
+                                                                (DEVICE(0, 2, Array2D.map(fun el -> el * 2.0f) X)) 
+                                                                (DEVICE(0, 0, MatMul ws (DEVICE(0, 0, MatMul ws X matA)) X))))
+                                        (DEVICE(0, 2, Array2D.map(fun it -> it * normalization) (DEVICE(0, 2, MatTransp ws matA))))
+                        @>.Run()
+            timer.Stop()
+            Console.WriteLine("Result correct? " + (vol <> null).ToString())
+            data <- data @ [[ s.ToString(); (((double)timer.ElapsedMilliseconds)/((double)iters)).ToString() ]]
+        let text = data |> 
+                    List.map(String.concat ",") |> 
+                     String.concat System.Environment.NewLine
+        System.IO.File.WriteAllText(data.[0].[0] + ".csv", text)
+
             
         // ***************************************************************************************************
         // NHS approximation of inverse ****************************************************************************

@@ -101,7 +101,7 @@ module BufferStrategies =
             else
                 // If not isRoot && isReturn, then it is expected that this buffer will be written by the current kernel and read by another
                 // To avoid copy cause incompatible flags, we set ReadWrite for this buffer
-                if (not isRoot) && isReturn then
+                if isReturn then
                     optFlags <- optFlags ||| MemoryFlags.ReadWrite
                 // Otherwise let's look at access analysis
                 else 
@@ -119,15 +119,6 @@ module BufferStrategies =
         //     This is because the host will need to access a T[] after completion, but mapping in managed
         //     environment requires a copy from IntPtr to T[]. It's better for the managed env to allocate T[] and
         //     pass the IntPtr, so there is no need to copy back.
-        if (dthTransferMode <> TransferMode.NoTransfer) &&
-           (MemoryFlagsUtil.WithNoAccessFlags(optFlags) |> int = 0) &&
-           MemoryFlagsUtil.CanKernelWrite(optFlags) then
-            // Programmer did not prevent transferring back this buffer
-            // Programmer did not force a memory flag
-            // The buffer is potentially written
-            if isVisibleToHost && (optReadMode = BufferReadMode.MapBuffer) then
-                // Buffer will be visible to host and programmer asks to map it to read it
-                optFlags <- optFlags ||| MemoryFlags.UseHostPointer
 
         // #2: If the device is a CPU it's better to use UseHostPointer if the buffer is visible to host, 
         //     AllocHostPointer otherwise
@@ -176,7 +167,7 @@ module BufferStrategies =
         
     let inline ShouldCopyBuffer(fromAnalysis:AccessAnalysisResult, fromSpace: AddressSpace,
                                    toAnalysis: AccessAnalysisResult, toSpace: AddressSpace) =
-        IsBufferWritten(fromAnalysis)  && 
-        IsBufferRead(toAnalysis) &&
-        IsDeviceWriteableGlobalBuffer(fromSpace) &&
-        IsGlobalBuffer(toSpace)
+        //IsBufferWritten(fromAnalysis)  && 
+        IsBufferRead(toAnalysis) //&&
+        //IsDeviceWriteableGlobalBuffer(fromSpace) &&
+        //IsGlobalBuffer(toSpace)
