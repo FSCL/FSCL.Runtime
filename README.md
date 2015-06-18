@@ -49,8 +49,7 @@ October 15, 2013: FSCL.Runtime and Compiler compile correctly. Various updates t
 *****
 
 ###At a glance
-The FSCL runtime is built on top of the [FSCL compiler project](https://github.com/GabrieleCocco/FSCL.Compiler) to enable executing
-OpenCL kernels inside .NET.
+The FSCL runtime is built on top of the [FSCL compiler project](https://github.com/GabrieleCocco/FSCL.Compiler) to enable execution for GPGPU and, more generally, heterogeneous parallel OpenCL computations inside .NET.
 The FSCL runtime provides two main services:
 
 + Manage kernel execution (compile OpenCL to device executable, handle buffer allocation/reading/writing, synchronization, etc.)
