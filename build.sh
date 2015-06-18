@@ -1,15 +1,37 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-if [ ! -e packages/FAKE/tools/FAKE.exe ]; then 
-  mono .nuget/NuGet.exe install FAKE -OutputDirectory packages -ExcludeVersion -version "3.2.1"
+set -eu
+set -o pipefail
+
+cd `dirname $0`
+
+FSIARGS=""
+OS=${OS:-"unknown"}
+if [[ "$OS" != "Windows_NT" ]]
+then
+  FSIARGS="--fsiargs -d:MONO"
 fi
 
-if [ ! -e packages/SourceLink.Fake/Tools/Fake.fsx ]; then
-  mono .nuget/NuGet.exe install SourceLink.Fake -OutputDirectory packages -ExcludeVersion
+function run() {
+  if [[ "$OS" != "Windows_NT" ]]
+  then
+    mono "$@"
+  else
+    "$@"
+  fi
+}
+
+run .paket/paket.bootstrapper.exe
+
+if [[ "$OS" != "Windows_NT" ]] &&
+       [ ! -e ~/.config/.mono/certs ]
+then
+  mozroots --import --sync --quiet
 fi
 
-if [ ! -e build.fsx ]; then 
-  mono packages/FAKE/tools/FAKE.exe init.fsx
-fi
+run .paket/paket.exe restore
 
-mono packages/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
+[ ! -e build.fsx ] && run .paket/paket.exe update
+[ ! -e build.fsx ] && run packages/FAKE/tools/FAKE.exe init.fsx
+run packages/FAKE/tools/FAKE.exe "$@" $FSIARGS build.fsx
+

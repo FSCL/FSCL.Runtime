@@ -1,0 +1,21 @@
+type project
+owners
+    Gabriele Cocco
+authors 
+    Gabriele Cocco
+projectUrl
+    http://github.com/FSCL/FSCL.Runtime
+iconUrl
+    https://avatars1.githubusercontent.com/u/8271254
+licenseUrl
+    http://github.com/FSCL/FSCL.Runtime/blob/master/LICENSE.txt
+requireLicenseAcceptance
+    true
+tags
+    Meta-Programming Compiler Compilation OpenCL Parallel-programming Heterogenous-computing F# Quotations
+summary
+    FSCL kernel scheduling and execution support
+description
+    The FSCL Runtime framework is takes care of executing OpenCL kernels generated from the FSCL Compiler in a way that is completely transparent to programmers. On platforms with multiple OpenCL-enabled devices the runtime is also able to perform automatic selection of the best device where to execute each OpenCL computation the programmer asks to run.
+
+

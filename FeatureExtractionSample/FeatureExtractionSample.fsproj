@@ -5,13 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>7fbc49d2-cd3a-48d4-90ea-6f1324969ce2</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>FSCL.Runtime.Core</RootNamespace>
-    <AssemblyName>FSCL.Runtime.Core</AssemblyName>
+    <ProjectGuid>4b68ee93-296a-419e-973a-c62d1b1100aa</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>FeatureExtractionSample</RootNamespace>
+    <AssemblyName>FeatureExtractionSample</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>FSCL.Runtime.Core</Name>
+    <Name>FeatureExtractionSample</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +22,9 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\FSCL.Runtime.Core.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Debug\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +33,9 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\FSCL.Runtime.Core.XML</DocumentationFile>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Release\FeatureExtractionSample.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -40,15 +45,39 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Options.fs" />
-    <Compile Include="RuntimeCache.fs" />
-    <Compile Include="RuntimeException.fs" />
-    <Compile Include="RuntimeInputOutput.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
+    <ProjectReference Include="..\src\FSCL.Runtime.Core\FSCL.Runtime.Core.fsproj">
+      <Name>FSCL.Runtime.Core</Name>
+      <Project>{7fbc49d2-cd3a-48d4-90ea-6f1324969ce2}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\src\FSCL.Runtime.FRTSchedulingEngine\FSCL.Runtime.FRTSchedulingEngine.fsproj">
+      <Name>FSCL.Runtime.FRTSchedulingEngine</Name>
+      <Project>{e2d3c21d-68f8-49c6-962e-32e081541a2c}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\src\FSCL.Runtime.Language\FSCL.Runtime.Language.fsproj">
+      <Name>FSCL.Runtime.Language</Name>
+      <Project>{8cf50f99-ab75-46ce-abca-40bcbc493465}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\src\FSCL.Runtime.Scheduling\FSCL.Runtime.Scheduling.fsproj">
+      <Name>FSCL.Runtime.Scheduling</Name>
+      <Project>{46c3f083-90ff-4127-a812-08e3f92f985d}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\src\FSCL.Runtime\FSCL.Runtime.fsproj">
+      <Name>FSCL.Runtime</Name>
+      <Project>{8e8b85b1-be93-4b3e-8702-8d5f2a53eb24}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\src\OpenCLManagedWrapper\OpenCLManagedWrapper.csproj">
       <Name>OpenCLManagedWrapper</Name>
       <Project>{23a225bb-7e40-4b76-95c8-65f2fd412e86}</Project>
       <Private>True</Private>
@@ -81,27 +110,27 @@
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
       <ItemGroup>
         <Reference Include="FSCL.Compiler.Core">
-          <HintPath>..\..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Core.dll</HintPath>
+          <HintPath>..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FSCL.Compiler.Language">
-          <HintPath>..\..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Language.dll</HintPath>
+          <HintPath>..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Language.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FSCL.Compiler.NativeComponents">
-          <HintPath>..\..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
+          <HintPath>..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.NativeComponents.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FSCL.Compiler.Util">
-          <HintPath>..\..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Util.dll</HintPath>
+          <HintPath>..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.Util.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
         <Reference Include="FSCL.Compiler">
-          <HintPath>..\..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.dll</HintPath>
+          <HintPath>..\packages\FSCL.Compiler\lib\net45\FSCL.Compiler.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

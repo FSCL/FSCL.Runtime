@@ -1,3 +1,9 @@
+### 2.0.1 - 17 July 2015
+* Update scaffold
+
+### 2.0 - 17 July 2015
+* Update to compiler 2.0
+
 ### 1.4.0 - 30 October 2014
 * Update to compiler 1.5.5
 
