@@ -53,7 +53,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSCL.Runtime.FRTSchedulingE
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{80EF34F1-3A43-45BC-8F86-D196E1738E8B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FeatureExtractionSample", "FeatureExtractionSample\FeatureExtractionSample.fsproj", "{4B68EE93-296A-419E-973A-C62D1B1100AA}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FeatureExtractionSample", "src\FeatureExtractionSample\FeatureExtractionSample.fsproj", "{4B68EE93-296A-419E-973A-C62D1B1100AA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
