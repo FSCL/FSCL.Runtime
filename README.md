@@ -3,6 +3,7 @@ FSCL.Runtime
 
 F# kernel scheduler and runtime support
 -----------------------------------------
+[![NuGet Status](http://img.shields.io/nuget/v/FSCL.Runtime.svg?style=flat)](https://www.nuget.org/packages/FSCL.Runtime/)
 
 ### Latest news
 
