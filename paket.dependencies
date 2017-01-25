@@ -1,5 +1,7 @@
 source https://nuget.org/api/v2
+redirects: on
 
+nuget FSharp.Core
 nuget FSCL.Compiler
 nuget FSharp.Formatting
 nuget MathNet.Numerics
